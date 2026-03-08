@@ -9,8 +9,6 @@ exports.appConfig = async (app) => {
   app.use(cookieParser());
   app.use(express.json());
   app.use('/api/v2', routes)
-
-
   app.listen(port, () => {
     console.log(`App listening on port ${port}`);
   })
