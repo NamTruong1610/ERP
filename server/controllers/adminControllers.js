@@ -6,7 +6,8 @@ const {
 } = require("../services/userService")
 
 const {
-  generateActivationTokenId
+  generateActivationTokenId,
+  hashToken
 } = require("../utils/activationTokenUtils")
 
 const {
@@ -17,19 +18,24 @@ exports.createUserController = async (req, res, next) => {
   const { email } = req.body
   try {
     const userRecord = await findUserByEmail(email);
-    if (userRecord && userRecord.status == "INACTIVE") {
-      return res.status(202).json({
-        message: 'User account inactive'
+
+    // To inform the admin this account was created but not activated yet
+    if (userRecord && userRecord.status == "PENDING_ACTIVATION") {
+      return res.status(403).json({
+        message: 'User account awaiting activation'
       })
     }
 
-    const activationTokenId = await generateActivationTokenId();
+    const rawActivationTokenId = await generateActivationTokenId();
+    const hashedActivationTokenId = await hashToken(rawActivationTokenId);
+    const TTL = 48 * 60 * 60 * 1000 // 48 hours
     const newUser = await createUser({
       email: email,
-      activationTokenId: activationTokenId
+      activationTokenId: hashedActivationTokenId,
+      expiresAt: Date.now() + TTL
     });
 
-    await sendAccountActivationEmail(email, activationTokenId);
+    await sendAccountActivationEmail(email, rawActivationTokenId);
 
     return res.status(201).json({
       _id: newUser._id,
@@ -42,11 +48,11 @@ exports.createUserController = async (req, res, next) => {
   }
 }
 
-exports.deleteInactiveUserController = async (req, res, next) => {
+exports.deleteUserController = async (req, res, next) => {
   const { _id } = req.params
   try {
     const userRecord = await findUserById(_id);
-    if (!userRecord || userRecord && !(userRecord.status == "INACTIVE" || userRecord.status == "PENDING_ACTIVATION")) {
+    if (!userRecord) {
       return res.status(404).json({
         message: 'No user found'
       })

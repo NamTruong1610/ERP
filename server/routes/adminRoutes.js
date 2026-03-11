@@ -2,10 +2,11 @@ const express = require("express");
 const router = express.Router();
 const {
   createUserController,
-  deleteInactiveUserController
-} = require("../controllers/adminController")
-router.post("/admin/users", createUserController)
-router.delete("/admin/users/:_id", deleteInactiveUserController)
+  deleteUserController
+} = require("../controllers/adminControllers")
+router.post("/users", createUserController)
+router.delete("/users/:_id", deleteUserController)
+
 
 
 module.exports = router;

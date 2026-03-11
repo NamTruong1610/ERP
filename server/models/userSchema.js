@@ -2,10 +2,23 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
   {
+    activationTokenId: {
+      type: String,
+      required: false,
+      unique: true
+    },
+    mfaSetupTokenId: {
+      type: String,
+      required: false,
+      unique: true
+    },
     email: {
       type: String,
       required: true,
       unique: true,
+    },
+    password: {
+      type: String,
     },
     name: {
       fName: {
@@ -21,7 +34,20 @@ const userSchema = new mongoose.Schema(
     status: {
       type: String,
       required: true,
-      default: "INACTIVE"
+      default: "PENDING_ACTIVATION"
+    },
+    mfaSecret: {
+      type: String,
+    },
+    mfaUri: {
+      type: String
+    },
+    expiresAt: { 
+      type: Date, 
+      default: Date.now, 
+      index: {
+        expires: 0
+      } 
     }
   }, 
   { timestamps: true }
