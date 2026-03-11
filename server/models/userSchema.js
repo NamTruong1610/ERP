@@ -42,6 +42,9 @@ const userSchema = new mongoose.Schema(
     mfaUri: {
       type: String
     },
+    mfaEnabled: {
+      type: Boolean
+    },
     expiresAt: { 
       type: Date, 
       default: Date.now, 
