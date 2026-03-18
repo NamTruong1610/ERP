@@ -9,6 +9,6 @@ exports.hashPassword = async (plainPassword) => {
   return hashedPassword;
 }
 
-exports.compareHash = async (password, hashedPassword) => {
+exports.comparePasswordHash = async (password, hashedPassword) => {
   return await bcrypt.compare(password, hashedPassword);
 };

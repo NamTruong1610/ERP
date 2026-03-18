@@ -4,7 +4,7 @@ const {
   setPasswordController,
   get2faSecretController,
   verify2faSecretSetupController
-} = require("../controllers/userControllers")
+} = require("../controllers/activationControllers")
 
 router.post("/password", setPasswordController)
 router.post("/mfa/secret", get2faSecretController)
