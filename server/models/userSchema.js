@@ -47,10 +47,9 @@ const userSchema = new mongoose.Schema(
     },
     expiresAt: { 
       type: Date, 
-      default: Date.now, 
-      index: {
-        expires: 0
-      } 
+      // set to null so that the TTL monitor ignores it
+      default: null,
+      index: { expireAfterSeconds: 0 }
     }
   }, 
   { timestamps: true }

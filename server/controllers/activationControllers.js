@@ -3,7 +3,8 @@ const {
   findUserByEmail,
   findUserById,
   updateUser,
-  deleteUserExpiresAtById
+  deleteUserExpiresAtById,
+  deleteUserById
 } = require("../services/userService")
 
 const {
@@ -26,18 +27,19 @@ const {
 exports.setPasswordController = async (req, res, next) => {
   const { activationToken, password, confirmPassword } = req.body
   try {
-    const hashedActivationToken = await hashToken(activationToken)
-    const userRecord = await findUserByActivationToken(hashedActivationToken);
-    let rawMfaToken = null
 
+    // Validate passwords
     if (password !== confirmPassword) {
       return res.status(400).json({
         message: "Passwords do not match"
       })
     }
+    const hashedActivationToken = await hashToken(activationToken)
+    const userRecord = await findUserByActivationToken(hashedActivationToken);
+    let rawMfaToken = null
 
-    else if (!userRecord || Date.now() > userRecord.expiresAt) {
-      console.log(userRecord)
+    if (!userRecord || Date.now() > userRecord.expiresAt) {
+      await deleteUserById(userRecord._id)
       return res.status(404).json({
         message: "Token expired"
       })
@@ -102,6 +104,7 @@ exports.get2faSecretController = async (req, res, next) => {
     const userRecord = await findUserByActivationToken(hashedActivationToken)
 
     if (!userRecord || Date.now() > userRecord.expiresAt) {
+      await deleteUserById(userRecord._id)
       return res.status(404).json({
         message: "Token expired"
       })
@@ -115,6 +118,7 @@ exports.get2faSecretController = async (req, res, next) => {
       })
     }
 
+    // In case the user doesn't have mfa setup (user reaches this step for the first time)
     if (!userRecord.mfaSecret) {
       // Generate 2fa secret and store it in the user record (change the user status to PENDING_MFA_VERIFICATION)
       const mfaSecret = await generateMfaSecret(userRecord.email)
@@ -131,6 +135,7 @@ exports.get2faSecretController = async (req, res, next) => {
       })
     }
 
+    // Pick up from the interrupted step, return the qr uri that the user set up when interrupted
     return res.status(200).json({
       qrUri: userRecord.mfaUri,
       activationToken: activationToken
@@ -147,6 +152,7 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
     const hashedActivationToken = await hashToken(activationToken);
     const userRecord = await findUserByActivationToken(hashedActivationToken)
     if (!userRecord || Date.now() > userRecord.expiresAt) {
+      await deleteUserById(userRecord._id)
       return res.status(404).json({
         message: "Token expired"
       })
@@ -172,6 +178,7 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
     await updateUser(userRecord, {
       status: "ACTIVE",
       mfaEnabled: true,
+      expiresAt: null
     })
 
     // Delete mfa setup token and user record ttl from Redis and MongoDb

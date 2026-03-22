@@ -1,7 +1,5 @@
 const {
   generateActivationToken,
-  hashToken,
-  compareTokenHash
 } = require("../utils/activationTokenUtils")
 
 exports.requireAuth = async (req, res, next) => {
@@ -16,9 +14,18 @@ exports.requireAuth = async (req, res, next) => {
       if (sessionRaw) {
         const session = JSON.parse(sessionRaw);
 
+        // Clean up zombie session ids and tokens in the map
+        await redisClient.zRemRangeByScore(`user_sessions:${session._id}`, 0, Date.now())
+        await redisClient.zRemRangeByScore(`user_remember:${session._id}`, 0, Date.now())
+
         req.user = session;
 
+        // Extend the session and the score in user->sessions map
         await redisClient.expire(`session:${sessionId}`, 30 * 60);
+        await redisClient.zAdd(`user_sessions:${session._id}`, {
+          score: Date.now() + 30 * 60 * 1000,
+          value: sessionId
+        })
 
         res.cookie("SESSIONID", sessionId, {
           httpOnly: true,
@@ -30,7 +37,7 @@ exports.requireAuth = async (req, res, next) => {
 
         return next();
       }
-      
+
     }
 
     // Check if remember token is still valid
@@ -39,6 +46,10 @@ exports.requireAuth = async (req, res, next) => {
 
       if (rememberRaw) {
         const rememberData = JSON.parse(rememberRaw);
+
+        // Clean up zombie session ids and tokens in the map
+        await redisClient.zRemRangeByScore(`user_sessions:${rememberData._id}`, 0, Date.now())
+        await redisClient.zRemRangeByScore(`user_remember:${rememberData._id}`, 0, Date.now())
 
         // Generate new token
         await redisClient.del(`token:remember:${rememberTokenId}`);
@@ -50,12 +61,19 @@ exports.requireAuth = async (req, res, next) => {
           { EX: 7 * 24 * 60 * 60 } // 7 days
         );
 
+        // Delete the old remember token if from the user->remember tokens map and update with the new remember token id
+        await redisClient.zRem(`user_remember:${rememberData._id}`, rememberTokenId) 
+        await redisClient.zAdd(`user_remember:${rememberData._id}`, {
+          score: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          value: newRememberToken
+        })
+
         // Create new session
         const newSessionId = await generateActivationToken()
-
-        // Delete the old login session id from the user -> sessions map and update with the new session id
-        await redisClient.sRem(`user_sessions:${rememberData._id}`, sessionId);
-        await redisClient.sAdd(`user_sessions:${rememberData._id}`, newSessionId);
+        await redisClient.zAdd(`user_sessions:${rememberData._id}`, {
+          score: Date.now() + 30 * 60 * 1000,
+          value: newSessionId
+        })
 
         await redisClient.set(
           `session:${newSessionId}`,

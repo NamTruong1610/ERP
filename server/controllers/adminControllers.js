@@ -6,7 +6,7 @@ const {
 } = require("../services/userService")
 
 const {
-  generateActivationTokenId,
+  generateActivationToken,
   hashToken
 } = require("../utils/activationTokenUtils")
 
@@ -26,13 +26,13 @@ exports.createUserController = async (req, res, next) => {
       })
     }
 
-    const rawActivationTokenId = await generateActivationTokenId();
+    const rawActivationTokenId = await generateActivationToken();
     const hashedActivationTokenId = await hashToken(rawActivationTokenId);
     const TTL = 48 * 60 * 60 * 1000 // 48 hours
     const newUser = await createUser({
       email: email,
       activationTokenId: hashedActivationTokenId,
-      expiresAt: Date.now() + TTL
+      expiresAt: new Date(Date.now() + TTL)
     });
 
     await sendAccountActivationEmail(email, rawActivationTokenId);

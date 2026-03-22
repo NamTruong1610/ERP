@@ -1,20 +1,27 @@
 const {
   findUserByEmail,
   findUserById,
+  updateUser
 } = require("../services/userService")
 
 const {
+  hashPassword,
   comparePasswordHash
 } = require("../utils/passwordUtils")
 
 const {
   generateActivationToken,
+  hashToken
 } = require("../utils/activationTokenUtils")
 const { redisClient } = require("../config/RedisConfig")
 
 const {
   verifyMfaOtp,
 } = require("../utils/mfaUtils")
+
+const {
+  sendAccountRecoveryEmail
+} = require("../utils/emailUtils")
 
 
 exports.loginController = async (req, res, next) => {
@@ -24,6 +31,7 @@ exports.loginController = async (req, res, next) => {
 
     if (sessionId) {
       const existingSession = await redisClient.get(`session:${sessionId}`)
+      // Frntend redirects user to the main page since they're logged in
       if (existingSession) {
         return res.status(401).json({
           message: "User already logged in"
@@ -72,7 +80,11 @@ exports.loginController = async (req, res, next) => {
         )
 
         // Create a remember token in user->remember tokens map
-        await redisClient.sAdd(`user_remember:${userRecord._id}`, rememberMeTokenId)
+        await redisClient.zAdd(`user_remember:${userRecord._id}`, {
+          score: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+          value: rememberMeTokenId
+        })
+
         res.cookie("REMEMBER", rememberMeTokenId, {
           httpOnly: true,
           secure: true,
@@ -82,8 +94,10 @@ exports.loginController = async (req, res, next) => {
       }
 
       // Create a session in user->sessions map
-      await redisClient.sAdd(`user_sessions:${userRecord._id}`, sessionId);
-
+      await redisClient.zAdd(`user_sessions:${userRecord._id}`, {
+        score: Date.now() + 30 * 60 * 1000, // 30 mins
+        value: sessionId
+      })
 
       // Set local login cookie storing the session id
       res.cookie("SESSIONID", sessionId, {
@@ -104,7 +118,7 @@ exports.loginController = async (req, res, next) => {
       // Check if the user has previously verifed their password and generated the 2fa login token. If yes, delete it. 
       const existing2faLoginToken = await redisClient.get(`user_mfa_login:${userRecord._id}`)
       if (existing2faLoginToken) {
-        redisClient.del(`user_mfa_login:${userRecord._id}`)
+        await redisClient.del(`user_mfa_login:${userRecord._id}`)
       }
       const mfaLoginTokenId = await generateActivationToken();
 
@@ -177,7 +191,7 @@ exports.verify2faLoginController = async (req, res, next) => {
 
     const userRecord = await findUserById(mfaLoginToken._id);
 
-    if (!userRecord) {
+    if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(401).json({
         message: "Invalid token"
       })
@@ -220,7 +234,10 @@ exports.verify2faLoginController = async (req, res, next) => {
       )
 
       // Create a remember token in user->remember tokens map
-      await redisClient.sAdd(`user_remember:${userRecord._id}`, rememberMeTokenId)
+      await redisClient.zAdd(`user_remember:${userRecord._id}`, {
+        score: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+        value: rememberMeTokenId
+      })
       res.cookie("REMEMBER", rememberMeTokenId, {
         httpOnly: true,
         secure: true,
@@ -230,7 +247,10 @@ exports.verify2faLoginController = async (req, res, next) => {
     }
 
     // Create a session in user->sessions map
-    await redisClient.sAdd(`user_sessions:${userRecord._id}`, sessionId);
+    await redisClient.zAdd(`user_sessions:${userRecord._id}`, {
+      score: Date.now() + 30 * 60 * 1000, // 30 mins
+      value: sessionId
+    })
 
     // Delete 2fa login token and user->2fa login token map
     await redisClient.del(`user_mfa_login:${userRecord._id}`)
@@ -345,3 +365,131 @@ exports.logoutAllController = async (req, res, next) => {
   }
 };
 
+exports.forgotPasswordController = async (req, res, next) => {
+  const { email } = req.body
+  try {
+    const userRecord = await findUserByEmail(email)
+    if (!userRecord || userRecord.status !== "ACTIVE") {
+      return res.status(200).json({
+        message: "Recovery email has been sent"
+      })
+    }
+
+    // Check if a recovery token is previously generated. If yes, delete it and the user->revover map
+    const existingRecoverTokenRaw = await redisClient.get(`user_recover:${userRecord._id}`);
+
+    if (existingRecoverTokenRaw) {
+      const { recoveryTokenId } = JSON.parse(existingRecoverTokenRaw);
+
+      await redisClient.del(`token:recover:${recoveryTokenId}`);
+      await redisClient.del(`user_recover:${userRecord._id}`);
+    }
+
+
+    // Generate new recovery token
+    const recoveryTokenId = await generateActivationToken();
+    await redisClient.set(
+      `token:recover:${recoveryTokenId}`,
+      JSON.stringify({
+        _id: userRecord._id,
+        createdAt: Date.now()
+      }),
+      { EX: 15 * 60 } // 15 mins
+    )
+
+    // Map recovery token to user
+    await redisClient.set(
+      `user_recover:${userRecord._id}`,
+      JSON.stringify({
+        recoveryTokenId: recoveryTokenId
+      }),
+      { EX: 16 * 60 } // 16 mins
+    )
+
+    await sendAccountRecoveryEmail(email, recoveryTokenId)
+
+    return res.status(200).json({
+      message: "Recovery token generated"
+    })
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+exports.resetPasswordController = async (req, res, next) => {
+  const { password, confirmPassword, recoveryToken } = req.body
+  try {
+    if (password !== confirmPassword) {
+      return res.status(401).json({
+        message: "Passwords do not match"
+      })
+    }
+
+    const recoveryTokenRaw = await redisClient.get(`token:recover:${recoveryToken}`)
+
+    if (!recoveryTokenRaw) {
+      return res.status(401).json({
+        message: "Invalid token"
+      })
+    }
+
+    const recoveryTokenData = JSON.parse(recoveryTokenRaw)
+
+    const recoveryTokenMappedByUserRaw = await redisClient.get(`user_recover:${recoveryTokenData._id}`)
+
+    if (!recoveryTokenMappedByUserRaw) {
+      return res.status(401).json({
+        message: "Invalid token"
+      })
+    }
+
+    const recoveryTokenMappedByUser = JSON.parse(recoveryTokenMappedByUserRaw)
+
+    if (recoveryTokenMappedByUser.recoveryTokenId !== recoveryToken) {
+      return res.status(401).json({
+        message: "Invalid token"
+      })
+    }
+
+    const userRecord = await findUserById(recoveryTokenData._id)
+
+    console.log(recoveryTokenData._id)
+
+    const hashedPassword = await hashPassword(password)
+
+    await updateUser(userRecord, {
+      password: hashedPassword
+    })
+
+    // Delete user->recovery tokens map, recovery token, user->sessions map, login sessions, user->remember map, rememberMe tokens
+    // Delete user->sessions map and login sessions
+    const sessionIds = await redisClient.sMembers(`user_sessions:${userRecord._id}`);
+    if (sessionIds && sessionIds.length) {
+      for (const sessionId of sessionIds) {
+        await redisClient.del(`session:${sessionId}`); // Delete session from Redis
+      }
+      await redisClient.del(`user_sessions:${userRecord._id}`); // Clear the user->sessions map
+    }
+
+    // Delete user->remember map and rememberMe tokens
+    const rememberTokens = await redisClient.sMembers(`user_remember:${userRecord._id}`);
+    if (rememberTokens && rememberTokens.length) {
+      for (const tokenId of rememberTokens) {
+        await redisClient.del(`token:remember:${tokenId}`); // Delete each token
+      }
+      await redisClient.del(`user_remember:${userRecord._id}`); // Clear the user->remember tokens map
+    }
+
+    // Delete user->recovery tokens map and recovery token
+    await redisClient.del(`user_recover:${userRecord._id}`)
+    await redisClient.del(`token:recover:${recoveryToken}`)
+
+    return res.status(200).json({
+      message: "Password reset successfully"
+    })
+
+  } catch (error) {
+    next(error)
+  }
+}
