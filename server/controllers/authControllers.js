@@ -287,8 +287,8 @@ exports.logoutController = async (req, res, next) => {
         // Delete session from Redis
         await redisClient.del(`session:${sessionId}`);
 
-        // Remove session id from user -> sessions map. 'session._id' refers to the user's id field in session, not the session's own id
-        await redisClient.sRem(`user_sessions:${session._id}`, sessionId);
+        // Remove session id from user->sessions map. 'session._id' refers to the user's id field in session, not the session's own id
+        await redisClient.zRem(`user_sessions:${session._id}`, sessionId);
       }
     }
 
@@ -301,7 +301,7 @@ exports.logoutController = async (req, res, next) => {
         await redisClient.del(`token:remember:${rememberTokenId}`);
 
         // Remove remember token from user -> remember tokens map
-        await redisClient.sRem(`user_remember:${rememberData._id}`, rememberTokenId);
+        await redisClient.zRem(`user_remember:${rememberData._id}`, rememberTokenId);
       }
     }
 
@@ -328,22 +328,18 @@ exports.logoutAllController = async (req, res, next) => {
     const userId = req.user._id; // Assuming this is set by requireAuth middleware
 
     // Get all active session IDs for the user
-    const sessionIds = await redisClient.sMembers(`user_sessions:${userId}`);
-    if (sessionIds && sessionIds.length) {
-      for (const sessionId of sessionIds) {
-        await redisClient.del(`session:${sessionId}`); // Delete session from Redis
-      }
-      await redisClient.del(`user_sessions:${userId}`); // Clear the user->sessions map
+    const sessionIds = await redisClient.zRange(`user_sessions:${userId}`, 0, -1);
+    for (const sessionId of sessionIds) {
+      await redisClient.del(`session:${sessionId}`);
     }
+    await redisClient.del(`user_sessions:${userId}`);
 
     // Get all remember tokens for the user
-    const rememberTokens = await redisClient.sMembers(`user_remember:${userId}`);
-    if (rememberTokens && rememberTokens.length) {
-      for (const tokenId of rememberTokens) {
-        await redisClient.del(`token:remember:${tokenId}`); // Delete each token
-      }
-      await redisClient.del(`user_remember:${userId}`); // Clear the user->remember tokens map
+    const rememberTokens = await redisClient.zRange(`user_remember:${userId}`, 0, -1);
+    for (const tokenId of rememberTokens) {
+      await redisClient.del(`token:remember:${tokenId}`);
     }
+    await redisClient.del(`user_remember:${userId}`);
 
     // Clear cookies for the current device (browser)
     res.clearCookie("SESSIONID", {
