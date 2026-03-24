@@ -8,7 +8,10 @@ const {
   removePhoneController,
   addAddressController,
   updateAddressController,
-  removeAddressController
+  removeAddressController,
+  changePasswordController,
+  changeEmailController,
+  verifyEmailChangeController 
 } = require("../controllers/userControllers")
 
 router.get("/profile", requireAuth, getProfileController)
@@ -22,5 +25,13 @@ router.delete('/phones/:phone', requireAuth, removePhoneController)
 router.post('/addresses', requireAuth, addAddressController)
 router.patch('/addresses/:addressId', requireAuth, updateAddressController)
 router.delete('/addresses/:addressId', requireAuth, removeAddressController)
+
+// Password
+router.post('/password', requireAuth, changePasswordController)
+
+// Email
+router.post('/email', requireAuth, changeEmailController)
+router.post('/email/verify', requireAuth, verifyEmailChangeController )
+
 
 module.exports = router;

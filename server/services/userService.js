@@ -12,6 +12,9 @@ exports.findUserByActivationToken = async (token) => {
   return await User.findOne({ activationTokenId: token })
 }
 
+exports.findAllUsers = async () => {
+  return await User.find().select('email name status roles mfaEnabled createdAt updatedAt')
+}
 
 exports.createUser = async (newUserData) => {
   return await User.insertOne(newUserData);

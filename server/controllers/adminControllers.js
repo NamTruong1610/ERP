@@ -1,4 +1,5 @@
 const {
+  findAllUsers,
   findUserByEmail,
   findUserById,
   createUser,
@@ -67,5 +68,14 @@ exports.deleteUserController = async (req, res, next) => {
     next(error);
   }
 
+}
+
+exports.getAllUsersController = async (req, res, next) => {
+  try {
+    const users = await findAllUsers();
+    return res.status(200).json({ users })
+  } catch (error) {
+    next(error)
+  }
 }
 
