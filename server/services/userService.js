@@ -24,6 +24,44 @@ exports.updateUser = async (oldUserData, updatedUserData) => {
   return await oldUserData.save()
 }
 
+exports.updateUserByName = async (oldUserData, updatedUserData) => {
+  if (updatedUserData.name) {
+    oldUserData.name.fName = updatedUserData.name.fName
+    oldUserData.name.mName = updatedUserData.name.mName
+    oldUserData.name.lName = updatedUserData.name.lName
+  }
+
+  return await oldUserData.save()
+}
+
+exports.updateUserByPhones = async (oldUserData, phone) => {
+  if (!oldUserData.phones.includes(phone)) {
+    oldUserData.phones.push(phone)
+    await oldUserData.save()
+  }
+}
+
+exports.deleteUserPhoneByPhone = async (oldUserData, phone) => {
+  oldUserData.phones = oldUserData.phones.filter(p => p !== phone)
+  await oldUserData.save()
+}
+
+exports.createUserAddress = async (oldUserData, address) => {
+  oldUserData.addresses.push(address)
+  await oldUserData.save()
+}
+
+exports.updateUserAddressByAddressId = async (oldUserData, addressId, newAddress) => {
+  const oldAddress = await oldUserData.addresses.id(addressId)
+  Object.assign(oldAddress, newAddress) // only updates fields provided
+  await oldUserData.save()
+}
+
+exports.deleteUserAddressByAddressId = async (oldUserData, addressId) => {
+  oldUserData.addresses.pull(addressId) // Mongoose subdocument removal by id
+  await oldUserData.save()
+}
+
 exports.deleteUserExpiresAtById = async (userId) => {
   await User.updateOne(
     { _id: userId },

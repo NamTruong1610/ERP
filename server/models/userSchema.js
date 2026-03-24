@@ -7,11 +7,6 @@ const userSchema = new mongoose.Schema(
       required: false,
       unique: true
     },
-    mfaSetupTokenId: {
-      type: String,
-      required: false,
-      unique: true
-    },
     email: {
       type: String,
       required: true,
@@ -31,6 +26,27 @@ const userSchema = new mongoose.Schema(
         type: String
       }
     },
+    phones: {
+      type: [String]
+    },
+    addresses: [
+      {
+        street: {
+          type: String
+        },
+        suburb: {
+          type: String
+        },
+        post: {
+          type: String
+        },
+        city: {
+          type: String
+        }
+        
+      }
+    ],
+    roles: [String],
     status: {
       type: String,
       required: true,
@@ -45,13 +61,13 @@ const userSchema = new mongoose.Schema(
     mfaEnabled: {
       type: Boolean
     },
-    expiresAt: { 
-      type: Date, 
+    expiresAt: {
+      type: Date,
       // set to null so that the TTL monitor ignores it
       default: null,
       index: { expireAfterSeconds: 0 }
     }
-  }, 
+  },
   { timestamps: true }
 );
 

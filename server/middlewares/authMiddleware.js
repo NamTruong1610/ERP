@@ -2,6 +2,8 @@ const {
   generateActivationToken,
 } = require("../utils/activationTokenUtils")
 
+const { redisClient } = require("../config/RedisConfig")
+
 exports.requireAuth = async (req, res, next) => {
   try {
     const sessionId = req.cookies.SESSIONID;
