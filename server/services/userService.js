@@ -20,6 +20,16 @@ exports.createUser = async (newUserData) => {
   return await User.insertOne(newUserData);
 }
 
+exports.createUserRole = async (userData, role) => {
+  userData.roles.push(role)
+  return await userData.save()
+}
+
+exports.deleteUserRole = async (userData, role) => {
+  userData.roles = userData.roles.filter(r => r !== role)
+  return await userData.save()
+}
+
 exports.updateUser = async (oldUserData, updatedUserData) => {
   for (const key in updatedUserData) {
     oldUserData[key] = updatedUserData[key]

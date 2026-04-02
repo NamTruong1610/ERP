@@ -31,7 +31,7 @@ exports.loginController = async (req, res, next) => {
 
     if (sessionId) {
       const existingSession = await redisClient.get(`session:${sessionId}`)
-      // Frntend redirects user to the main page since they're logged in
+      // Frontend redirects user to the main page since they're logged in
       if (existingSession) {
         return res.status(401).json({
           message: "User already logged in"
@@ -489,3 +489,13 @@ exports.resetPasswordController = async (req, res, next) => {
     next(error)
   }
 }
+
+// Enable 2FA:
+// - Verify password (confirm intent)
+// - Go through 2FA setup (scan QR, verify OTP)
+// - Current session continues uninterrupted
+
+// Disable 2FA:
+// - Verify password (confirm intent)
+// - Verify current OTP (confirm they still have access to authenticator)
+// - Invalidate all sessions and force re-login

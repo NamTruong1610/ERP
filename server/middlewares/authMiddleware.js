@@ -103,7 +103,12 @@ exports.requireAuth = async (req, res, next) => {
           maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
-        req.user = { _id: rememberData._id };
+        req.user = { 
+          _id: rememberData._id,
+          userAgent: req.headers["user-agent"],
+          ip: req.ip,
+          createdAt: Date.now()
+        };
 
         return next();
       }

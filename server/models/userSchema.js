@@ -43,10 +43,13 @@ const userSchema = new mongoose.Schema(
         city: {
           type: String
         }
-        
+
       }
     ],
-    roles: [String],
+    roles: {
+      type: [String],
+      default: ["STAFF"]
+    },
     status: {
       type: String,
       required: true,

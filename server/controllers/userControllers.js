@@ -23,6 +23,12 @@ const {
   sendEmailChangeVerificationEmail
 } = require("../utils/emailUtils")
 
+const {
+  verifyMfaOtp
+} = require("../utils/mfaUtils")
+
+const { redisClient } = require("../config/RedisConfig")
+
 exports.getProfileController = async (req, res, next) => {
   const { _id } = req.user
   try {
@@ -39,7 +45,8 @@ exports.getProfileController = async (req, res, next) => {
       name: userRecord.name,
       phones: userRecord.phones,
       addresses: userRecord.addresses,
-      roles: userRecord.roles
+      roles: userRecord.roles,
+      mfaEnabled: userRecord.mfaEnabled 
     })
 
   } catch (error) {
@@ -160,6 +167,7 @@ exports.removeAddressController = async (req, res, next) => {
 
 exports.changePasswordController = async (req, res, next) => {
   const { currentPassword, newPassword, confirmNewPassword } = req.body
+  const { _id } = req.user
   try {
     if (newPassword !== confirmNewPassword) {
       return res.status(400).json({ message: "Passwords do not match" })
@@ -172,7 +180,7 @@ exports.changePasswordController = async (req, res, next) => {
 
     const passwordsMatched = await comparePasswordHash(currentPassword, userRecord.password)
     if (!passwordsMatched) {
-      return res.status(401).json({ message: "Invalid current password" })
+      return res.status(400).json({ message: "Invalid current password" })
     }
 
     const hashedPassword = await hashPassword(newPassword)
@@ -213,7 +221,7 @@ exports.changeEmailController = async (req, res, next) => {
     // Require password confirmation to prevent unauthorized email change
     const passwordsMatched = await comparePasswordHash(password, userRecord.password)
     if (!passwordsMatched) {
-      return res.status(401).json({ message: "Invalid password" })
+      return res.status(400).json({ message: "Invalid password" })
     }
 
     // Check new email isn't already taken
@@ -282,3 +290,88 @@ exports.verifyEmailChangeController = async (req, res, next) => {
     next(error)
   }
 }
+
+exports.disable2faController = async (req, res, next) => {
+  const { _id } = req.user
+  const { password, otp } = req.body
+  try {
+    const userRecord = await findUserById(_id)
+    if (!userRecord || userRecord.status !== "ACTIVE") {
+      return res.status(404).json({ message: "User not found" })
+    }
+
+    if (!userRecord.mfaEnabled) {
+      return res.status(400).json({ message: "2FA is already disabled" })
+    }
+
+    const passwordsMatched = await comparePasswordHash(password, userRecord.password)
+    if (!passwordsMatched) {
+      return res.status(401).json({ message: "Invalid password" })
+    }
+
+    const validOtp = await verifyMfaOtp(otp, userRecord.mfaSecret)
+    if (!validOtp) {
+      return res.status(401).json({ message: "Invalid OTP" })
+    }
+
+    await updateUser(userRecord, { mfaEnabled: false })
+
+    // Invalidate all sessions and force re-login
+    const sessionIds = await redisClient.zRange(`user_sessions:${_id}`, 0, -1)
+    for (const sessionId of sessionIds) {
+      await redisClient.del(`session:${sessionId}`)
+    }
+    await redisClient.del(`user_sessions:${_id}`)
+
+    const rememberTokens = await redisClient.zRange(`user_remember:${_id}`, 0, -1)
+    for (const tokenId of rememberTokens) {
+      await redisClient.del(`token:remember:${tokenId}`)
+    }
+    await redisClient.del(`user_remember:${_id}`)
+
+    res.clearCookie("SESSIONID", { httpOnly: true, secure: true, sameSite: "strict" })
+    res.clearCookie("REMEMBER", { httpOnly: true, secure: true, sameSite: "strict" })
+
+    return res.status(200).json({ message: "2FA disabled successfully" })
+  } catch (error) {
+    next(error)
+  }
+}
+
+exports.enable2faController = async (req, res, next) => {
+  const { _id } = req.user
+  const { password, otp } = req.body
+  try {
+    const userRecord = await findUserById(_id)
+    if (!userRecord || userRecord.status !== "ACTIVE") {
+      return res.status(404).json({ message: "User not found" })
+    }
+
+    if (userRecord.mfaEnabled) {
+      return res.status(400).json({ message: "2FA is already enabled" })
+    }
+
+    // Make sure the user has a secret from the initial setup
+    if (!userRecord.mfaSecret) {
+      return res.status(400).json({ message: "No 2FA secret found, contact an administrator" })
+    }
+
+    const passwordsMatched = await comparePasswordHash(password, userRecord.password)
+    if (!passwordsMatched) {
+      return res.status(401).json({ message: "Invalid password" })
+    }
+
+    // Verify OTP to confirm authenticator app is still working
+    const validOtp = await verifyMfaOtp(otp, userRecord.mfaSecret)
+    if (!validOtp) {
+      return res.status(401).json({ message: "Invalid OTP" })
+    }
+
+    await updateUser(userRecord, { mfaEnabled: true })
+
+    return res.status(200).json({ message: "2FA enabled successfully" })
+  } catch (error) {
+    next(error)
+  }
+}
+
