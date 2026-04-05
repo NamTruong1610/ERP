@@ -1,4 +1,4 @@
-# ERP System — Software Architecture Documentation
+# ERP Authentication System — Software Architecture Documentation
 
 ## Table of Contents
 
@@ -29,7 +29,7 @@
 
 ## Project Overview
 
-A full-stack ERP (Enterprise Resource Planning) system with secure user authentication, role-based access control, multi-factor authentication, and user management. Built as a monorepo with a Node.js/Express backend and a React/Vite frontend.
+A full-stack ERP (Enterprise Resource Planning) authentication system with role-based access control, multi-factor authentication, and user management. Built as a monorepo with a Node.js/Express backend and a React/Vite frontend.
 
 ---
 
