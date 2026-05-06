@@ -16,6 +16,11 @@ const PERMISSIONS = {
   USERS_RESEND_ACTIVATION:  'users:resend:activation',
   USERS_RESET_2FA:          'users:2fa:reset',
   USERS_ROLES_MANAGE:       'users:roles:manage',
+
+  PATIENTS_READ:   'patients:read',
+  PATIENTS_CREATE: 'patients:create',
+  PATIENTS_UPDATE: 'patients:update',
+  PATIENTS_DELETE: 'patients:delete',
 }
 
 const ROLES = {
@@ -26,6 +31,10 @@ const ROLES = {
     PERMISSIONS.PROFILE_EMAIL_CHANGE,
     PERMISSIONS.PROFILE_PHONES_MANAGE,
     PERMISSIONS.PROFILE_ADDRESSES_MANAGE,
+    PERMISSIONS.PATIENTS_READ,
+    PERMISSIONS.PATIENTS_CREATE,
+    PERMISSIONS.PATIENTS_UPDATE,
+    PERMISSIONS.PATIENTS_DELETE,
   ],
   ADMIN: [
     ...Object.values(PERMISSIONS)
