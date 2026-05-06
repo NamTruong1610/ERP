@@ -7,6 +7,7 @@ const authRoutes = require('../routes/authRoutes')
 const userRoutes = require('../routes/userRoutes')
 const patientRoutes = require('../routes/patientRoutes')
 const appointmentRoutes = require('../routes/appointmentRoutes')
+const treatmentRoutes = require('../routes/treatmentRoutes')
 
 exports.appConfig = async (app) => {
   const port = process.env.PORT || 5500;
@@ -19,6 +20,7 @@ exports.appConfig = async (app) => {
   app.use('/api/v2/user', userRoutes); 
   app.use('/api/v2/patients', patientRoutes);
   app.use('/api/v2/appointments', appointmentRoutes);
+  app.use('/api/v2/treatments', treatmentRoutes)
   app.listen(port, () => {
     console.log(`App listening on port ${port}`);
   })
