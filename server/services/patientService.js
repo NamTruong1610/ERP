@@ -1,5 +1,7 @@
 const { prisma } = require('../config/PrismaConfig')
 
+console.log('prisma:', prisma) // add this temporarily
+
 exports.findAllPatients = async () => {
   return await prisma.patient.findMany({
     orderBy: { createdAt: 'desc' }

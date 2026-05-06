@@ -20,6 +20,11 @@ import VerifyEmailChange from './pages/profile/VerifyEmailChange'
 // Admin
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminUserDetail from './pages/admin/AdminUserDetail'
+
+import Patients from './pages/clinic/Patients'
+import PatientDetail from './pages/clinic/PatientDetail'
+import Appointments from './pages/clinic/Appointments'
+import AppointmentDetail from './pages/clinic/AppointmentDetail'
  
 // Guards
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
@@ -50,6 +55,11 @@ function App() {
         {/* Admin — requires ADMIN role */}
         <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
         <Route path="/admin/users/:id" element={<AdminRoute><AdminUserDetail /></AdminRoute>} />
+
+        <Route path="/clinic/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+        <Route path="/clinic/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
+        <Route path="/clinic/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
+        <Route path="/clinic/appointments/:id" element={<ProtectedRoute><AppointmentDetail /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   )
