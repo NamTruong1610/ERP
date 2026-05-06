@@ -28,6 +28,7 @@ model User {
 
   name              UserName?
   addresses         Address[]
+  appointments Appointment[]
 }
 
 model UserName {
@@ -49,4 +50,44 @@ model Address {
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId  String
+}
+
+model Patient {
+  id           String        @id @default(cuid())
+  firstName    String
+  lastName     String
+  dob          DateTime      // date of birth
+  gender       String
+  phone        String?
+  email        String?
+  address      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+model Appointment {
+  id          String       @id @default(cuid())
+  dentistId   String
+  patientId   String
+  date        DateTime
+  status      String       @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  dentist     User         @relation(fields: [dentistId], references: [id])
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  treatment   Treatment?
+}
+
+model Treatment {
+  id            String      @id @default(cuid())
+  appointmentId String      @unique
+  procedure     String      // e.g. filling, extraction, cleaning
+  toothNumber   Int?        // 1-32
+  notes         String?
+  cost          Float
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
 }
