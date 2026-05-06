@@ -18,7 +18,7 @@ export default function Login() {
   // Redirect if already logged in
   useEffect(() => {
     if (!sessionLoading && user) {
-      navigate('/profile')
+      navigate('/home')
     }
   }, [user, sessionLoading])
 
@@ -44,7 +44,7 @@ export default function Login() {
       // fetch profile and update context
       const profile = await getProfile()
       login(profile)
-      navigate('/profile')
+      navigate('/home')
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {

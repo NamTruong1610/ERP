@@ -12,6 +12,7 @@ import {
   deleteUser,
   updateUser
 } from '../../api/admin'
+import { useAuth } from '../../context/useAuth'
 import './admin.css'
 
 const STATUS_BADGE = {
@@ -27,6 +28,7 @@ const AVAILABLE_ROLES = ['STAFF', 'ADMIN']
 export default function AdminUserDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user: currentUser } = useAuth()
 
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -122,6 +124,8 @@ export default function AdminUserDetail() {
 
   const formatDate = (d) => d ? new Date(d).toLocaleString() : '—'
 
+  const isSelf = currentUser?.id === id
+
   if (loading) return <div className="admin-loading">Loading user...</div>
   if (!user) return <div className="admin-loading">{error || 'User not found'}</div>
 
@@ -135,6 +139,7 @@ export default function AdminUserDetail() {
           <div className="sidebar-role">Admin</div>
         </div>
         <nav className="sidebar-nav">
+          <Link to="/home" className="sidebar-link">← Home</Link>
           <Link to="/admin/users" className="sidebar-link">Users</Link>
         </nav>
       </aside>
@@ -288,7 +293,7 @@ export default function AdminUserDetail() {
         <div className="actions-panel">
           <div className="actions-panel-title">Actions</div>
           <div className="actions-grid">
-            {user.status === 'ACTIVE' && (
+            {user.status === 'ACTIVE' && !isSelf && (
               <button
                 className="btn btn-ghost"
                 disabled={!!actionLoading}
@@ -328,21 +333,25 @@ export default function AdminUserDetail() {
               </button>
             )}
 
-            <button
-              className="btn btn-ghost"
-              disabled={!!actionLoading}
-              onClick={() => runAction('Force logout', () => forceLogoutUser(id))}
-            >
-              {actionLoading === 'Force logout' ? 'Logging out...' : 'Force logout'}
-            </button>
+            {!isSelf && (
+              <button
+                className="btn btn-ghost"
+                disabled={!!actionLoading}
+                onClick={() => runAction('Force logout', () => forceLogoutUser(id))}
+              >
+                {actionLoading === 'Force logout' ? 'Logging out...' : 'Force logout'}
+              </button>
+            )}
 
-            <button
-              className="btn btn-danger"
-              disabled={!!actionLoading}
-              onClick={handleDelete}
-            >
-              Delete user
-            </button>
+            {!isSelf && (
+              <button
+                className="btn btn-danger"
+                disabled={!!actionLoading}
+                onClick={handleDelete}
+              >
+                Delete user
+              </button>
+            )}
           </div>
         </div>
       </main>

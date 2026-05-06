@@ -10,8 +10,11 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const isLoginPage = window.location.pathname === '/login'
-      if (!isLoginPage) {
+      const publicPaths = ['/login', '/activate', '/forgot-password', '/reset-password']
+      const isPublicPage = publicPaths.some(path =>
+        window.location.pathname.startsWith(path)
+      )
+      if (!isPublicPage) {
         window.location.href = '/login'
       }
     }

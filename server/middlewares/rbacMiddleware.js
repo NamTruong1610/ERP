@@ -3,7 +3,7 @@ const { findUserById } = require('../services/userService')
 
 exports.requirePermission = (permission) => async (req, res, next) => {
   try {
-    const userRecord = await findUserById(req.user._id)
+    const userRecord = await findUserById(req.user.id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(401).json({ message: "Unauthenticated" })
     }

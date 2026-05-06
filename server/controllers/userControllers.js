@@ -30,9 +30,9 @@ const {
 const { redisClient } = require("../config/RedisConfig")
 
 exports.getProfileController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(401).json({
         message: "User not found"
@@ -40,7 +40,7 @@ exports.getProfileController = async (req, res, next) => {
     }
 
     return res.status(200).json({
-      id: userRecord._id,
+      id: userRecord.id,
       email: userRecord.email,
       name: userRecord.name,
       phones: userRecord.phones,
@@ -56,10 +56,10 @@ exports.getProfileController = async (req, res, next) => {
 
 
 exports.updateNameController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { name } = req.body
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(401).json({
         message: "User not found"
@@ -79,86 +79,91 @@ exports.updateNameController = async (req, res, next) => {
 }
 
 exports.updatePhonesController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { phone } = req.body
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(401).json({
         message: "User not found"
       })
     }
-    await updateUserByPhones(userRecord, phone)
-    return res.status(200).json({ phones: userRecord.phones })
+    const updatedUser = await updateUserByPhones(userRecord, phone)
+    return res.status(200).json({ phones: updatedUser.phones })
   } catch (error) {
     next(error)
   }
 }
 
 exports.removePhoneController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { phone } = req.params
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(404).json({ message: "User not found" })
     }
 
-    await deleteUserPhoneByPhone(userRecord, phone)
+    const updatedUser = await deleteUserPhoneByPhone(userRecord, phone)
 
-    return res.status(200).json({ phones: userRecord.phones })
+    return res.status(200).json({ phones: updatedUser.phones })
   } catch (error) {
     next(error)
   }
 }
 
 exports.addAddressController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { address } = req.body
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(404).json({ message: "User not found" })
     }
 
     await createUserAddress(userRecord, address)
 
-    return res.status(200).json({ addresses: userRecord.addresses })
+    // Re-fetch to get updated addresses
+    const updatedUser = await findUserById(id)
+
+    return res.status(200).json({ addresses: updatedUser.addresses })
   } catch (error) {
     next(error)
   }
 }
 
 exports.updateAddressController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { addressId } = req.params
   const { address } = req.body
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(404).json({ message: "User not found" })
     }
 
     await updateUserAddressByAddressId(userRecord, addressId, address)
 
-    return res.status(200).json({ addresses: userRecord.addresses })
+    const updatedUser = await findUserById(id)
+
+    return res.status(200).json({ addresses: updatedUser.addresses })
   } catch (error) {
     next(error)
   }
 }
 
 exports.removeAddressController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { addressId } = req.params
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(404).json({ message: "User not found" })
     }
 
-    await deleteUserAddressByAddressId(userRecord, addressId)
+    const updatedUser = await deleteUserAddressByAddressId(userRecord, addressId)
 
-    return res.status(200).json({ addresses: userRecord.addresses })
+    return res.status(200).json({ addresses: updatedUser.addresses })
   } catch (error) {
     next(error)
   }
@@ -167,13 +172,13 @@ exports.removeAddressController = async (req, res, next) => {
 
 exports.changePasswordController = async (req, res, next) => {
   const { currentPassword, newPassword, confirmNewPassword } = req.body
-  const { _id } = req.user
+  const { id } = req.user
   try {
     if (newPassword !== confirmNewPassword) {
       return res.status(400).json({ message: "Passwords do not match" })
     }
 
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(404).json({ message: "User not found" })
     }
@@ -187,17 +192,17 @@ exports.changePasswordController = async (req, res, next) => {
     await updateUser(userRecord, { password: hashedPassword })
 
     // Invalidate all other sessions so other devices are forced to re-login
-    const sessionIds = await redisClient.zRange(`user_sessions:${_id}`, 0, -1)
+    const sessionIds = await redisClient.zRange(`user_sessions:${id}`, 0, -1)
     for (const sessionId of sessionIds) {
       await redisClient.del(`session:${sessionId}`)
     }
-    await redisClient.del(`user_sessions:${_id}`)
+    await redisClient.del(`user_sessions:${id}`)
 
-    const rememberTokens = await redisClient.zRange(`user_remember:${_id}`, 0, -1)
+    const rememberTokens = await redisClient.zRange(`user_remember:${id}`, 0, -1)
     for (const tokenId of rememberTokens) {
       await redisClient.del(`token:remember:${tokenId}`)
     }
-    await redisClient.del(`user_remember:${_id}`)
+    await redisClient.del(`user_remember:${id}`)
 
     res.clearCookie("SESSIONID", { httpOnly: true, secure: true, sameSite: "strict" })
     res.clearCookie("REMEMBER", { httpOnly: true, secure: true, sameSite: "strict" })
@@ -210,10 +215,10 @@ exports.changePasswordController = async (req, res, next) => {
 }
 
 exports.changeEmailController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { email, password } = req.body
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(404).json({ message: "User not found" })
     }
@@ -231,22 +236,22 @@ exports.changeEmailController = async (req, res, next) => {
     }
 
     // Delete any previously pending email change token
-    const existingTokenRaw = await redisClient.get(`user_email_change:${_id}`)
+    const existingTokenRaw = await redisClient.get(`user_email_change:${id}`)
     if (existingTokenRaw) {
       const { tokenId } = JSON.parse(existingTokenRaw)
       await redisClient.del(`token:email_change:${tokenId}`)
-      await redisClient.del(`user_email_change:${_id}`)
+      await redisClient.del(`user_email_change:${id}`)
     }
 
     const tokenId = await generateActivationToken()
     await redisClient.set(
       `token:email_change:${tokenId}`,
-      JSON.stringify({ _id, email }),
+      JSON.stringify({ id, email }),
       { EX: 15 * 60 } // 15 mins
     )
 
     await redisClient.set(
-      `user_email_change:${_id}`,
+      `user_email_change:${id}`,
       JSON.stringify({ tokenId }),
       { EX: 16 * 60 } // 16 mins
     )
@@ -260,7 +265,7 @@ exports.changeEmailController = async (req, res, next) => {
 }
 
 exports.verifyEmailChangeController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { tokenId } = req.body
   try {
     const tokenRaw = await redisClient.get(`token:email_change:${tokenId}`)
@@ -271,11 +276,11 @@ exports.verifyEmailChangeController = async (req, res, next) => {
     const tokenData = JSON.parse(tokenRaw)
 
     // Ensure the token belongs to the authenticated user
-    if (tokenData._id !== _id) {
+    if (tokenData.id !== id) {
       return res.status(401).json({ message: "Unauthorized" })
     }
 
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(404).json({ message: "User not found" })
     }
@@ -283,7 +288,7 @@ exports.verifyEmailChangeController = async (req, res, next) => {
     await updateUser(userRecord, { email: tokenData.email })
 
     await redisClient.del(`token:email_change:${tokenId}`)
-    await redisClient.del(`user_email_change:${_id}`)
+    await redisClient.del(`user_email_change:${id}`)
 
     return res.status(200).json({ message: "Email changed successfully" })
   } catch (error) {
@@ -292,10 +297,10 @@ exports.verifyEmailChangeController = async (req, res, next) => {
 }
 
 exports.disable2faController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { password, otp } = req.body
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(404).json({ message: "User not found" })
     }
@@ -317,17 +322,17 @@ exports.disable2faController = async (req, res, next) => {
     await updateUser(userRecord, { mfaEnabled: false })
 
     // Invalidate all sessions and force re-login
-    const sessionIds = await redisClient.zRange(`user_sessions:${_id}`, 0, -1)
+    const sessionIds = await redisClient.zRange(`user_sessions:${id}`, 0, -1)
     for (const sessionId of sessionIds) {
       await redisClient.del(`session:${sessionId}`)
     }
-    await redisClient.del(`user_sessions:${_id}`)
+    await redisClient.del(`user_sessions:${id}`)
 
-    const rememberTokens = await redisClient.zRange(`user_remember:${_id}`, 0, -1)
+    const rememberTokens = await redisClient.zRange(`user_remember:${id}`, 0, -1)
     for (const tokenId of rememberTokens) {
       await redisClient.del(`token:remember:${tokenId}`)
     }
-    await redisClient.del(`user_remember:${_id}`)
+    await redisClient.del(`user_remember:${id}`)
 
     res.clearCookie("SESSIONID", { httpOnly: true, secure: true, sameSite: "strict" })
     res.clearCookie("REMEMBER", { httpOnly: true, secure: true, sameSite: "strict" })
@@ -339,10 +344,10 @@ exports.disable2faController = async (req, res, next) => {
 }
 
 exports.enable2faController = async (req, res, next) => {
-  const { _id } = req.user
+  const { id } = req.user
   const { password, otp } = req.body
   try {
-    const userRecord = await findUserById(_id)
+    const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== "ACTIVE") {
       return res.status(404).json({ message: "User not found" })
     }

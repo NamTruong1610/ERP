@@ -51,7 +51,7 @@ exports.createUserController = async (req, res, next) => {
     await sendAccountActivationEmail(email, rawActivationTokenId);
 
     return res.status(201).json({
-      _id: newUser._id,
+      id: newUser.id,
       email: newUser.email,
       status: newUser.status
     })
@@ -70,6 +70,19 @@ exports.deleteUserController = async (req, res, next) => {
         message: 'No user found'
       })
     }
+
+    // Invalidate all sessions and remember tokens
+    const sessionIds = await redisClient.zRange(`user_sessions:${id}`, 0, -1)
+    for (const sessionId of sessionIds) {
+      await redisClient.del(`session:${sessionId}`)
+    }
+    await redisClient.del(`user_sessions:${id}`)
+
+    const rememberTokens = await redisClient.zRange(`user_remember:${id}`, 0, -1)
+    for (const tokenId of rememberTokens) {
+      await redisClient.del(`token:remember:${tokenId}`)
+    }
+    await redisClient.del(`user_remember:${id}`)
 
     await deleteUserById(id);
 
@@ -102,7 +115,7 @@ exports.getUserController = async (req, res, next) => {
     }
 
     return res.status(200).json({
-      _id: userRecord._id,
+      id: userRecord.id,
       email: userRecord.email,
       name: userRecord.name,
       phones: userRecord.phones,
@@ -238,9 +251,9 @@ exports.assignRoleController = async (req, res, next) => {
       return res.status(400).json({ message: "User already has this role" })
     }
 
-    await createUserRole(userRecord, role)
+    const updatedUser = await createUserRole(userRecord, role)
 
-    return res.status(200).json({ roles: userRecord.roles })
+    return res.status(200).json({ roles: updatedUser.roles })
   } catch (error) {
     next(error)
   }
@@ -258,9 +271,9 @@ exports.removeRoleController = async (req, res, next) => {
     if (!userRecord.roles.includes(role)) {
       return res.status(400).json({ message: "User does not have this role" })
     }
-    await deleteUserRole(userRecord, role)
+    const updatedUser = await deleteUserRole(userRecord, role)
 
-    return res.status(200).json({ roles: userRecord.roles })
+    return res.status(200).json({ roles: updatedUser.roles })
   } catch (error) {
     next(error)
   }
@@ -315,7 +328,7 @@ exports.updateUserController = async (req, res, next) => {
 
     if (updates.email) {
       const existingUser = await findUserByEmail(updates.email)
-      if (existingUser && existingUser._id.toString() !== id) {
+      if (existingUser && existingUser.id !== id) {
         return res.status(400).json({ message: "Email already in use" })
       }
     }
@@ -328,7 +341,7 @@ exports.updateUserController = async (req, res, next) => {
     const updatedUser = await updateUser(userRecord, updates)
 
     return res.status(200).json({
-      _id: updatedUser._id,
+      id: updatedUser.id,
       email: updatedUser.email,
       name: updatedUser.name,
       phones: updatedUser.phones,

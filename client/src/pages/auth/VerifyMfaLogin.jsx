@@ -27,7 +27,7 @@ export default function VerifyMfaLogin() {
       await verifyMfaLogin({ otp, mfaLoginTokenId })
       const profile = await getProfile()
       login(profile)
-      navigate('/profile')
+      navigate('/home')
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {

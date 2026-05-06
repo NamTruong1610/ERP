@@ -126,7 +126,7 @@ export default function AdminUsers() {
           <div className="sidebar-role">Admin</div>
         </div>
         <nav className="sidebar-nav">
-          <Link to="/profile" className="sidebar-link">← Back to profile</Link>
+          <Link to="/home" className="sidebar-link">← Home</Link>
           <Link to="/admin/users" className="sidebar-link active">Users</Link>
           <button className="sidebar-link danger" onClick={handleLogout}>Sign out</button>
         </nav>
@@ -172,7 +172,7 @@ export default function AdminUsers() {
               </thead>
               <tbody>
                 {filtered.map(user => (
-                  <tr key={user._id} onClick={() => navigate(`/admin/users/${user._id}`)}>
+                  <tr key={user.id} onClick={() => navigate(`/admin/users/${user.id}`)}>
                     <td>{formatName(user.name)}</td>
                     <td>{user.email}</td>
                     <td>

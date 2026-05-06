@@ -17,14 +17,14 @@ exports.requireAuth = async (req, res, next) => {
         const session = JSON.parse(sessionRaw);
 
         // Clean up zombie session ids and tokens in the map
-        await redisClient.zRemRangeByScore(`user_sessions:${session._id}`, 0, Date.now())
-        await redisClient.zRemRangeByScore(`user_remember:${session._id}`, 0, Date.now())
+        await redisClient.zRemRangeByScore(`user_sessions:${session.id}`, 0, Date.now())
+        await redisClient.zRemRangeByScore(`user_remember:${session.id}`, 0, Date.now())
 
         req.user = session;
 
         // Extend the session and the score in user->sessions map
         await redisClient.expire(`session:${sessionId}`, 30 * 60);
-        await redisClient.zAdd(`user_sessions:${session._id}`, {
+        await redisClient.zAdd(`user_sessions:${session.id}`, {
           score: Date.now() + 30 * 60 * 1000,
           value: sessionId
         })
@@ -50,8 +50,8 @@ exports.requireAuth = async (req, res, next) => {
         const rememberData = JSON.parse(rememberRaw);
 
         // Clean up zombie session ids and tokens in the map
-        await redisClient.zRemRangeByScore(`user_sessions:${rememberData._id}`, 0, Date.now())
-        await redisClient.zRemRangeByScore(`user_remember:${rememberData._id}`, 0, Date.now())
+        await redisClient.zRemRangeByScore(`user_sessions:${rememberData.id}`, 0, Date.now())
+        await redisClient.zRemRangeByScore(`user_remember:${rememberData.id}`, 0, Date.now())
 
         // Generate new token
         await redisClient.del(`token:remember:${rememberTokenId}`);
@@ -59,20 +59,20 @@ exports.requireAuth = async (req, res, next) => {
 
         await redisClient.set(
           `token:remember:${newRememberToken}`,
-          JSON.stringify({ _id: rememberData._id }),
+          JSON.stringify({ id: rememberData.id }),
           { EX: 7 * 24 * 60 * 60 } // 7 days
         );
 
         // Delete the old remember token if from the user->remember tokens map and update with the new remember token id
-        await redisClient.zRem(`user_remember:${rememberData._id}`, rememberTokenId) 
-        await redisClient.zAdd(`user_remember:${rememberData._id}`, {
+        await redisClient.zRem(`user_remember:${rememberData.id}`, rememberTokenId) 
+        await redisClient.zAdd(`user_remember:${rememberData.id}`, {
           score: Date.now() + 7 * 24 * 60 * 60 * 1000,
           value: newRememberToken
         })
 
         // Create new session
         const newSessionId = await generateActivationToken()
-        await redisClient.zAdd(`user_sessions:${rememberData._id}`, {
+        await redisClient.zAdd(`user_sessions:${rememberData.id}`, {
           score: Date.now() + 30 * 60 * 1000,
           value: newSessionId
         })
@@ -80,7 +80,7 @@ exports.requireAuth = async (req, res, next) => {
         await redisClient.set(
           `session:${newSessionId}`,
           JSON.stringify({
-            _id: rememberData._id,
+            id: rememberData.id,
             userAgent: req.headers["user-agent"],
             ip: req.ip,
             createdAt: Date.now()
@@ -104,7 +104,7 @@ exports.requireAuth = async (req, res, next) => {
         });
 
         req.user = { 
-          _id: rememberData._id,
+          id: rememberData.id,
           userAgent: req.headers["user-agent"],
           ip: req.ip,
           createdAt: Date.now()

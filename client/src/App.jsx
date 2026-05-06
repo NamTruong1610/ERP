@@ -10,6 +10,8 @@ import Login from './pages/auth/Login'
 import VerifyMfaLogin from './pages/auth/VerifyMfaLogin'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
+
+import Home from './pages/home/Home'
  
 // Profile
 import Profile from './pages/profile/Profile'
@@ -26,7 +28,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/home" replace />} />
 
         {/* Account Activation — public */}
         <Route path="/activate" element={<SetPassword />} />
@@ -38,6 +40,8 @@ function App() {
         <Route path="/login/mfa" element={<VerifyMfaLogin />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
  
         {/* Profile — requires login */}
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

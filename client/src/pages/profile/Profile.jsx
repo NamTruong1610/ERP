@@ -289,7 +289,7 @@ function AddressesSection({ addresses, onUpdate }) {
   }
 
   const startEdit = (address) => {
-    setEditingId(address._id)
+    setEditingId(address.id)
     setForm({
       street: address.street || '',
       suburb: address.suburb || '',
@@ -307,13 +307,13 @@ function AddressesSection({ addresses, onUpdate }) {
       </div>
 
       {addresses.map((address) => (
-        <div key={address._id}>
-          {editingId === address._id ? (
+        <div key={address.id}>
+          {editingId === address.id ? (
             <div className="profile-card">
               <AddressForm
                 form={form}
                 setForm={setForm}
-                onSubmit={(e) => handleUpdate(e, address._id)}
+                onSubmit={(e) => handleUpdate(e, address.id)}
                 submitLabel="Save changes"
                 onCancel={handleCancel}
                 error={error}
@@ -330,7 +330,7 @@ function AddressesSection({ addresses, onUpdate }) {
               </div>
               <div className="list-actions">
                 <button className="btn btn-ghost btn-sm" onClick={() => startEdit(address)}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={() => handleRemove(address._id)}>Remove</button>
+                <button className="btn btn-danger btn-sm" onClick={() => handleRemove(address.id)}>Remove</button>
               </div>
             </div>
           )}
@@ -496,6 +496,7 @@ function EmailSection({ currentEmail }) {
 
 // ─── 2FA Section ───────────────────────────────────────────────────────────────
 function TwoFASection({ mfaEnabled, navigate }) {
+  const { logoutUser } = useAuth()
   const [enabled, setEnabled] = useState(mfaEnabled)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ password: '', otp: '' })
@@ -515,7 +516,8 @@ function TwoFASection({ mfaEnabled, navigate }) {
     try {
       if (enabled) {
         await disable2fa(form)
-        navigate('/login') // force re-login after disabling
+        logoutUser()        // clear context immediately
+        navigate('/login') // then force re-login after disabling
       } else {
         await enable2fa(form)
         setEnabled(true)
@@ -655,6 +657,8 @@ export default function Profile() {
       <aside className="profile-sidebar">
         <div className="sidebar-logo">ERP</div>
         <nav className="sidebar-nav">
+          <span className="sidebar-section-label">Main</span>
+          <a href="/home" className="sidebar-link">Home</a>
           <span className="sidebar-section-label">Account</span>
           <a href="#name" className="sidebar-link">Name</a>
           <a href="#phones" className="sidebar-link">Phones</a>

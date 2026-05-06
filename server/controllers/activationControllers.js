@@ -39,7 +39,7 @@ exports.setPasswordController = async (req, res, next) => {
     let rawMfaToken = null
 
     if (!userRecord || Date.now() > userRecord.expiresAt) {
-      await deleteUserById(userRecord._id)
+      await deleteUserById(userRecord.id)
       return res.status(404).json({
         message: "Token expired"
       })
@@ -51,7 +51,7 @@ exports.setPasswordController = async (req, res, next) => {
       // Generate a new token for 2fa verification step (hand-shake) in Redis 
       rawMfaToken = await generateActivationToken();
       const hashedMfaToken = await hashToken(rawMfaToken);
-      const mfaTokenKey = `mfa:${userRecord._id}`;
+      const mfaTokenKey = `mfa:${userRecord.id}`;
 
       await redisClient.del(mfaTokenKey)
       await redisClient.set(mfaTokenKey, hashedMfaToken, {
@@ -76,7 +76,7 @@ exports.setPasswordController = async (req, res, next) => {
 
     const hashedPassword = await hashPassword(password)
 
-    const mfaTokenKey = `mfa:${userRecord._id}`;
+    const mfaTokenKey = `mfa:${userRecord.id}`;
     await redisClient.set(mfaTokenKey, hashedMfaToken, {
       EX: 10 * 60 // 10 mins
     });
@@ -93,7 +93,7 @@ exports.setPasswordController = async (req, res, next) => {
 
 
   } catch (error) {
-    next(error)
+    next(error) 
   }
 }
 
@@ -104,12 +104,12 @@ exports.get2faSecretController = async (req, res, next) => {
     const userRecord = await findUserByActivationToken(hashedActivationToken)
 
     if (!userRecord || Date.now() > userRecord.expiresAt) {
-      await deleteUserById(userRecord._id)
+      await deleteUserById(userRecord.id)
       return res.status(404).json({
         message: "Token expired"
       })
     }
-    const mfaTokenKey = `mfa:${userRecord._id}`
+    const mfaTokenKey = `mfa:${userRecord.id}`
     const hashedMfaToken = await redisClient.get(mfaTokenKey)
     const tokensMatched = await compareTokenHash(mfaToken, hashedMfaToken)
     if (!hashedMfaToken || !tokensMatched) {
@@ -152,13 +152,13 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
     const hashedActivationToken = await hashToken(activationToken);
     const userRecord = await findUserByActivationToken(hashedActivationToken)
     if (!userRecord || Date.now() > userRecord.expiresAt) {
-      await deleteUserById(userRecord._id)
+      await deleteUserById(userRecord.id)
       return res.status(404).json({
         message: "Token expired"
       })
     }
 
-    const mfaTokenKey = `mfa:${userRecord._id}`
+    const mfaTokenKey = `mfa:${userRecord.id}`
     const hashedMfaToken = await redisClient.get(mfaTokenKey)
     const tokensMatched = await compareTokenHash(mfaToken, hashedMfaToken)
     if (!hashedMfaToken || !tokensMatched) {
@@ -183,7 +183,7 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
 
     // Delete mfa setup token and user record ttl from Redis and MongoDb
     await redisClient.del(mfaTokenKey)
-    await deleteUserExpiresAtById(userRecord._id)
+    await deleteUserExpiresAtById(userRecord.id)
 
     return res.status(200).json({
       message: "User 2fa successfully activated"

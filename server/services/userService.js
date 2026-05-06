@@ -1,87 +1,161 @@
-const User = require('../models/userSchema');
+const { prisma } = require('../config/PrismaConfig')
 
-exports.findUserByEmail = async (email) => {
-  return await User.findOne({ email: email });
+// Include name and addresses by default for most queries
+const userInclude = {
+  name: true,
+  addresses: true
 }
 
-exports.findUserById = async (_id) => {
-  return await User.findById({ _id: _id });
+exports.findUserByEmail = async (email) => {
+  return await prisma.user.findUnique({
+    where: { email },
+    include: userInclude
+  })
+}
+
+exports.findUserById = async (id) => {
+  return await prisma.user.findUnique({
+    where: { id },
+    include: userInclude
+  })
 }
 
 exports.findUserByActivationToken = async (token) => {
-  return await User.findOne({ activationTokenId: token })
+  return await prisma.user.findUnique({
+    where: { activationTokenId: token },
+    include: userInclude
+  })
 }
 
 exports.findAllUsers = async () => {
-  return await User.find().select('email name status roles mfaEnabled createdAt updatedAt')
+  return await prisma.user.findMany({
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      status: true,
+      roles: true,
+      mfaEnabled: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  })
 }
 
 exports.createUser = async (newUserData) => {
-  return await User.insertOne(newUserData);
+  return await prisma.user.create({
+    data: newUserData
+  })
 }
 
 exports.createUserRole = async (userData, role) => {
-  userData.roles.push(role)
-  return await userData.save()
+  return await prisma.user.update({
+    where: { id: userData.id },
+    data: {
+      roles: { push: role }
+    },
+    include: userInclude
+  })
 }
 
 exports.deleteUserRole = async (userData, role) => {
-  userData.roles = userData.roles.filter(r => r !== role)
-  return await userData.save()
+  return await prisma.user.update({
+    where: { id: userData.id },
+    data: {
+      roles: userData.roles.filter(r => r !== role)
+    },
+    include: userInclude
+  })
 }
 
 exports.updateUser = async (oldUserData, updatedUserData) => {
-  for (const key in updatedUserData) {
-    oldUserData[key] = updatedUserData[key]
-  }
-  return await oldUserData.save()
+  const { name, addresses, ...rest } = updatedUserData
+
+  return await prisma.user.update({
+    where: { id: oldUserData.id },
+    data: {
+      ...rest,
+      ...(name && {
+        name: {
+          upsert: {
+            create: name,
+            update: name
+          }
+        }
+      })
+    },
+    include: userInclude
+  })
 }
 
 exports.updateUserByName = async (oldUserData, updatedUserData) => {
-  if (updatedUserData.name) {
-    oldUserData.name.fName = updatedUserData.name.fName
-    oldUserData.name.mName = updatedUserData.name.mName
-    oldUserData.name.lName = updatedUserData.name.lName
-  }
-
-  return await oldUserData.save()
+  return await prisma.user.update({
+    where: { id: oldUserData.id },
+    data: {
+      name: {
+        upsert: {
+          create: updatedUserData.name,
+          update: updatedUserData.name
+        }
+      }
+    },
+    include: userInclude
+  })
 }
 
 exports.updateUserByPhones = async (oldUserData, phone) => {
   if (!oldUserData.phones.includes(phone)) {
-    oldUserData.phones.push(phone)
-    await oldUserData.save()
+    return await prisma.user.update({
+      where: { id: oldUserData.id },
+      data: {
+        phones: { push: phone }
+      },
+      include: userInclude
+    })
   }
 }
 
 exports.deleteUserPhoneByPhone = async (oldUserData, phone) => {
-  oldUserData.phones = oldUserData.phones.filter(p => p !== phone)
-  await oldUserData.save()
+  return await prisma.user.update({
+    where: { id: oldUserData.id },
+    data: {
+      phones: oldUserData.phones.filter(p => p !== phone)
+    },
+    include: userInclude
+  })
 }
 
 exports.createUserAddress = async (oldUserData, address) => {
-  oldUserData.addresses.push(address)
-  await oldUserData.save()
+  return await prisma.address.create({
+    data: {
+      ...address,
+      userId: oldUserData.id
+    }
+  })
 }
 
 exports.updateUserAddressByAddressId = async (oldUserData, addressId, newAddress) => {
-  const oldAddress = await oldUserData.addresses.id(addressId)
-  Object.assign(oldAddress, newAddress) // only updates fields provided
-  await oldUserData.save()
+  return await prisma.address.update({
+    where: { id: addressId },
+    data: newAddress
+  })
 }
 
 exports.deleteUserAddressByAddressId = async (oldUserData, addressId) => {
-  oldUserData.addresses.pull(addressId) // Mongoose subdocument removal by id
-  await oldUserData.save()
+  return await prisma.address.delete({
+    where: { id: addressId }
+  })
 }
 
 exports.deleteUserExpiresAtById = async (userId) => {
-  await User.updateOne(
-    { _id: userId },
-    { $unset: { expiresAt: "" } }
-  );
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { expiresAt: null }
+  })
 }
 
-exports.deleteUserById = async (_id) => {
-  return await User.findByIdAndDelete(_id);
+exports.deleteUserById = async (id) => {
+  return await prisma.user.delete({
+    where: { id }
+  })
 }
