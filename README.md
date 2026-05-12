@@ -3,9 +3,10 @@
 ## Table of Contents
 
 1. [Project Overview](#project-overview)
-2. [Tech Stack](#tech-stack)
-3. [Project Structure](#project-structure)
-4. [Backend Architecture](#backend-architecture)
+2. [Getting Started](#getting-started)
+3. [Tech Stack](#tech-stack)
+4. [Project Structure](#project-structure)
+5. [Backend Architecture](#backend-architecture)
    - [Entry Point](#entry-point)
    - [Configuration](#configuration)
    - [Database](#database)
@@ -16,22 +17,81 @@
    - [Controllers](#controllers)
    - [Services](#services)
    - [Utilities](#utilities)
-5. [Frontend Architecture](#frontend-architecture)
+6. [Frontend Architecture](#frontend-architecture)
    - [Project Setup](#project-setup)
    - [Auth Context & Route Guards](#auth-context--route-guards)
    - [Pages](#pages)
    - [API Layer](#api-layer)
-6. [Security Architecture](#security-architecture)
-7. [Data Flow](#data-flow)
-8. [Environment Variables](#environment-variables)
+7. [Security Architecture](#security-architecture)
+8. [Data Flow](#data-flow)
+9. [Environment Variables](#environment-variables)
 
 ---
 
 ## Project Overview
 
-A full-stack Dental Clinic ERP (Enterprise Resource Planning) system built on top of a secure authentication and authorization foundation. The system supports user management, role-based access control, multi-factor authentication, and clinic-specific features including patient management, appointment scheduling, and treatment recording.
+Dental clinics traditionally manage patient records, appointment schedules, and treatment histories using paper files or disconnected spreadsheets. This leads to lost records, scheduling conflicts, and no centralised view of a patient's history across visits.
 
-Built as a monorepo with a Node.js/Express backend and a React/Vite frontend.
+This system solves that by providing a centralised digital platform where:
+- **Dentists** can view their appointment schedule, record treatments after each visit, and access a patient's full history
+- **Administrators** can manage staff accounts, control access permissions, schedule appointments, and oversee the entire clinic's operations
+- **Patients** are registered once and their history — every appointment, procedure, and cost — is tracked automatically over time
+
+Built as a full-stack monorepo with a Node.js/Express backend and a React/Vite frontend, the system includes enterprise-grade security features: multi-factor authentication, role-based access control, secure session management, and automated account lifecycle management.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) v18+
+- [PostgreSQL](https://www.postgresql.org/) v14+
+- [Redis](https://redis.io/)
+- A [Resend](https://resend.com) account for transactional emails
+
+### Backend Setup
+
+```bash
+cd server
+
+# Install dependencies
+npm install
+
+# Create your .env file (see Environment Variables section)
+cp .env.example .env
+
+# Run database migrations
+npx prisma generate
+npx prisma migrate dev
+
+# Start the server
+npm start
+```
+
+The backend runs on `http://localhost:5500`.
+
+### Frontend Setup
+
+```bash
+cd client
+
+# Install dependencies
+npm install
+
+# Start the dev server
+npm run dev
+```
+
+The frontend runs on `http://localhost:5173`.
+
+### First Login
+
+A default admin account is seeded automatically on first server start:
+- **Email:** `admin@erp.com`
+- **Password:** `Admin@123`
+
+It is strongly recommended to change this password immediately after first login.
 
 ---
 
