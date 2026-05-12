@@ -1,4 +1,4 @@
-# ERP Authentication System — Software Architecture Documentation
+# Dental Clinic ERP System — Software Architecture Documentation
 
 ## Table of Contents
 
@@ -29,7 +29,9 @@
 
 ## Project Overview
 
-A full-stack ERP (Enterprise Resource Planning) authentication system with role-based access control, multi-factor authentication, and user management. Built as a monorepo with a Node.js/Express backend and a React/Vite frontend.
+A full-stack Dental Clinic ERP (Enterprise Resource Planning) system built on top of a secure authentication and authorization foundation. The system supports user management, role-based access control, multi-factor authentication, and clinic-specific features including patient management, appointment scheduling, and treatment recording.
+
+Built as a monorepo with a Node.js/Express backend and a React/Vite frontend.
 
 ---
 
@@ -39,13 +41,15 @@ A full-stack ERP (Enterprise Resource Planning) authentication system with role-
 | Technology | Purpose |
 | --- | --- |
 | Node.js + Express | HTTP server and routing |
-| MongoDB + Mongoose | Primary database and ODM |
+| PostgreSQL | Primary relational database |
+| Prisma (v7) | ORM and database client |
 | Redis | Session storage, token management, TTL-based cleanup |
 | bcrypt | Password hashing |
 | speakeasy | TOTP-based MFA (Google Authenticator compatible) |
 | Resend | Transactional email delivery |
 | helmet | HTTP security headers |
 | cookie-parser | Cookie parsing middleware |
+| node-cron | Scheduled cleanup of expired user accounts |
 
 ### Frontend
 | Technology | Purpose |
@@ -62,57 +66,73 @@ A full-stack ERP (Enterprise Resource Planning) authentication system with role-
 
 ```
 /
-├── server/                        # Backend
-│   ├── index.js                   # Entry point
+├── server/                          # Backend
+│   ├── index.js                     # Entry point, bootstrap, seeding, cron jobs
+│   ├── prisma/
+│   │   ├── schema.prisma            # Database schema
+│   │   ├── prisma.config.ts         # Prisma configuration
+│   │   └── migrations/              # Migration history
 │   ├── config/
-│   │   ├── appConfig.js           # Express setup, middleware, route mounting
-│   │   ├── MongoConfig.js         # MongoDB connection
-│   │   ├── RedisConfig.js         # Redis client
-│   │   └── RBACConfig.js          # Roles and permissions definitions
+│   │   ├── AppConfig.js             # Express setup, middleware, route mounting
+│   │   ├── PrismaConfig.js          # Prisma client with pg adapter
+│   │   ├── RedisConfig.js           # Redis client
+│   │   └── RBACConfig.js            # Roles and permissions definitions
 │   ├── controllers/
 │   │   ├── activationControllers.js
 │   │   ├── authControllers.js
 │   │   ├── userControllers.js
-│   │   └── adminControllers.js
+│   │   ├── adminControllers.js
+│   │   ├── patientControllers.js
+│   │   ├── appointmentControllers.js
+│   │   └── treatmentControllers.js
 │   ├── middlewares/
-│   │   ├── authMiddleware.js      # Session validation (requireAuth)
-│   │   └── rbacMiddleware.js      # Permission checking (requirePermission)
-│   ├── models/
-│   │   └── User.js                # Mongoose user schema
+│   │   ├── authMiddleware.js        # Session validation (requireAuth)
+│   │   └── rbacMiddleware.js        # Permission checking (requirePermission)
 │   ├── routes/
 │   │   ├── activationRoutes.js
-│   │   ├── authRoutes.js
+│   │   ├── authRoutes.js            # Includes /me session check endpoint
 │   │   ├── userRoutes.js
-│   │   └── adminRoutes.js
+│   │   ├── adminRoutes.js
+│   │   ├── patientRoutes.js
+│   │   ├── appointmentRoutes.js
+│   │   └── treatmentRoutes.js
 │   ├── services/
-│   │   └── userService.js         # Database query functions
+│   │   ├── userService.js
+│   │   ├── patientService.js
+│   │   ├── appointmentService.js
+│   │   └── treatmentService.js
 │   └── utils/
 │       ├── activationTokenUtils.js
 │       ├── passwordUtils.js
 │       ├── mfaUtils.js
-│       └── emailUtils.js
+│       ├── emailUtils.js
+│       └── cleanupUtils.js          # Expired user account cleanup
 │
-└── client/                        # Frontend
+└── client/                          # Frontend
     ├── vite.config.js
     ├── src/
-    │   ├── main.jsx               # App entry point
-    │   ├── App.jsx                # Router and route definitions
+    │   ├── main.jsx
+    │   ├── App.jsx
     │   ├── api/
-    │   │   ├── axiosInstance.js   # Axios config and interceptors
+    │   │   ├── axiosInstance.js     # Axios config, interceptors, redirect guard
     │   │   ├── activation.js
-    │   │   ├── auth.js
+    │   │   ├── auth.js              # Includes getMe for session check
     │   │   ├── user.js
-    │   │   └── admin.js
+    │   │   ├── admin.js
+    │   │   └── clinic.js            # Patients, appointments, treatments
     │   ├── context/
-    │   │   ├── AuthContext.js     # React context definition
-    │   │   ├── AuthProvider.jsx   # Context provider with session logic
-    │   │   └── useAuth.js         # Custom hook for consuming context
+    │   │   ├── AuthContext.js
+    │   │   ├── AuthProvider.jsx     # Calls /auth/me on mount
+    │   │   └── useAuth.js
     │   ├── components/
-    │   │   └── ProtectedRoute.jsx # Route guard components
+    │   │   ├── ProtectedRoute.jsx
+    │   │   └── AppSidebar.jsx       # Shared sidebar across all pages
     │   └── pages/
-    │       ├── auth/              # Login, MFA, forgot/reset password, activation
-    │       ├── profile/           # User profile management
-    │       └── admin/             # Admin user management
+    │       ├── auth/
+    │       ├── home/
+    │       ├── profile/
+    │       ├── admin/
+    │       └── clinic/              # Patients, appointments, treatments
 ```
 
 ---
@@ -121,24 +141,44 @@ A full-stack ERP (Enterprise Resource Planning) authentication system with role-
 
 ### Entry Point
 
-`index.js` bootstraps the application by connecting to MongoDB and Redis before starting the Express server. The order matters — the app should not accept requests before database connections are established.
+`index.js` bootstraps in this order:
+1. Connect to PostgreSQL via Prisma
+2. Connect to Redis
+3. Seed admin user if not present
+4. Start Express server
+5. Run immediate expired account cleanup then schedule hourly cron job
+
+```javascript
+await prismaConnect()
+await redisConnect()
+await seedAdminUser()
+await appConfig(app)
+await cleanupExpiredUsers()
+cron.schedule('0 * * * *', async () => { await cleanupExpiredUsers() })
+```
 
 ### Configuration
 
-**`appConfig.js`** configures the Express application:
-- Applies `helmet` for security headers
-- Applies `cookie-parser` to parse incoming cookies
-- Applies `express.json()` to parse JSON request bodies
-- Mounts all route groups under versioned prefixes
+**`AppConfig.js`** mounts all route groups:
 
 ```
-/api/v2/activate   → activationRoutes
-/api/v2/auth       → authRoutes
-/api/v2/user       → userRoutes
-/api/v2/admin      → adminRoutes
+/api/v2/activate      → activationRoutes
+/api/v2/auth          → authRoutes
+/api/v2/user          → userRoutes
+/api/v2/admin         → adminRoutes
+/api/v2/patients      → patientRoutes
+/api/v2/appointments  → appointmentRoutes
+/api/v2/treatments    → treatmentRoutes
 ```
 
-**`RBACConfig.js`** is a static JavaScript file that defines all permissions and which roles have them. Keeping this in code rather than the database avoids DB queries on every request while still being easy to update via a code deployment.
+**`PrismaConfig.js`** creates the Prisma client using `@prisma/adapter-pg`:
+
+```javascript
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
+const prisma = new PrismaClient({ adapter })
+```
+
+**`RBACConfig.js`** defines all permissions and role assignments statically in code:
 
 ```javascript
 PERMISSIONS = {
@@ -146,11 +186,16 @@ PERMISSIONS = {
   PROFILE_EMAIL_CHANGE, PROFILE_PHONES_MANAGE, PROFILE_ADDRESSES_MANAGE,
   USERS_READ, USERS_CREATE, USERS_UPDATE, USERS_DELETE,
   USERS_SUSPEND, USERS_REACTIVATE, USERS_FORCE_LOGOUT,
-  USERS_RESEND_ACTIVATION, USERS_RESET_2FA, USERS_ROLES_MANAGE
+  USERS_RESEND_ACTIVATION, USERS_RESET_2FA, USERS_ROLES_MANAGE,
+  PATIENTS_READ, PATIENTS_CREATE, PATIENTS_UPDATE, PATIENTS_DELETE,
+  APPOINTMENTS_READ, APPOINTMENTS_READ_ALL, APPOINTMENTS_CREATE,
+  APPOINTMENTS_UPDATE, APPOINTMENTS_DELETE,
+  TREATMENTS_READ, TREATMENTS_READ_ALL, TREATMENTS_CREATE,
+  TREATMENTS_UPDATE, TREATMENTS_DELETE
 }
 
 ROLES = {
-  STAFF: [ ...profile permissions ],
+  STAFF: [ ...profile + clinic permissions ],
   ADMIN: [ ...all permissions ]
 }
 ```
@@ -159,170 +204,203 @@ ROLES = {
 
 ### Database
 
-**User Schema (`models/User.js`)**
+**PostgreSQL** accessed via **Prisma ORM**. Six tables:
+
+**`User`** — Dentist/staff accounts
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `email` | String | Unique, required |
-| `password` | String | bcrypt hashed |
-| `name` | Object | `{ fName, mName, lName }` |
-| `phones` | [String] | Array of phone numbers |
-| `addresses` | [Object] | Subdocuments with `_id` auto-assigned by Mongoose |
-| `roles` | [String] | Default: `["STAFF"]` |
+| `id` | String (cuid) | Primary key |
+| `email` | String | Unique |
+| `password` | String? | bcrypt hashed |
+| `activationTokenId` | String? | Hashed, unique |
 | `status` | String | `PENDING_ACTIVATION` → `PENDING_MFA_SETUP` → `PENDING_MFA_VERIFICATION` → `ACTIVE` |
-| `mfaSecret` | String | TOTP secret (base32) |
-| `mfaUri` | String | otpauth URL for QR generation |
-| `mfaEnabled` | Boolean | Whether 2FA is enforced on login |
-| `activationTokenId` | String | Hashed activation token, `sparse: true` unique index |
-| `expiresAt` | Date | MongoDB TTL index (`expireAfterSeconds: 0`). Set to `null` for permanent documents |
+| `roles` | String[] | Default: `["STAFF"]` |
+| `phones` | String[] | |
+| `mfaSecret` | String? | TOTP secret |
+| `mfaUri` | String? | otpauth URL |
+| `mfaEnabled` | Boolean | |
+| `expiresAt` | DateTime? | Null for permanent accounts |
 
-**TTL Strategy**: New users are given a 48-hour `expiresAt` timestamp. MongoDB automatically deletes the document if activation is not completed in time. On successful activation, `expiresAt` is set to `null` which causes the TTL monitor to ignore the document permanently.
+**`UserName`** — One-to-one with User (cascade delete)
+
+**`Address`** — One-to-many with User (cascade delete)
+
+**`Patient`** — Dental clinic patients
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | String (cuid) | Primary key |
+| `firstName` | String | Required |
+| `lastName` | String | Required |
+| `dob` | DateTime | Date of birth |
+| `gender` | String | Required |
+| `phone` | String? | |
+| `email` | String? | |
+| `address` | String? | |
+
+**`Appointment`** — Links dentist to patient
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | String (cuid) | Primary key |
+| `dentistId` | String | FK → User |
+| `patientId` | String | FK → Patient |
+| `date` | DateTime | |
+| `status` | String | `SCHEDULED`, `COMPLETED`, `CANCELLED` |
+| `notes` | String? | |
+
+**`Treatment`** — One-to-one with Appointment (cascade delete)
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | String (cuid) | Primary key |
+| `appointmentId` | String | Unique FK → Appointment |
+| `procedure` | String | e.g. Filling, Extraction |
+| `toothNumber` | Int? | 1–32 |
+| `notes` | String? | |
+| `cost` | Float | AUD |
+
+**Entity Relationships:**
+```
+User (Dentist) ──── many ──── Appointment ──── one ──── Treatment
+                                   │
+Patient ────────── many ───────────┘
+```
+
+**TTL Strategy**: New users have `expiresAt` set to +48hrs. A cron job runs hourly deleting records where `expiresAt < now`. On activation, `expiresAt` is set to `null`.
 
 ---
 
 ### Redis
 
-Redis is used for all ephemeral data that needs fast access and automatic expiry. The following key namespaces are used:
-
 | Key Pattern | Type | TTL | Purpose |
 | --- | --- | --- | --- |
 | `session:{sessionId}` | String (JSON) | 30 mins | Active login session |
 | `token:remember:{tokenId}` | String (JSON) | 7 days | Remember Me token |
-| `token:mfa_login:{tokenId}` | String (JSON) | 5 mins | MFA login handshake token |
-| `token:recover:{tokenId}` | String (JSON) | 15 mins | Password recovery token |
-| `token:email_change:{tokenId}` | String (JSON) | 15 mins | Email change verification token |
-| `mfa:{userId}` | String | 10 mins | MFA setup handshake token |
-| `user_sessions:{userId}` | Sorted Set | — | Registry of session IDs (score = expiry timestamp) |
-| `user_remember:{userId}` | Sorted Set | — | Registry of remember token IDs (score = expiry timestamp) |
-| `user_mfa_login:{userId}` | String (JSON) | 6 mins | User → MFA login token mapping |
-| `user_recover:{userId}` | String (JSON) | 16 mins | User → recovery token mapping |
-| `user_email_change:{userId}` | String (JSON) | 16 mins | User → email change token mapping |
+| `token:mfa_login:{tokenId}` | String (JSON) | 5 mins | MFA login handshake |
+| `token:recover:{tokenId}` | String (JSON) | 15 mins | Password recovery |
+| `token:email_change:{tokenId}` | String (JSON) | 15 mins | Email change verification |
+| `mfa:{userId}` | String | 10 mins | MFA setup handshake |
+| `user_sessions:{userId}` | Sorted Set | — | Session ID registry (score = expiry) |
+| `user_remember:{userId}` | Sorted Set | — | Remember token registry (score = expiry) |
+| `user_mfa_login:{userId}` | String (JSON) | 6 mins | User → MFA login token map |
+| `user_recover:{userId}` | String (JSON) | 16 mins | User → recovery token map |
+| `user_email_change:{userId}` | String (JSON) | 16 mins | User → email change token map |
 
-**Sorted Sets for session/token registries**: The `user_sessions` and `user_remember` sets use the token expiry timestamp as the score. This allows stale entries (tokens that expired via TTL) to be bulk-purged with a single Redis command `ZREMRANGEBYSCORE key 0 Date.now()` without needing to check each token individually.
-
-**User → token mappings**: A secondary key maps each user to their current active token for flows that require verifying the token belongs to a specific user (e.g. preventing token reuse across accounts). The mapping TTL is always 1 minute longer than the token TTL to ensure the mapping outlives the token.
+Sorted sets use expiry timestamps as scores enabling lazy zombie cleanup via `ZREMRANGEBYSCORE key 0 Date.now()` on every authenticated request.
 
 ---
 
 ### Authentication & Session Management
 
-**Login Flow (no MFA):**
-1. Validate credentials against the database
-2. Generate a random `sessionId`
-3. Store session data (userId, userAgent, IP, createdAt) in Redis with 30-min TTL
-4. Add `sessionId` to `user_sessions` sorted set with expiry score
-5. Set `SESSIONID` httpOnly cookie
-6. Optionally generate a remember token and set `REMEMBER` httpOnly cookie
+**Login (no MFA):** Validate credentials → generate sessionId → store in Redis → set cookie
 
-**Login Flow (with MFA):**
-1. Validate credentials
-2. Generate `mfaLoginTokenId`, store in Redis with 5-min TTL
-3. Return `mfaLoginTokenId` to client
-4. Client submits OTP + `mfaLoginTokenId`
-5. Validate OTP against user's `mfaSecret`
-6. Create session and set cookies (same as no-MFA flow)
+**Login (with MFA):** Validate credentials → generate mfaLoginTokenId → return to client → client submits OTP → validate → create session
 
-**Session Validation (`requireAuth` middleware):**
-1. Check `SESSIONID` cookie → look up in Redis → if valid, fetch fresh user from DB, set `req.user`
-2. If no valid session, check `REMEMBER` cookie → rotate remember token → create new session → set new cookies
+**Session Validation (`requireAuth`):** Check SESSIONID cookie → Redis lookup → PostgreSQL user fetch → set req.user. Falls back to REMEMBER cookie with token rotation.
 
-**Lazy Session Cleanup**: On every authenticated request, stale entries are purged from the sorted sets using `ZREMRANGEBYSCORE`. This is O(log N) and runs as a side effect of normal requests rather than on a separate schedule.
+**`GET /api/v2/auth/me`:** Lightweight session check endpoint. Returns only `{ id, roles }`. Used by `AuthProvider` on mount — intentionally separate from `getProfile` to keep concerns distinct and response minimal.
 
 ---
 
 ### Middleware
 
-**`requireAuth`**
+**`requireAuth`**: Validates session, fetches fresh user from PostgreSQL on every request (ensures immediate suspension enforcement), sets `req.user`.
 
-Validates the incoming request has a live session. Checks `SESSIONID` cookie first, falls back to `REMEMBER` cookie. Fetches the user record from MongoDB on every request to ensure roles and status are always fresh (important for immediately reflecting suspensions and role changes). Sets `req.user` for downstream use.
-
-**`requirePermission(permission)`**
-
-A middleware factory — takes a permission string and returns an async middleware function. Fetches the user's roles from the database, looks up their permissions in `RBACConfig.js`, and either calls `next()` or returns 403. Running the DB query here (rather than relying on cached roles in the session) ensures role changes take effect immediately.
+**`requirePermission(permission)`**: Factory returning async middleware. Fresh PostgreSQL role lookup on every request ensures role changes take effect immediately.
 
 ---
 
 ### Routes
 
-All routes follow REST conventions:
-
 ```
-POST   /api/v2/activate/password          Set password during activation
-POST   /api/v2/activate/mfa/secret        Get QR code for 2FA setup
-POST   /api/v2/activate/mfa/verify        Verify OTP to complete activation
+POST   /api/v2/activate/password
+POST   /api/v2/activate/mfa/secret
+POST   /api/v2/activate/mfa/verify
 
-POST   /api/v2/auth/login                 Login
-POST   /api/v2/auth/login/mfa/verify      Verify MFA OTP during login
-POST   /api/v2/auth/logout                Logout current session
-POST   /api/v2/auth/logout/all            Logout all sessions
-POST   /api/v2/auth/forgot-password       Request password reset email
-POST   /api/v2/auth/reset-password        Reset password with token
+GET    /api/v2/auth/me
+POST   /api/v2/auth/login
+POST   /api/v2/auth/login/mfa/verify
+POST   /api/v2/auth/logout
+POST   /api/v2/auth/logout/all
+POST   /api/v2/auth/forgot-password
+POST   /api/v2/auth/reset-password
 
-GET    /api/v2/user/profile               Get own profile
-POST   /api/v2/user/name                  Update name
-POST   /api/v2/user/phones                Add phone
-DELETE /api/v2/user/phones/:phone         Remove phone
-POST   /api/v2/user/addresses             Add address
-PATCH  /api/v2/user/addresses/:addressId  Update address
-DELETE /api/v2/user/addresses/:addressId  Remove address
-POST   /api/v2/user/password              Change password
-POST   /api/v2/user/email                 Request email change
-POST   /api/v2/user/email/verify          Verify email change
-POST   /api/v2/user/2fa/enable            Enable 2FA
-POST   /api/v2/user/2fa/disable           Disable 2FA
+GET    /api/v2/user/profile
+PATCH  /api/v2/user/name
+POST   /api/v2/user/phones
+DELETE /api/v2/user/phones/:phone
+POST   /api/v2/user/addresses
+PATCH  /api/v2/user/addresses/:addressId
+DELETE /api/v2/user/addresses/:addressId
+POST   /api/v2/user/password
+POST   /api/v2/user/email
+POST   /api/v2/user/email/verify
+POST   /api/v2/user/2fa/enable
+POST   /api/v2/user/2fa/disable
 
-GET    /api/v2/admin/users                List all users
-GET    /api/v2/admin/users/:id            Get user detail
-POST   /api/v2/admin/users                Create user
-PATCH  /api/v2/admin/users/:id            Update user
-DELETE /api/v2/admin/users/:id            Delete user
-POST   /api/v2/admin/users/:id/suspend           Suspend user
-POST   /api/v2/admin/users/:id/reactivate        Reactivate user
-POST   /api/v2/admin/users/:id/force-logout      Force logout all sessions
-POST   /api/v2/admin/users/:id/resend-activation Resend activation email
-POST   /api/v2/admin/users/:id/reset-2fa         Reset 2FA secret
-POST   /api/v2/admin/users/:id/roles             Assign role
-DELETE /api/v2/admin/users/:id/roles             Remove role
+GET    /api/v2/admin/users
+GET    /api/v2/admin/users/:id
+POST   /api/v2/admin/users
+PATCH  /api/v2/admin/users/:id
+DELETE /api/v2/admin/users/:id
+POST   /api/v2/admin/users/:id/suspend
+POST   /api/v2/admin/users/:id/reactivate
+POST   /api/v2/admin/users/:id/force-logout
+POST   /api/v2/admin/users/:id/resend-activation
+POST   /api/v2/admin/users/:id/reset-2fa
+POST   /api/v2/admin/users/:id/roles
+DELETE /api/v2/admin/users/:id/roles
+
+GET    /api/v2/patients
+GET    /api/v2/patients/:id
+POST   /api/v2/patients
+PATCH  /api/v2/patients/:id
+DELETE /api/v2/patients/:id
+
+GET    /api/v2/appointments
+GET    /api/v2/appointments/me
+GET    /api/v2/appointments/:id
+GET    /api/v2/appointments/patient/:patientId
+POST   /api/v2/appointments
+PATCH  /api/v2/appointments/:id
+DELETE /api/v2/appointments/:id
+
+GET    /api/v2/treatments/:id
+GET    /api/v2/treatments/appointment/:appointmentId
+POST   /api/v2/treatments
+PATCH  /api/v2/treatments/:id
+DELETE /api/v2/treatments/:id
 ```
-
----
-
-### Controllers
-
-Controllers handle HTTP request/response logic only. They validate input, call service functions, interact with Redis, and return JSON responses. Business logic lives in services and utilities, not in controllers.
-
-**Activation Controllers**: Handle the 3-step account activation flow. Manage handshake tokens in Redis to securely pass state between steps without exposing data in the URL.
-
-**Auth Controllers**: Handle login (both MFA and non-MFA paths), logout, and password recovery. The `loginController` conditionally returns either a session cookie (no MFA) or an `mfaLoginTokenId` (MFA required) so the frontend knows which flow to follow.
-
-**User Controllers**: All protected by `requireAuth` and `requirePermission`. Handle self-service profile management. Password and 2FA changes invalidate all sessions to force re-authentication on other devices.
-
-**Admin Controllers**: Protected by `requireAuth` and `requirePermission` with admin-level permissions. Provide full user lifecycle management. Actions like suspend and reset-2FA invalidate the target user's Redis sessions immediately.
 
 ---
 
 ### Services
 
-`userService.js` contains all direct MongoDB queries. Controllers never call Mongoose models directly — they go through services. This separation makes it easy to swap the database layer without touching controllers.
+All Prisma queries are in service files. Controllers never call Prisma directly.
 
-Key service functions:
-- `findUserById`, `findUserByEmail`, `findUserByActivationToken`
-- `createUser`, `updateUser`, `deleteUserById`
-- `findAllUsers` — uses `.select()` to exclude sensitive fields from list responses
-- `createUserRole`, `deleteUserRole` — manage the roles array on the user document
-- `deleteUserExpiresAtById` — sets `expiresAt` to null to cancel the TTL
+**`userService.js`**: User CRUD, roles, name/phone/address operations. `updateUser` strips internal Prisma relation fields (`id`, `userId`) from nested name objects before passing to upsert.
+
+**`patientService.js`**: Patient CRUD. `findPatientById` includes full appointment and treatment history.
+
+**`appointmentService.js`**: Appointment CRUD with dentist/patient filtering. All queries include dentist, patient, and treatment relations.
+
+**`treatmentService.js`**: Treatment CRUD. All queries include full appointment with dentist and patient.
 
 ---
 
 ### Utilities
 
-**`activationTokenUtils.js`**: Generates cryptographically random tokens using Node's `crypto` module. Tokens are stored hashed (using SHA-256 or similar) in the database/Redis, and the raw token is sent to the user. This means a database breach doesn't expose valid tokens.
+**`activationTokenUtils.js`**: Cryptographically random token generation. Only hashed versions stored — raw token sent to user once.
 
-**`passwordUtils.js`**: Wraps bcrypt for hashing and comparison. The salt rounds are configurable via environment variables.
+**`passwordUtils.js`**: bcrypt hashing and comparison.
 
-**`mfaUtils.js`**: Wraps speakeasy to generate TOTP secrets and verify OTP codes. The secret is stored on the user document and the QR URI is generated from it for scanning with authenticator apps.
+**`mfaUtils.js`**: speakeasy TOTP secret generation and OTP verification.
 
-**`emailUtils.js`**: Wraps the Resend SDK to send transactional emails. Three email types: account activation, password recovery, and email change verification. Each email contains a link with a raw token in the query string pointing to the appropriate frontend route.
+**`emailUtils.js`**: Resend SDK wrapper. Three email types: activation, password recovery, email change verification.
+
+**`cleanupUtils.js`**: `DELETE FROM User WHERE expiresAt < NOW()` — replaces MongoDB's TTL index.
 
 ---
 
@@ -330,91 +408,95 @@ Key service functions:
 
 ### Project Setup
 
-**`vite.config.js`** configures a proxy that forwards all requests starting with `/api` from the Vite dev server (port 5173) to the backend (port 5500). This solves CORS in development and means all API calls use relative URLs.
+**`vite.config.js`**: Proxies `/api` requests from port 5173 → 5500. Solves CORS in development.
 
-**`main.jsx`** is the app entry point. It wraps the entire application in `AuthProvider` so auth context is available to every component in the tree.
-
-**`axiosInstance.js`** creates a configured Axios instance used by all API functions:
-- `baseURL: '/api/v2'` — all requests are relative to the API prefix
-- `withCredentials: true` — ensures cookies are sent with every request
-- Response interceptor — catches 401 responses and redirects to `/login` unless already on the login page (prevents infinite redirect loops)
+**`axiosInstance.js`**:
+- `baseURL: '/api/v2'`, `withCredentials: true`
+- 401 interceptor with `isRedirecting` flag prevents double redirects from simultaneous failing requests
+- Public paths excluded from redirect: `/login`, `/activate`, `/forgot-password`, `/reset-password`
 
 ---
 
 ### Auth Context & Route Guards
 
-**`AuthContext.js`**: Creates the React context with `createContext(null)`. Kept in a separate file from the provider to satisfy React fast-refresh rules (files should export only components or only non-components, not both).
+**`AuthProvider.jsx`**:
+- Calls `GET /api/v2/auth/me` on mount — not `getProfile`. Returns only `{ id, roles }` for minimal response and clear separation of concerns.
+- Only clears `user` on 401 — a 500 server error does not log the user out
+- Exposes `user`, `loading`, `login()`, `logoutUser()`, `isAdmin()`
 
-**`AuthProvider.jsx`**: Wraps the app and maintains global auth state:
-- On mount, calls `GET /api/v2/user/profile` to check if an existing session cookie is valid
-- `loading: true` during this check prevents protected routes from flashing to `/login`
-- Exposes `user`, `loading`, `login()`, `logoutUser()`, and `isAdmin()` to all children
-- `login()` and `logoutUser()` are manual setters called after login/logout actions to immediately sync context without waiting for another API round trip
+**`AppSidebar.jsx`**: Shared sidebar across all authenticated pages. Navigation sections: Main (Home, Profile), Clinic (Patients, Appointments), Admin (admin only), Session (Sign out). `active` prop highlights current page link.
 
-**`useAuth.js`**: Custom hook that calls `useContext(AuthContext)`. Separated into its own file (not exported from `AuthProvider.jsx`) to comply with React fast-refresh which requires files to only export components.
+**`ProtectedRoute`**: Redirects to `/login` if unauthenticated.
 
-**`ProtectedRoute.jsx`**: Wrapper component used in `App.jsx` to guard routes. Shows a loading screen while session check is in progress, redirects to `/login` if not authenticated, otherwise renders children. `AdminRoute` extends this with an additional `isAdmin()` check, redirecting to `/profile` for authenticated non-admin users.
+**`AdminRoute`**: Redirects non-admins to `/home`.
 
 ---
 
 ### Pages
 
-**Activation Flow** (`/activate` → `/activate/2fa` → `/activate/2fa/verify`):
+**Activation** (`/activate` → `/activate/2fa` → `/activate/2fa/verify`): Three-step flow, state passed via router state.
 
-Three-step flow triggered by the activation email link. State (tokens) is passed between steps via React Router's `navigate(..., { state })` — never localStorage. Each step validates the presence of required state and redirects back if missing, preventing users from accessing later steps directly.
+**Auth**: Login → `/home`, MFA login, forgot/reset password.
 
-**Auth Flow**:
+**Home** (`/home`): Default landing page. Personalised greeting, role badge, empty state ready for future dashboard widgets.
 
-- `Login.jsx` — checks if already logged in on mount and redirects to `/profile`. Handles both MFA and non-MFA paths based on the login response. Calls `login()` from context after success to immediately update auth state.
-- `VerifyMfaLogin.jsx` — receives `mfaLoginTokenId` via route state, submits OTP to complete login.
-- `ForgotPassword.jsx` — always shows a success message regardless of whether the email exists, preventing email enumeration.
-- `ResetPassword.jsx` — reads `?token=` from URL query params, same pattern as the activation flow.
+**Profile** (`/profile`): Name, phones, addresses, password, email, 2FA sections. `AddressForm` at module level to prevent remount. 2FA disable calls `logoutUser()` before navigating.
 
-**Profile Page** (`/profile`):
+**Admin**: User list with search, user detail with contextual actions. Self-deletion prevented on frontend (`isSelf` check) and backend.
 
-Single page with all profile sections rendered vertically with a sticky sidebar for navigation. Each section is a separate component (`NameSection`, `PhonesSection`, `AddressesSection`, `PasswordSection`, `EmailSection`, `TwoFASection`) that manages its own form state independently. All sections share an `onUpdate` callback that re-fetches the profile to keep the page in sync after mutations.
-
-`AddressForm` is defined outside `AddressesSection` at the module level — a critical detail since defining components inside other components causes them to remount on every render, which breaks input focus.
-
-`VerifyEmailChange.jsx` is a separate page at `/profile/email/verify` that auto-fires the verification API call on mount using the `?token=` query param from the email link.
-
-**Admin Pages**:
-
-- `AdminUsers.jsx` — displays a searchable, clickable user table. Client-side filtering across email, name, and status. `CreateUserModal` is defined at module level (not inside the page component) to avoid remount issues. Clicking a row navigates to the detail page.
-- `AdminUserDetail.jsx` — shows full user data with contextual action buttons that only render when relevant (e.g. "Suspend" only for active users, "Reset 2FA" only when MFA is enabled). All actions share a `runAction(label, fn)` helper that handles loading state, error display, success feedback, and data refresh without duplicating the try/catch pattern for each action.
+**Clinic**:
+- `Patients.jsx` / `PatientDetail.jsx` — patient CRUD, appointment history. Uses `useReducer` for forms, `useRef` for search auto-focus.
+- `Appointments.jsx` / `AppointmentDetail.jsx` — admins see all, dentists see own. Treatment recorded inline on appointment detail. Recording treatment auto-completes the appointment.
 
 ---
 
 ### API Layer
 
-Each page area has a corresponding file in `src/api/`:
-
-- `activation.js` — `setPassword`, `get2faSecret`, `verify2faSetup`
-- `auth.js` — `login`, `verifyMfaLogin`, `forgotPassword`, `resetPassword`, `logout`, `logoutAll`
-- `user.js` — `getProfile`, `updateName`, `addPhone`, `removePhone`, `addAddress`, `updateAddress`, `removeAddress`, `changePassword`, `changeEmail`, `verifyEmailChange`, `disable2fa`, `enable2fa`
-- `admin.js` — `getAllUsers`, `getUser`, `createUser`, `updateUser`, `deleteUser`, `suspendUser`, `reactivateUser`, `forceLogoutUser`, `resendActivationEmail`, `reset2fa`, `assignRole`, `removeRole`
-
-All API functions use the shared `axiosInstance` and return the `data` property of the Axios response directly, so callers receive the parsed JSON without extra unwrapping.
+```
+src/api/
+├── axiosInstance.js
+├── activation.js   setPassword, get2faSecret, verify2faSetup
+├── auth.js         login, verifyMfaLogin, getMe, forgotPassword,
+│                   resetPassword, logout, logoutAll
+├── user.js         getProfile, updateName, addPhone, removePhone,
+│                   addAddress, updateAddress, removeAddress,
+│                   changePassword, changeEmail, verifyEmailChange,
+│                   disable2fa, enable2fa
+├── admin.js        getAllUsers, getUser, createUser, updateUser,
+│                   deleteUser, suspendUser, reactivateUser,
+│                   forceLogoutUser, resendActivationEmail,
+│                   reset2fa, assignRole, removeRole
+└── clinic.js       getAllPatients, getPatient, createPatient, updatePatient,
+                    deletePatient, getAllAppointments, getMyAppointments,
+                    getAppointment, getAppointmentsByPatient,
+                    createAppointment, updateAppointment, deleteAppointment,
+                    getTreatment, getTreatmentByAppointment, createTreatment,
+                    updateTreatment, deleteTreatment
+```
 
 ---
 
 ## Security Architecture
 
-**Password Security**: Passwords are hashed with bcrypt before storage. The plain text password is never stored or logged. Password comparison uses bcrypt's timing-safe compare function.
+**Password Security**: bcrypt hashing. Never stored or logged as plain text.
 
-**Token Security**: All tokens (activation, recovery, MFA handshake, email change) are generated as cryptographically random values. Only the hashed version is stored in the database or Redis. The raw token is sent to the user once. A database or Redis breach does not expose usable tokens.
+**Token Security**: Cryptographically random. Only hashed versions in PostgreSQL/Redis. Raw token sent once.
 
-**Session Security**: Sessions are stored entirely server-side in Redis. The client only holds an opaque session ID in an httpOnly cookie (not accessible to JavaScript). `secure: true` ensures cookies are only sent over HTTPS. `sameSite: strict` prevents cross-site request forgery.
+**Session Security**: Server-side Redis storage. Client holds opaque ID in httpOnly, secure, sameSite=strict cookie.
 
-**Cookie Rotation**: Remember Me tokens are rotated on every use — the old token is deleted and a new one is issued. This limits the window of exposure if a token is intercepted.
+**Cookie Rotation**: Remember Me tokens rotate on every use.
 
-**MFA**: Time-based One-Time Passwords (TOTP) compatible with standard authenticator apps. The secret is stored on the user document and verified server-side. The secret persists even when 2FA is disabled, so re-enabling doesn't require a new QR scan unless an admin explicitly resets it.
+**MFA**: TOTP via speakeasy. Secret persists when disabled — re-enabling doesn't require new QR scan unless admin resets it.
 
-**RBAC**: Permissions are checked on every request by `requirePermission` middleware using a fresh DB lookup (not cached session data). This ensures role changes take effect immediately without requiring the user to log out and back in.
+**RBAC**: Fresh PostgreSQL role lookup on every request. Role changes take effect immediately.
 
-**Suspension Enforcement**: `requireAuth` fetches the user from MongoDB on every request and checks `status === "ACTIVE"`. A suspended user is rejected at the middleware level regardless of having a valid session cookie, and the frontend's 401 interceptor redirects them to the login page immediately.
+**Suspension Enforcement**: `requireAuth` fetches user on every request. Suspended users rejected immediately.
 
-**Input Validation**: Admin-facing update endpoints use explicit field whitelists — only fields in `allowedFields` are applied to the database, preventing arbitrary field injection (e.g. a user cannot set their own `status` or `mfaSecret` through the update endpoint).
+**Input Validation**: Explicit field whitelists on update endpoints. Prisma relation fields stripped from nested objects before update.
+
+**Self-Deletion Prevention**: Admins cannot delete own account — enforced on backend and frontend.
+
+**Session Check Separation**: `/auth/me` for session validation (returns `{ id, roles }`). `/user/profile` for full profile data. Intentionally separate concerns.
 
 ---
 
@@ -423,35 +505,42 @@ All API functions use the shared `axiosInstance` and return the `data` property 
 **Account Creation and Activation:**
 ```
 Admin creates user (email only)
-    → MongoDB document created with PENDING_ACTIVATION status and 48hr TTL
-    → Activation email sent with raw token
+    → PostgreSQL User row created, PENDING_ACTIVATION, expiresAt +48hrs
+    → Activation email sent (Resend)
     → User clicks link → /activate?token=TOKEN
-    → User sets password → status: PENDING_MFA_SETUP
-    → User scans QR code → mfaSecret stored, status: PENDING_MFA_VERIFICATION
-    → User verifies OTP → status: ACTIVE, mfaEnabled: true, expiresAt: null
+    → Sets password → status: PENDING_MFA_SETUP
+    → Scans QR → mfaSecret stored, status: PENDING_MFA_VERIFICATION
+    → Verifies OTP → status: ACTIVE, mfaEnabled: true, expiresAt: null
+```
+
+**Expired Account Cleanup:**
+```
+Server starts → cleanupExpiredUsers() runs immediately
+Cron job runs every hour at :00 → DELETE WHERE expiresAt < NOW()
 ```
 
 **Login with MFA:**
 ```
-User submits email + password
-    → Credentials validated
-    → mfaLoginTokenId generated and stored in Redis (5 mins)
-    → Frontend redirected to /login/mfa with token
-    → User submits OTP + token
-    → OTP verified against mfaSecret
-    → Session created in Redis, SESSIONID cookie set
-    → Frontend calls getProfile(), updates AuthContext
-    → User redirected to /profile
+Submit email + password → validate → generate mfaLoginTokenId (Redis, 5 mins)
+    → Navigate to /login/mfa
+    → Submit OTP → validate → create session in Redis
+    → login({ id, roles }) called in AuthContext
+    → Navigate to /home
 ```
 
 **Authenticated Request:**
 ```
-Browser sends request with SESSIONID cookie
-    → requireAuth: Redis lookup for session
-    → MongoDB lookup for user (checks status === ACTIVE)
-    → requirePermission: MongoDB lookup for roles, RBACConfig lookup for permissions
-    → Controller executes
-    → Response returned
+SESSIONID cookie → requireAuth → Redis lookup → PostgreSQL user fetch
+    → requirePermission → PostgreSQL roles → RBACConfig lookup
+    → Controller → Response
+```
+
+**Clinic Flow:**
+```
+Register patient → Schedule appointment (links dentist + patient)
+    → After visit: record treatment on appointment detail page
+    → Appointment status auto-updates to COMPLETED
+    → Treatment visible in patient appointment history
 ```
 
 ---
@@ -461,7 +550,7 @@ Browser sends request with SESSIONID cookie
 ```bash
 # Server
 PORT=5500
-MONGO_URI=mongodb://localhost:27017/erp_db
+DATABASE_URL="postgresql://username@localhost:5432/erp_db"
 REDIS_URL=redis://localhost:6379
 
 # Email
