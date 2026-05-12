@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { AuthContext } from './AuthContext'
-import { getProfile } from '../api/user'
+import { getMe } from '../api/auth'
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
@@ -9,10 +9,14 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const data = await getProfile()
+        const data = await getMe()
         setUser(data)
-      } catch {
-        setUser(null)
+      } catch(err) {
+        // Only clear user if it's a genuine auth failure (401)
+        // A 500 means server error — don't log the user out
+        if (err.response?.status === 401) {
+          setUser(null)
+        }
       } finally {
         setLoading(false)
       }

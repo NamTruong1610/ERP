@@ -71,15 +71,22 @@ exports.deleteUserRole = async (userData, role) => {
 exports.updateUser = async (oldUserData, updatedUserData) => {
   const { name, addresses, ...rest } = updatedUserData
 
+  // Strip Prisma relation fields — only pass actual data fields
+  const nameData = name ? {
+    fName: name.fName,
+    mName: name.mName,
+    lName: name.lName
+  } : undefined
+
   return await prisma.user.update({
     where: { id: oldUserData.id },
     data: {
       ...rest,
-      ...(name && {
+      ...(nameData && {
         name: {
           upsert: {
-            create: name,
-            update: name
+            create: nameData,
+            update: nameData
           }
         }
       })

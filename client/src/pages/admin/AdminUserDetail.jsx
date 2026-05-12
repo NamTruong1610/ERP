@@ -12,6 +12,7 @@ import {
   deleteUser,
   updateUser
 } from '../../api/admin'
+import AppSidebar from '../../components/AppSidebar'
 import { useAuth } from '../../context/useAuth'
 import './admin.css'
 
@@ -133,16 +134,7 @@ export default function AdminUserDetail() {
 
   return (
     <div className="admin-layout">
-      <aside className="admin-sidebar">
-        <div className="sidebar-logo">
-          ERP
-          <div className="sidebar-role">Admin</div>
-        </div>
-        <nav className="sidebar-nav">
-          <Link to="/home" className="sidebar-link">← Home</Link>
-          <Link to="/admin/users" className="sidebar-link">Users</Link>
-        </nav>
-      </aside>
+      <AppSidebar active="admin" />
 
       <main className="admin-main">
         <Link to="/admin/users" className="back-link">← Back to users</Link>

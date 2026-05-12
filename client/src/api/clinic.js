@@ -1,0 +1,92 @@
+import axiosInstance from './axiosInstance'
+
+// ─── Patients ─────────────────────────────────────────────────────────────────
+
+export const getAllPatients = async () => {
+  const { data } = await axiosInstance.get('/patients')
+  return data // { patients }
+}
+
+export const getPatient = async (id) => {
+  const { data } = await axiosInstance.get(`/patients/${id}`)
+  return data // { patient }
+}
+
+export const createPatient = async (patientData) => {
+  const { data } = await axiosInstance.post('/patients', patientData)
+  return data // { patient }
+}
+
+export const updatePatient = async (id, patientData) => {
+  const { data } = await axiosInstance.patch(`/patients/${id}`, patientData)
+  return data // { patient }
+}
+
+export const deletePatient = async (id) => {
+  const { data } = await axiosInstance.delete(`/patients/${id}`)
+  return data // { message }
+}
+
+// ─── Appointments ──────────────────────────────────────────────────────────────
+
+export const getAllAppointments = async () => {
+  const { data } = await axiosInstance.get('/appointments')
+  return data // { appointments }
+}
+
+export const getMyAppointments = async () => {
+  const { data } = await axiosInstance.get('/appointments/me')
+  return data // { appointments }
+}
+
+export const getAppointment = async (id) => {
+  const { data } = await axiosInstance.get(`/appointments/${id}`)
+  return data // { appointment }
+}
+
+export const getAppointmentsByPatient = async (patientId) => {
+  const { data } = await axiosInstance.get(`/appointments/patient/${patientId}`)
+  return data // { appointments }
+}
+
+export const createAppointment = async (appointmentData) => {
+  const { data } = await axiosInstance.post('/appointments', appointmentData)
+  return data // { appointment }
+}
+
+export const updateAppointment = async (id, appointmentData) => {
+  const { data } = await axiosInstance.patch(`/appointments/${id}`, appointmentData)
+  return data // { appointment }
+}
+
+export const deleteAppointment = async (id) => {
+  const { data } = await axiosInstance.delete(`/appointments/${id}`)
+  return data // { message }
+}
+
+// ─── Treatments ────────────────────────────────────────────────────────────────
+
+export const getTreatment = async (id) => {
+  const { data } = await axiosInstance.get(`/treatments/${id}`)
+  return data // { treatment }
+}
+
+export const getTreatmentByAppointment = async (appointmentId) => {
+  const { data } = await axiosInstance.get(`/treatments/appointment/${appointmentId}`)
+  return data // { treatment }
+}
+
+export const createTreatment = async (treatmentData) => {
+  const { data } = await axiosInstance.post('/treatments', treatmentData)
+  return data // { treatment }
+}
+
+export const updateTreatment = async (id, treatmentData) => {
+  const { data } = await axiosInstance.patch(`/treatments/${id}`, treatmentData)
+  return data // { treatment }
+}
+
+export const deleteTreatment = async (id) => {
+  const { data } = await axiosInstance.delete(`/treatments/${id}`)
+  return data // { message }
+}

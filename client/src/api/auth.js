@@ -1,4 +1,9 @@
 import axiosInstance from './axiosInstance'
+
+export const getMe = async () => {
+  const { data } = await axiosInstance.get('/auth/me')
+  return data // { id, roles }
+}
  
 export const login = async ({ email, password, rememberMe }) => {
   const { data } = await axiosInstance.post('/auth/login', { email, password, rememberMe })

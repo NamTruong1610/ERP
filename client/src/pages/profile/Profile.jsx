@@ -14,9 +14,8 @@ import {
   disable2fa,
   enable2fa
 } from '../../api/user'
-import { logout } from '../../api/auth'
 import './profile.css'
-
+import AppSidebar from '../../components/AppSidebar'
 
 
 // ─── Name Section ──────────────────────────────────────────────────────────────
@@ -613,7 +612,6 @@ export default function Profile() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [error, setError] = useState('')
-  const { isAdmin, logoutUser } = useAuth()
 
   const fetchProfile = async () => {
     try {
@@ -638,12 +636,6 @@ export default function Profile() {
     loadProfile()
   }, [])
 
-  const handleLogout = async () => {
-    await logout()
-    logoutUser()
-    navigate('/login')
-  }
-
   if (!profile) {
     return (
       <div className="profile-loading">
@@ -654,35 +646,7 @@ export default function Profile() {
 
   return (
     <div className="profile-layout">
-      <aside className="profile-sidebar">
-        <div className="sidebar-logo">ERP</div>
-        <nav className="sidebar-nav">
-          <span className="sidebar-section-label">Main</span>
-          <a href="/home" className="sidebar-link">Home</a>
-          <span className="sidebar-section-label">Account</span>
-          <a href="#name" className="sidebar-link">Name</a>
-          <a href="#phones" className="sidebar-link">Phones</a>
-          <a href="#addresses" className="sidebar-link">Addresses</a>
-          <span className="sidebar-section-label">Security</span>
-          <a href="#password" className="sidebar-link">Password</a>
-          <a href="#email" className="sidebar-link">Email</a>
-          <a href="#2fa" className="sidebar-link">Two-factor auth</a>
-          {isAdmin() && (
-            <>
-              <span className="sidebar-section-label">Admin</span>
-              <a href="/admin/users" className="sidebar-link">User management</a>
-            </>
-          )}
-          <span className="sidebar-section-label">Session</span>
-          <button
-            className="sidebar-link"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%', color: 'var(--error)' }}
-            onClick={handleLogout}
-          >
-            Sign out
-          </button>
-        </nav>
-      </aside>
+      <AppSidebar active="profile" />
 
       <main className="profile-main">
         <div id="name">

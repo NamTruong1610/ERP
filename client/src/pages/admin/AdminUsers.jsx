@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../../context/useAuth'
 import { getAllUsers, createUser } from '../../api/admin'
-import { logout } from '../../api/auth'
+import AppSidebar from '../../components/AppSidebar'
 import './admin.css'
  
 const STATUS_BADGE = {
@@ -73,7 +72,6 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
-  const { logoutUser } = useAuth()
  
   const fetchUsers = async () => {
     try {
@@ -107,11 +105,6 @@ export default function AdminUsers() {
     )
   }, [search, users])
  
-  const handleLogout = async () => {
-    await logout()
-    logoutUser()
-    navigate('/login')
-  }
  
   const formatName = (name) => {
     if (!name) return '—'
@@ -120,17 +113,7 @@ export default function AdminUsers() {
  
   return (
     <div className="admin-layout">
-      <aside className="admin-sidebar">
-        <div className="sidebar-logo">
-          ERP
-          <div className="sidebar-role">Admin</div>
-        </div>
-        <nav className="sidebar-nav">
-          <Link to="/home" className="sidebar-link">← Home</Link>
-          <Link to="/admin/users" className="sidebar-link active">Users</Link>
-          <button className="sidebar-link danger" onClick={handleLogout}>Sign out</button>
-        </nav>
-      </aside>
+      <AppSidebar active="admin" />
  
       <main className="admin-main">
         <div className="page-header">

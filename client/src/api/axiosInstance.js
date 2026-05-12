@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+let isRedirecting = false  // ← flag to prevent double redirect
+
 const axiosInstance = axios.create({
   baseURL: '/api/v2',
   withCredentials: true,
@@ -14,8 +16,10 @@ axiosInstance.interceptors.response.use(
       const isPublicPage = publicPaths.some(path =>
         window.location.pathname.startsWith(path)
       )
-      if (!isPublicPage) {
+      if (!isPublicPage && !isRedirecting) {
         window.location.href = '/login'
+        // Reset flag after redirect completes
+        setTimeout(() => { isRedirecting = false }, 2000)
       }
     }
     return Promise.reject(error)
