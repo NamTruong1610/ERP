@@ -2,77 +2,75 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { forgotPassword } from '../../api/auth'
 import '../../styles/global.css'
- 
+
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
-  const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
- 
+
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    try {
-      await forgotPassword({ email })
-      setSubmitted(true) // always show success to avoid email enumeration
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
+  e.preventDefault()
+  setLoading(true)
+  try {
+    await forgotPassword({ email })
+  } catch {
+    // Always show success to prevent email enumeration
+  } finally {
+    setSubmitted(true)
+    setLoading(false)
   }
- 
-  if (submitted) {
-    return (
-      <div className="auth-container">
-        <div className="auth-card">
-          <div className="auth-label">Check your inbox</div>
-          <h1 className="auth-title">Recovery email sent</h1>
-          <p className="auth-subtitle">
-            If an account exists for <strong>{email}</strong>, you'll receive a password reset link shortly. Check your spam folder if you don't see it.
-          </p>
-          <div className="auth-link">
-            <Link to="/login">Back to sign in</Link>
+}
+
+  return (
+    <div style={{
+      minHeight: '100vh', background: 'var(--bg-page)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+    }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', marginBottom: '12px' }}>
+            <i className="ti ti-tooth" style={{ fontSize: '28px' }} aria-hidden="true" />
+            <span style={{ fontSize: '20px', fontWeight: 600 }}>DentaCore</span>
+          </div>
+          <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
+            Reset your password
+          </div>
+          <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+            Enter your email and we'll send you a reset link
           </div>
         </div>
-      </div>
-    )
-  }
- 
-  return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-label">Account recovery</div>
-        <h1 className="auth-title">Forgot your password?</h1>
-        <p className="auth-subtitle">
-          Enter your email address and we'll send you a link to reset your password.
-        </p>
- 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                setError('')
-              }}
-              placeholder="you@example.com"
-              required
-            />
-          </div>
- 
-          {error && <div className="auth-error">{error}</div>}
- 
-          <button type="submit" className="auth-btn" disabled={loading}>
-            {loading ? 'Sending...' : 'Send reset link'}
-          </button>
-        </form>
- 
-        <div className="auth-link">
-          <Link to="/login">Back to sign in</Link>
+
+        <div className="card">
+          {submitted ? (
+            <div style={{ textAlign: 'center', padding: '8px 0' }}>
+              <i className="ti ti-mail" style={{ fontSize: '32px', color: 'var(--primary)', display: 'block', marginBottom: '12px' }} aria-hidden="true" />
+              <div style={{ fontSize: '15px', fontWeight: 500, marginBottom: '6px' }}>Check your email</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                If an account exists for {email}, a reset link has been sent.
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="form">
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input
+                  type="email" className="form-input"
+                  value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com" required autoFocus
+                />
+              </div>
+              <button type="submit" className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '10px' }} disabled={loading}>
+                {loading ? 'Sending...' : 'Send reset link'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <Link to="/login" style={{ fontSize: '13px', color: 'var(--primary)', textDecoration: 'none' }}>
+            ← Back to sign in
+          </Link>
         </div>
       </div>
     </div>

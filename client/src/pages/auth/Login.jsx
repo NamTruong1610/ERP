@@ -1,26 +1,15 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { login } from '../../api/auth'
 import { useAuth } from '../../context/useAuth'
-import { getProfile } from '../../api/user'
-import { login as loginApi } from '../../api/auth'
 import '../../styles/global.css'
 
 export default function Login() {
   const navigate = useNavigate()
-  const location = useLocation()
-  const { login, user, loading: sessionLoading } = useAuth()
-  const activated = location.state?.activated
-
+  const { login: loginUser } = useAuth()
   const [form, setForm] = useState({ email: '', password: '', rememberMe: false })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (!sessionLoading && user) {
-      navigate('/home')
-    }
-  }, [user, sessionLoading])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -32,19 +21,13 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     try {
-      const data = await loginApi(form) 
-
-      // MFA required — pass token to verify page
+      const data = await login(form)
       if (data.mfaLoginTokenId) {
-        navigate('/login/mfa', { state: { mfaLoginTokenId: data.mfaLoginTokenId } })
-        return
+        navigate('/login/mfa', { state: { mfaLoginTokenId: data.mfaLoginTokenId, rememberMe: form.rememberMe } })
+      } else {
+        loginUser(data.user)
+        navigate('/home')
       }
-
-      // No MFA — logged in
-      // fetch profile and update context
-      const profile = await getProfile()
-      login(profile)
-      navigate('/home')
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -53,65 +36,57 @@ export default function Login() {
   }
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-label">Welcome back</div>
-        <h1 className="auth-title">Sign in to your account</h1>
-        <p className="auth-subtitle">Enter your credentials to continue.</p>
-
-        {activated && (
-          <div className="auth-success" style={{ marginBottom: '24px' }}>
-            Account activated successfully. You can now log in.
+    <div style={{
+      minHeight: '100vh', background: 'var(--bg-page)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+    }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', marginBottom: '12px' }}>
+            <i className="ti ti-tooth" style={{ fontSize: '28px' }} aria-hidden="true" />
+            <span style={{ fontSize: '20px', fontWeight: 600 }}>DentaCore</span>
           </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              required
-            />
+          <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
+            Sign in to your account
           </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-            />
+          <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+            Enter your credentials to continue
           </div>
+        </div>
 
-          <div className="remember-row">
-            <input
-              id="rememberMe"
-              name="rememberMe"
-              type="checkbox"
-              checked={form.rememberMe}
-              onChange={handleChange}
-            />
-            <label htmlFor="rememberMe">Remember me for 7 days</label>
-          </div>
+        <div className="card">
+          <form onSubmit={handleSubmit} className="form">
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input
+                name="email" type="email" className="form-input"
+                value={form.email} onChange={handleChange}
+                placeholder="you@example.com" required autoFocus
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <input
+                name="password" type="password" className="form-input"
+                value={form.password} onChange={handleChange}
+                placeholder="••••••••" required
+              />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <input type="checkbox" name="rememberMe" checked={form.rememberMe} onChange={handleChange} />
+              Remember me for 7 days
+            </label>
+            {error && <div className="feedback-error">{error}</div>}
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '10px' }} disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
+        </div>
 
-          {error && <div className="auth-error">{error}</div>}
-
-          <button type="submit" className="auth-btn" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
-
-        <div className="auth-link">
-          <Link to="/forgot-password">Forgot your password?</Link>
+        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <Link to="/forgot-password" style={{ fontSize: '13px', color: 'var(--primary)', textDecoration: 'none' }}>
+            Forgot your password?
+          </Link>
         </div>
       </div>
     </div>

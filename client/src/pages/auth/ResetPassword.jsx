@@ -1,98 +1,74 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { resetPassword } from '../../api/auth'
 import '../../styles/global.css'
- 
+
 export default function ResetPassword() {
-  const [searchParams] = useSearchParams()
-  const recoveryToken = searchParams.get('token')
   const navigate = useNavigate()
- 
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token')
   const [form, setForm] = useState({ password: '', confirmPassword: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
- 
+
   const handleChange = (e) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
     setError('')
   }
- 
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!recoveryToken) {
-      setError('Invalid reset link')
-      return
-    }
     setLoading(true)
     try {
-      await resetPassword({
-        password: form.password,
-        confirmPassword: form.confirmPassword,
-        recoveryToken
-      })
-      navigate('/login', { state: { passwordReset: true } })
+      await resetPassword({ ...form, recoveryToken: token })
+      navigate('/login')
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
   }
- 
-  if (!recoveryToken) {
-    return (
-      <div className="auth-container">
-        <div className="auth-card">
-          <div className="auth-label">Invalid link</div>
-          <h1 className="auth-title">Reset link is invalid</h1>
-          <p className="auth-subtitle">This password reset link is missing or malformed.</p>
-          <div className="auth-link">
-            <Link to="/forgot-password">Request a new link</Link>
+
+  return (
+    <div style={{
+      minHeight: '100vh', background: 'var(--bg-page)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+    }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', marginBottom: '12px' }}>
+            <i className="ti ti-tooth" style={{ fontSize: '28px' }} aria-hidden="true" />
+            <span style={{ fontSize: '20px', fontWeight: 600 }}>DentaCore</span>
+          </div>
+          <div style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
+            Set a new password
+          </div>
+          <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+            Choose a strong password for your account
           </div>
         </div>
-      </div>
-    )
-  }
- 
-  return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-label">Account recovery</div>
-        <h1 className="auth-title">Set a new password</h1>
-        <p className="auth-subtitle">Choose a strong password for your account.</p>
- 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="password">New password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-            />
-          </div>
- 
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm new password</label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              value={form.confirmPassword}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-            />
-          </div>
- 
-          {error && <div className="auth-error">{error}</div>}
- 
-          <button type="submit" className="auth-btn" disabled={loading}>
-            {loading ? 'Resetting...' : 'Reset password'}
-          </button>
-        </form>
+
+        <div className="card">
+          <form onSubmit={handleSubmit} className="form">
+            <div className="form-group">
+              <label className="form-label">New password</label>
+              <input name="password" type="password" className="form-input"
+                value={form.password} onChange={handleChange}
+                placeholder="••••••••" required autoFocus />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Confirm password</label>
+              <input name="confirmPassword" type="password" className="form-input"
+                value={form.confirmPassword} onChange={handleChange}
+                placeholder="••••••••" required />
+            </div>
+            {error && <div className="feedback-error">{error}</div>}
+            <button type="submit" className="btn btn-primary"
+              style={{ width: '100%', justifyContent: 'center', padding: '10px' }} disabled={loading}>
+              {loading ? 'Saving...' : 'Reset password'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )
