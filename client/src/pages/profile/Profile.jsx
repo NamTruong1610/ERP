@@ -29,7 +29,7 @@ function Field({ label, value }) {
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { logoutUser } = useAuth()
+  const { logoutUser, refreshUser } = useAuth()
 
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -82,10 +82,11 @@ export default function Profile() {
     e.preventDefault()
     setNameLoading(true)
     try {
-      await updateName(nameForm)
+      await updateName({ name: nameForm }) 
       showFeedback('Name updated')
       setShowNameEdit(false)
       await fetchProfile()
+      await refreshUser() 
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -123,10 +124,10 @@ export default function Profile() {
     setAddressLoading(true)
     try {
       if (editingAddressId) {
-        await updateAddress(editingAddressId, addressForm)
+        await updateAddress({ addressId: editingAddressId, address: addressForm })
         showFeedback('Address updated')
       } else {
-        await addAddress(addressForm)
+        await addAddress({ address: addressForm })
         showFeedback('Address added')
       }
       setShowAddressForm(false)
@@ -142,7 +143,7 @@ export default function Profile() {
 
   const handleRemoveAddress = async (id) => {
     try {
-      await removeAddress(id)
+      await removeAddress({ addressId: id })
       showFeedback('Address removed')
       await fetchProfile()
     } catch (err) {

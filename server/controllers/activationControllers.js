@@ -24,6 +24,8 @@ const {
   verifyMfaOtp,
 } = require("../utils/mfaUtils")
 
+const QRCode = require('qrcode')
+
 exports.setPasswordController = async (req, res, next) => {
   const { activationToken, password, confirmPassword } = req.body
   try {
@@ -129,15 +131,18 @@ exports.get2faSecretController = async (req, res, next) => {
         status: "PENDING_MFA_VERIFICATION"
       })
 
+      const qrDataUrl = await QRCode.toDataURL(mfaSecret.otpauth_url)
+
       return res.status(200).json({
-        qrUri: mfaSecret.otpauth_url,
+        qrUri: qrDataUrl,
         activationToken: activationToken
       })
     }
 
     // Pick up from the interrupted step, return the qr uri that the user set up when interrupted
+    const qrDataUrl = await QRCode.toDataURL(userRecord.mfaUri)
     return res.status(200).json({
-      qrUri: userRecord.mfaUri,
+      qrUri: qrDataUrl,
       activationToken: activationToken
     })
 

@@ -68,14 +68,14 @@ model Patient {
 
 model Appointment {
   id          String       @id @default(cuid())
-  dentistId   String
+  dentistId   String?
   patientId   String
   date        DateTime
   status      String       @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
   notes       String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  dentist     User         @relation(fields: [dentistId], references: [id])
+  dentist     User?         @relation(fields: [dentistId], references: [id])
   patient     Patient      @relation(fields: [patientId], references: [id])
   treatment   Treatment?
 }

@@ -25,9 +25,17 @@ export const AuthProvider = ({ children }) => {
   const login = (userData) => setUser(userData)
   const logoutUser = () => setUser(null)
   const isAdmin = () => user?.roles?.includes('ADMIN') ?? false
+  const refreshUser = async () => {
+    try {
+      const data = await getMe()
+      setUser(data)
+    } catch {
+      // silently fail
+    }
+  }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logoutUser, isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, logoutUser, isAdmin, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

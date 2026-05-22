@@ -3,7 +3,8 @@ const speakeasy = require("speakeasy");
 exports.generateMfaSecret = async (name) => {
   const secret = await speakeasy.generateSecret({
     length: 20,
-    name: `ERP:${name}`
+    name: `DentaCore:${name}`,
+    issuer: 'DentaCore'
   });
   return secret;
 }

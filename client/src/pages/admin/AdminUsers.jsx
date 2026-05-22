@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useReducer } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllUsers, createUser } from '../../api/admin'
+import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/AppSidebar'
 import '../../styles/global.css'
 
@@ -91,6 +92,7 @@ function CreateUserModal({ onClose, onCreated }) {
 
 export default function AdminUsers() {
   const navigate = useNavigate()
+  const { user: currentUser } = useAuth()
   const searchRef = useRef(null)
   const [users, setUsers] = useState([])
   const [filtered, setFiltered] = useState([])
@@ -134,6 +136,14 @@ export default function AdminUsers() {
   const initials = (u) => {
     if (u.name?.fName && u.name?.lName) return `${u.name.fName[0]}${u.name.lName[0]}`.toUpperCase()
     return u.email[0].toUpperCase()
+  }
+
+  const handleRowClick = (u) => {
+    if (u.id === currentUser?.id) {
+      navigate('/profile')
+    } else {
+      navigate(`/admin/users/${u.id}`)
+    }
   }
 
   return (
@@ -182,12 +192,19 @@ export default function AdminUsers() {
               </thead>
               <tbody>
                 {filtered.map(u => (
-                  <tr key={u.id} onClick={() => navigate(`/admin/users/${u.id}`)}>
+                  <tr key={u.id} onClick={() => handleRowClick(u)}>
                     <td>
                       <div className="avatar-cell">
                         <div className="avatar">{initials(u)}</div>
                         <div>
-                          <div style={{ fontWeight: 500 }}>{formatName(u.name)}</div>
+                          <div style={{ fontWeight: 500 }}>
+                            {formatName(u.name)}
+                            {u.id === currentUser?.id && (
+                              <span style={{ fontSize: '11px', color: 'var(--text-hint)', marginLeft: '6px' }}>
+                                (you)
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{u.email}</div>
                         </div>
                       </div>

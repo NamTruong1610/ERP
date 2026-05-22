@@ -123,6 +123,7 @@ exports.getUserController = async (req, res, next) => {
       roles: userRecord.roles,
       status: userRecord.status,
       mfaEnabled: userRecord.mfaEnabled,
+      mfaSecret: !!userRecord.mfaSecret,
       createdAt: userRecord.createdAt,
       updatedAt: userRecord.updatedAt
     })
@@ -174,8 +175,8 @@ exports.reset2faController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    if (!userRecord.mfaEnabled) {
-      return res.status(400).json({ message: "User does not have 2FA enabled" })
+    if (!userRecord.mfaSecret) {
+      return res.status(400).json({ message: "User has no 2FA setup to reset" })
     }
 
     await updateUser(userRecord, {
@@ -197,6 +198,8 @@ exports.reset2faController = async (req, res, next) => {
       await redisClient.del(`token:remember:${tokenId}`)
     }
     await redisClient.del(`user_remember:${id}`)
+
+    await sendAccountActivationEmail(userRecord.email, rawActivationTokenId)
 
     return res.status(200).json({ message: "2FA reset successfully" })
   } catch (error) {
@@ -313,7 +316,7 @@ exports.updateUserController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    const allowedFields = ["name", "email", "phones", "addresses", "status"]
+    const allowedFields = ["name", "email", "phones", "addresses"]
     const updates = {}
 
     for (const field of allowedFields) {
@@ -331,11 +334,6 @@ exports.updateUserController = async (req, res, next) => {
       if (existingUser && existingUser.id !== id) {
         return res.status(400).json({ message: "Email already in use" })
       }
-    }
-
-    const validStatuses = ["PENDING_ACTIVATION", "PENDING_MFA_SETUP", "PENDING_MFA_VERIFICATION", "ACTIVE", "SUSPENDED"]
-    if (updates.status && !validStatuses.includes(updates.status)) {
-      return res.status(400).json({ message: "Invalid status" })
     }
 
     const updatedUser = await updateUser(userRecord, updates)

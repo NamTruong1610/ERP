@@ -24,6 +24,12 @@ function treatmentReducer(state, action) {
   }
 }
 
+const formatDentist = (dentist) => {
+  if (!dentist) return 'Dentist removed'
+  if (dentist.name?.fName) return `${dentist.name.fName} ${dentist.name.lName}`
+  return dentist.email
+}
+
 export default function AppointmentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -163,10 +169,8 @@ export default function AppointmentDetail() {
           </div>
           <div className="detail-item">
             <div className="detail-label">Dentist</div>
-            <div className="detail-value">
-              {appointment.dentist?.name
-                ? `${appointment.dentist.name.fName} ${appointment.dentist.name.lName}`
-                : appointment.dentist?.email}
+            <div className="detail-value" style={{ color: !appointment.dentist ? 'var(--text-hint)' : 'inherit' }}>
+              {formatDentist(appointment.dentist)}
             </div>
           </div>
           <div className="detail-item">

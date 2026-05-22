@@ -18,6 +18,12 @@ function editReducer(state, action) {
   }
 }
 
+const formatDentist = (dentist) => {
+  if (!dentist) return 'Dentist removed'
+  if (dentist.name?.fName) return `${dentist.name.fName} ${dentist.name.lName}`
+  return dentist.email
+}
+
 export default function PatientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -233,10 +239,8 @@ export default function PatientDetail() {
                 {patient.appointments.map(appt => (
                   <tr key={appt.id} onClick={() => navigate(`/clinic/appointments/${appt.id}`)}>
                     <td>{formatDateTime(appt.date)}</td>
-                    <td>
-                      {appt.dentist?.name
-                        ? `${appt.dentist.name.fName} ${appt.dentist.name.lName}`
-                        : appt.dentist?.email}
+                    <td style={{ color: !appt.dentist ? 'var(--text-hint)' : 'inherit' }}>
+                      {formatDentist(appt.dentist)}
                     </td>
                     <td>
                       <span className={`badge ${STATUS_BADGE[appt.status]}`}>

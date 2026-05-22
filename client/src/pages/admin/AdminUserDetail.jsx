@@ -184,7 +184,7 @@ export default function AdminUserDetail() {
             <div className="card-title" style={{ marginBottom: 0 }}>Edit user</div>
             {!showEdit && (
               <button className="btn btn-sm" onClick={() => {
-                dispatchEdit({ type: 'init', payload: { name: user.name || {}, email: user.email, status: user.status } })
+                dispatchEdit({ type: 'init', payload: { name: user.name || {}, email: user.email } })
                 setShowEdit(true)
               }}>
                 <i className="ti ti-edit" /> Edit
@@ -210,17 +210,6 @@ export default function AdminUserDetail() {
                   <label className="form-label">Email</label>
                   <input type="email" className="form-input" value={editForm.email || ''}
                     onChange={e => dispatchEdit({ type: 'set', field: 'email', value: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Status</label>
-                  <select className="form-select" value={editForm.status || ''}
-                    onChange={e => dispatchEdit({ type: 'set', field: 'status', value: e.target.value })}>
-                    <option value="ACTIVE">Active</option>
-                    <option value="SUSPENDED">Suspended</option>
-                    <option value="PENDING_ACTIVATION">Pending activation</option>
-                    <option value="PENDING_MFA_SETUP">Pending MFA setup</option>
-                    <option value="PENDING_MFA_VERIFICATION">Pending MFA verification</option>
-                  </select>
                 </div>
               </div>
               {editError && <div className="feedback-error">{editError}</div>}
@@ -283,13 +272,13 @@ export default function AdminUserDetail() {
                 {actionLoading === 'Resend activation' ? 'Sending...' : 'Resend activation email'}
               </button>
             )}
-            {user.mfaEnabled && (
+            {user.mfaSecret && !isSelf && (
               <button className="btn" disabled={!!actionLoading}
                 onClick={() => runAction('Reset 2FA', () => reset2fa(id))}>
                 {actionLoading === 'Reset 2FA' ? 'Resetting...' : 'Reset 2FA'}
               </button>
             )}
-            {!isSelf && (
+            {!isSelf && user.status === 'ACTIVE' && (
               <button className="btn" disabled={!!actionLoading}
                 onClick={() => runAction('Force logout', () => forceLogoutUser(id))}>
                 {actionLoading === 'Force logout' ? 'Logging out...' : 'Force logout'}

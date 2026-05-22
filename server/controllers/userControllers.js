@@ -2,9 +2,6 @@ const {
   updateUser,
   findUserById,
   findUserByEmail,
-  updateUserByName,
-  updateUserByPhones,
-  deleteUserPhoneByPhone,
   createUserAddress,
   updateUserAddressByAddressId,
   deleteUserAddressByAddressId,
@@ -47,7 +44,7 @@ exports.getProfileController = async (req, res, next) => {
       phones: userRecord.phones,
       addresses: userRecord.addresses,
       roles: userRecord.roles,
-      mfaEnabled: userRecord.mfaEnabled 
+      mfaEnabled: userRecord.mfaEnabled
     })
 
   } catch (error) {
@@ -67,11 +64,9 @@ exports.updateNameController = async (req, res, next) => {
       })
     }
 
-    await updateUserByName(userRecord, {
-      name: name,
-    })
+    const updatedUser = await updateUser(userRecord, { name })
     return res.status(200).json({
-      message: "User's name updated successfully"
+      name: updatedUser.name
     })
 
   } catch (error) {
@@ -89,7 +84,9 @@ exports.updatePhonesController = async (req, res, next) => {
         message: "User not found"
       })
     }
-    const updatedUser = await updateUserByPhones(userRecord, phone)
+    const updatedUser = await updateUser(userRecord, {
+      phones: [...userRecord.phones, phone]
+    })
     return res.status(200).json({ phones: updatedUser.phones })
   } catch (error) {
     next(error)
@@ -105,7 +102,9 @@ exports.removePhoneController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    const updatedUser = await deleteUserPhoneByPhone(userRecord, phone)
+    const updatedUser = await updateUser(userRecord, {
+      phones: userRecord.phones.filter(p => p !== phone)
+    })
 
     return res.status(200).json({ phones: updatedUser.phones })
   } catch (error) {
@@ -122,10 +121,7 @@ exports.addAddressController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    await createUserAddress(userRecord, address)
-
-    // Re-fetch to get updated addresses
-    const updatedUser = await findUserById(id)
+    const updatedUser = await createUserAddress(userRecord, address)
 
     return res.status(200).json({ addresses: updatedUser.addresses })
   } catch (error) {
@@ -143,9 +139,8 @@ exports.updateAddressController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    await updateUserAddressByAddressId(userRecord, addressId, address)
+    const updatedUser = await updateUserAddressByAddressId(userRecord, addressId, address)
 
-    const updatedUser = await findUserById(id)
 
     return res.status(200).json({ addresses: updatedUser.addresses })
   } catch (error) {

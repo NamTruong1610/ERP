@@ -101,25 +101,32 @@ exports.updateUser = async (oldUserData, updatedUserData) => {
   })
 }
 
-exports.createUserAddress = async (oldUserData, address) => {
-  return await prisma.address.create({
-    data: {
-      ...address,
-      userId: oldUserData.id
-    }
+exports.createUserAddress = async (userData, address) => {
+  await prisma.address.create({
+    data: { ...address, userId: userData.id }
+  })
+  return await prisma.user.findUnique({
+    where: { id: userData.id },
+    include: userInclude
   })
 }
 
-exports.updateUserAddressByAddressId = async (oldUserData, addressId, newAddress) => {
-  return await prisma.address.update({
+exports.updateUserAddressByAddressId = async (userData, addressId, newAddress) => {
+  await prisma.address.update({
     where: { id: addressId },
     data: newAddress
   })
+  return await prisma.user.findUnique({
+    where: { id: userData.id },
+    include: userInclude
+  })
 }
 
-exports.deleteUserAddressByAddressId = async (oldUserData, addressId) => {
-  return await prisma.address.delete({
-    where: { id: addressId }
+exports.deleteUserAddressByAddressId = async (userData, addressId) => {
+  await prisma.address.delete({ where: { id: addressId } })
+  return await prisma.user.findUnique({
+    where: { id: userData.id },
+    include: userInclude
   })
 }
 
