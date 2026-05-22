@@ -42,6 +42,13 @@ exports.findAllUsers = async () => {
   })
 }
 
+exports.findAllDentistUsers = async() => {
+  return await prisma.user.findMany({
+    where: { status: 'ACTIVE' },
+    select: { id: true, email: true, name: true }
+  })
+}
+
 exports.createUser = async (newUserData) => {
   return await prisma.user.create({
     data: newUserData

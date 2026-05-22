@@ -7,7 +7,7 @@ import {
   createAppointment
 } from '../../api/clinic'
 import { getAllPatients } from '../../api/clinic'
-import { getAllUsers } from '../../api/admin'
+import { getDentists } from '../../api/user'
 import AppSidebar from '../../components/AppSidebar'
 import './clinic.css'
 
@@ -45,9 +45,9 @@ function CreateAppointmentModal({ onClose, onCreated }) {
   useEffect(() => {
     const loadOptions = async () => {
       try {
-        const [pData, dData] = await Promise.all([getAllPatients(), getAllUsers()])
+        const [pData, dData] = await Promise.all([getAllPatients(), getDentists()])
         setPatients(pData.patients)
-        setDentists(dData.users.filter(u => u.status === 'ACTIVE'))
+        setDentists(dData.dentists)
       } catch {
         setError('Failed to load options')
       }

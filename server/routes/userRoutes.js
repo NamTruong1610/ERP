@@ -16,7 +16,8 @@ const {
   changeEmailController,
   verifyEmailChangeController,
   disable2faController,
-  enable2faController
+  enable2faController,
+  getDentistsController
 } = require("../controllers/userControllers")
 
 router.get("/profile", requireAuth, requirePermission(PERMISSIONS.PROFILE_READ), getProfileController)
@@ -42,5 +43,6 @@ router.post('/email/verify', requireAuth, requirePermission(PERMISSIONS.PROFILE_
 router.post('/2fa/disable', requireAuth, disable2faController)
 router.post('/2fa/enable', requireAuth, enable2faController)
 
+router.get('/dentists', requireAuth, getDentistsController)
 
 module.exports = router;

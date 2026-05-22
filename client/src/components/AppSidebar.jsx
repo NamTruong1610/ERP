@@ -14,7 +14,7 @@ export default function AppSidebar({ active }) {
 
   return (
     <aside className="home-sidebar">
-      <div className="home-logo">ERP</div>
+      <div className="home-logo">DentaCore</div>
       <nav className="home-nav">
         <span className="home-nav-label">Main</span>
         <Link

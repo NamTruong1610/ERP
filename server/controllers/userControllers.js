@@ -7,7 +7,8 @@ const {
   deleteUserPhoneByPhone,
   createUserAddress,
   updateUserAddressByAddressId,
-  deleteUserAddressByAddressId
+  deleteUserAddressByAddressId,
+  findAllDentistUsers
 } = require("../services/userService")
 
 const {
@@ -380,3 +381,11 @@ exports.enable2faController = async (req, res, next) => {
   }
 }
 
+exports.getDentistsController = async (req, res, next) => {
+  try {
+    const dentists = await findAllDentistUsers()
+    return res.status(200).json({ dentists })
+  } catch (error) {
+    next(error)
+  }
+}

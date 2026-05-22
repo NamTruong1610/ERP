@@ -11,9 +11,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const data = await getMe()
         setUser(data)
-      } catch(err) {
-        // Only clear user if it's a genuine auth failure (401)
-        // A 500 means server error — don't log the user out
+      } catch (err) {
         if (err.response?.status === 401) {
           setUser(null)
         }

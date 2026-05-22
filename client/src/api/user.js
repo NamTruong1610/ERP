@@ -68,3 +68,8 @@ export const enable2fa = async ({ password, otp }) => {
   const { data } = await axiosInstance.post('/user/2fa/enable', { password, otp })
   return data
 }
+
+export const getDentists = async () => {
+  const { data } = await axiosInstance.get('/user/dentists')
+  return data // { dentists }
+}
