@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { verifyMfaLogin } from '../../api/auth'
 import { useAuth } from '../../context/useAuth'
 import { getProfile } from '../../api/user'
-import './auth.css'
+import '../../styles/global.css'
 
 export default function VerifyMfaLogin() {
   const navigate = useNavigate()

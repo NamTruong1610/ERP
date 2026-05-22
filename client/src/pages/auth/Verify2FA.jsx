@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { verify2faSetup } from '../../api/activation'
-import './activation.css'
+import '../../styles/global.css'
  
 export default function Verify2FA() {
   const navigate = useNavigate()

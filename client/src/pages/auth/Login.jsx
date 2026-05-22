@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../context/useAuth'
 import { getProfile } from '../../api/user'
 import { login as loginApi } from '../../api/auth'
-import './auth.css'
+import '../../styles/global.css'
 
 export default function Login() {
   const navigate = useNavigate()

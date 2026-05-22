@@ -2,7 +2,7 @@ import { useState, useEffect, useReducer } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient } from '../../api/clinic'
 import AppSidebar from '../../components/AppSidebar'
-import './clinic.css'
+import '../../styles/global.css'
 
 const STATUS_BADGE = {
   SCHEDULED: 'badge-scheduled',
@@ -12,12 +12,9 @@ const STATUS_BADGE = {
 
 function editReducer(state, action) {
   switch (action.type) {
-    case 'setField':
-      return { ...state, [action.field]: action.value }
-    case 'init':
-      return action.payload
-    default:
-      return state
+    case 'set': return { ...state, [action.field]: action.value }
+    case 'init': return action.payload
+    default: return state
   }
 }
 
@@ -29,7 +26,6 @@ export default function PatientDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
-
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, dispatchEdit] = useReducer(editReducer, {})
   const [editError, setEditError] = useState('')
@@ -39,17 +35,14 @@ export default function PatientDetail() {
     try {
       const data = await getPatient(id)
       setPatient(data.patient)
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load patient')
+    } catch {
+      setError('Failed to load patient')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    const load = async () => { await fetchPatient() }
-    load()
-  }, [id])
+  useEffect(() => { fetchPatient() }, [id])
 
   const startEdit = () => {
     dispatchEdit({
@@ -84,7 +77,7 @@ export default function PatientDetail() {
   }
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this patient? This cannot be undone.')) return
+    if (!window.confirm('Delete this patient? This cannot be undone.')) return
     try {
       await deletePatient(id)
       navigate('/clinic/patients')
@@ -93,93 +86,91 @@ export default function PatientDetail() {
     }
   }
 
-  const formatDate = (d) => new Date(d).toLocaleDateString()
-  const formatDateTime = (d) => new Date(d).toLocaleString()
+  const formatDate = (d) => new Date(d).toLocaleDateString('en-AU')
+  const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
+  const initials = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
 
-  if (loading) return <div className="clinic-loading">Loading patient...</div>
-  if (!patient) return <div className="clinic-loading">{error || 'Patient not found'}</div>
+  if (loading) return <div className="loading">Loading patient...</div>
+  if (!patient) return <div className="loading">{error || 'Patient not found'}</div>
 
   return (
-    <div className="clinic-layout">
+    <div className="app-layout">
       <AppSidebar active="patients" />
+      <main className="main">
+        <Link to="/clinic/patients" className="back-link">
+          <i className="ti ti-arrow-left" aria-hidden="true" /> Back to patients
+        </Link>
 
-      <main className="clinic-main">
-        <Link to="/clinic/patients" className="back-link">← Back to patients</Link>
-
-        <div className="clinic-page-header">
-          <div>
-            <div className="clinic-page-title">{patient.firstName} {patient.lastName}</div>
-            <div className="clinic-page-subtitle">DOB: {formatDate(patient.dob)} · {patient.gender}</div>
+        <div className="page-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="avatar" style={{ width: '44px', height: '44px', fontSize: '16px' }}>
+              {initials(patient)}
+            </div>
+            <div>
+              <div className="page-title">{patient.firstName} {patient.lastName}</div>
+              <div className="page-subtitle">
+                DOB: {formatDate(patient.dob)} · {patient.gender}
+              </div>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn btn-ghost" onClick={startEdit}>Edit</button>
-            <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
+          <div className="page-actions">
+            <button className="btn" onClick={startEdit}>
+              <i className="ti ti-edit" aria-hidden="true" /> Edit
+            </button>
+            <button className="btn btn-danger" onClick={handleDelete}>
+              <i className="ti ti-trash" aria-hidden="true" /> Delete
+            </button>
           </div>
         </div>
 
         {error && <div className="feedback-error" style={{ marginBottom: '16px' }}>{error}</div>}
         {feedback && <div className="feedback-success" style={{ marginBottom: '16px' }}>{feedback}</div>}
 
-        {/* ── Patient Details ── */}
-        <div className="clinic-detail-grid">
-          <div className="clinic-card">
-            <div className="clinic-card-label">Phone</div>
-            <div className="clinic-card-value">{patient.phone || '—'}</div>
+        <div className="detail-grid">
+          <div className="detail-item">
+            <div className="detail-label">Phone</div>
+            <div className="detail-value">{patient.phone || '—'}</div>
           </div>
-          <div className="clinic-card">
-            <div className="clinic-card-label">Email</div>
-            <div className="clinic-card-value">{patient.email || '—'}</div>
+          <div className="detail-item">
+            <div className="detail-label">Email</div>
+            <div className="detail-value">{patient.email || '—'}</div>
           </div>
-          <div className="clinic-card">
-            <div className="clinic-card-label">Address</div>
-            <div className="clinic-card-value">{patient.address || '—'}</div>
+          <div className="detail-item">
+            <div className="detail-label">Address</div>
+            <div className="detail-value">{patient.address || '—'}</div>
           </div>
-          <div className="clinic-card">
-            <div className="clinic-card-label">Registered</div>
-            <div className="clinic-card-value">{formatDateTime(patient.createdAt)}</div>
+          <div className="detail-item">
+            <div className="detail-label">Registered</div>
+            <div className="detail-value">{formatDateTime(patient.createdAt)}</div>
           </div>
         </div>
 
-        {/* ── Edit Form ── */}
         {showEdit && (
-          <div className="clinic-card" style={{ marginBottom: '24px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>Edit patient</div>
-            <form onSubmit={handleUpdate} className="clinic-form">
+          <div className="card" style={{ marginBottom: '20px' }}>
+            <div className="card-title">Edit patient</div>
+            <form onSubmit={handleUpdate} className="form">
               <div className="form-row">
                 <div className="form-group">
-                  <label>First name</label>
-                  <input
-                    value={editForm.firstName}
-                    onChange={e => dispatchEdit({ type: 'setField', field: 'firstName', value: e.target.value })}
-                    required
-                  />
+                  <label className="form-label">First name</label>
+                  <input className="form-input" value={editForm.firstName}
+                    onChange={e => dispatchEdit({ type: 'set', field: 'firstName', value: e.target.value })} required />
                 </div>
                 <div className="form-group">
-                  <label>Last name</label>
-                  <input
-                    value={editForm.lastName}
-                    onChange={e => dispatchEdit({ type: 'setField', field: 'lastName', value: e.target.value })}
-                    required
-                  />
+                  <label className="form-label">Last name</label>
+                  <input className="form-input" value={editForm.lastName}
+                    onChange={e => dispatchEdit({ type: 'set', field: 'lastName', value: e.target.value })} required />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Date of birth</label>
-                  <input
-                    type="date"
-                    value={editForm.dob}
-                    onChange={e => dispatchEdit({ type: 'setField', field: 'dob', value: e.target.value })}
-                    required
-                  />
+                  <label className="form-label">Date of birth</label>
+                  <input type="date" className="form-input" value={editForm.dob}
+                    onChange={e => dispatchEdit({ type: 'set', field: 'dob', value: e.target.value })} required />
                 </div>
                 <div className="form-group">
-                  <label>Gender</label>
-                  <select
-                    value={editForm.gender}
-                    onChange={e => dispatchEdit({ type: 'setField', field: 'gender', value: e.target.value })}
-                    required
-                  >
+                  <label className="form-label">Gender</label>
+                  <select className="form-select" value={editForm.gender}
+                    onChange={e => dispatchEdit({ type: 'set', field: 'gender', value: e.target.value })} required>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
@@ -188,31 +179,24 @@ export default function PatientDetail() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Phone</label>
-                  <input
-                    value={editForm.phone}
-                    onChange={e => dispatchEdit({ type: 'setField', field: 'phone', value: e.target.value })}
-                  />
+                  <label className="form-label">Phone</label>
+                  <input className="form-input" value={editForm.phone}
+                    onChange={e => dispatchEdit({ type: 'set', field: 'phone', value: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Email</label>
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={e => dispatchEdit({ type: 'setField', field: 'email', value: e.target.value })}
-                  />
+                  <label className="form-label">Email</label>
+                  <input type="email" className="form-input" value={editForm.email}
+                    onChange={e => dispatchEdit({ type: 'set', field: 'email', value: e.target.value })} />
                 </div>
               </div>
               <div className="form-group">
-                <label>Address</label>
-                <input
-                  value={editForm.address}
-                  onChange={e => dispatchEdit({ type: 'setField', field: 'address', value: e.target.value })}
-                />
+                <label className="form-label">Address</label>
+                <input className="form-input" value={editForm.address}
+                  onChange={e => dispatchEdit({ type: 'set', field: 'address', value: e.target.value })} />
               </div>
               {editError && <div className="feedback-error">{editError}</div>}
               <div className="form-actions">
-                <button type="button" className="btn btn-ghost" onClick={() => setShowEdit(false)}>Cancel</button>
+                <button type="button" className="btn" onClick={() => setShowEdit(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={editLoading}>
                   {editLoading ? 'Saving...' : 'Save changes'}
                 </button>
@@ -221,16 +205,21 @@ export default function PatientDetail() {
           </div>
         )}
 
-        {/* ── Appointment History ── */}
-        <div style={{ marginBottom: '16px', fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--text-primary)' }}>
           Appointment history
         </div>
 
-        {patient.appointments?.length === 0 ? (
-          <div className="clinic-empty">No appointments yet</div>
+        {!patient.appointments?.length ? (
+          <div className="table-wrap">
+            <div className="empty">
+              <i className="ti ti-calendar" aria-hidden="true" />
+              <div className="empty-title">No appointments yet</div>
+              <div className="empty-subtitle">Appointments will appear here once scheduled</div>
+            </div>
+          </div>
         ) : (
-          <div className="clinic-table-wrap">
-            <table className="clinic-table">
+          <div className="table-wrap">
+            <table className="table">
               <thead>
                 <tr>
                   <th>Date</th>
@@ -241,11 +230,8 @@ export default function PatientDetail() {
                 </tr>
               </thead>
               <tbody>
-                {patient.appointments?.map(appt => (
-                  <tr
-                    key={appt.id}
-                    onClick={() => navigate(`/clinic/appointments/${appt.id}`)}
-                  >
+                {patient.appointments.map(appt => (
+                  <tr key={appt.id} onClick={() => navigate(`/clinic/appointments/${appt.id}`)}>
                     <td>{formatDateTime(appt.date)}</td>
                     <td>
                       {appt.dentist?.name
@@ -254,7 +240,7 @@ export default function PatientDetail() {
                     </td>
                     <td>
                       <span className={`badge ${STATUS_BADGE[appt.status]}`}>
-                        {appt.status}
+                        {appt.status.toLowerCase()}
                       </span>
                     </td>
                     <td>{appt.treatment?.procedure || '—'}</td>

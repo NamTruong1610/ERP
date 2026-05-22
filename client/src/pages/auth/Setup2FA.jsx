@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { get2faSecret } from '../../api/activation'
-import './activation.css'
+import '../../styles/global.css'
  
 export default function Setup2FA() {
   const navigate = useNavigate()

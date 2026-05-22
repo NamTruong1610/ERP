@@ -14,7 +14,7 @@ import {
 } from '../../api/admin'
 import AppSidebar from '../../components/AppSidebar'
 import { useAuth } from '../../context/useAuth'
-import './admin.css'
+import '../../styles/global.css'
 
 const STATUS_BADGE = {
   ACTIVE: 'badge-active',

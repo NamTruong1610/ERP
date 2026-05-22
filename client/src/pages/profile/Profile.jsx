@@ -14,7 +14,7 @@ import {
   disable2fa,
   enable2fa
 } from '../../api/user'
-import './profile.css'
+import '../../styles/global.css'
 import AppSidebar from '../../components/AppSidebar'
 
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { getAllUsers, createUser } from '../../api/admin'
 import AppSidebar from '../../components/AppSidebar'
-import './admin.css'
+import '../../styles/global.css'
  
 const STATUS_BADGE = {
   ACTIVE: 'badge-active',

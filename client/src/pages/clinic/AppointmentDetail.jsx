@@ -1,15 +1,12 @@
 import { useState, useEffect, useReducer } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
-  getAppointment,
-  updateAppointment,
-  deleteAppointment,
-  createTreatment,
-  updateTreatment
+  getAppointment, updateAppointment, deleteAppointment,
+  createTreatment, updateTreatment
 } from '../../api/clinic'
 import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/AppSidebar'
-import './clinic.css'
+import '../../styles/global.css'
 
 const STATUS_BADGE = {
   SCHEDULED: 'badge-scheduled',
@@ -17,21 +14,13 @@ const STATUS_BADGE = {
   CANCELLED: 'badge-cancelled'
 }
 
-const initialTreatmentForm = {
-  procedure: '',
-  toothNumber: '',
-  notes: '',
-  cost: ''
-}
+const initialTreatment = { procedure: '', toothNumber: '', notes: '', cost: '' }
 
 function treatmentReducer(state, action) {
   switch (action.type) {
-    case 'setField':
-      return { ...state, [action.field]: action.value }
-    case 'init':
-      return action.payload
-    default:
-      return state
+    case 'set': return { ...state, [action.field]: action.value }
+    case 'init': return action.payload
+    default: return state
   }
 }
 
@@ -45,9 +34,8 @@ export default function AppointmentDetail() {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
   const [actionLoading, setActionLoading] = useState('')
-
-  const [showTreatmentForm, setShowTreatmentForm] = useState(false)
-  const [treatmentForm, dispatchTreatment] = useReducer(treatmentReducer, initialTreatmentForm)
+  const [showTreatment, setShowTreatment] = useState(false)
+  const [treatmentForm, dispatchTreatment] = useReducer(treatmentReducer, initialTreatment)
   const [treatmentError, setTreatmentError] = useState('')
   const [treatmentLoading, setTreatmentLoading] = useState(false)
 
@@ -55,19 +43,16 @@ export default function AppointmentDetail() {
     try {
       const data = await getAppointment(id)
       setAppointment(data.appointment)
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load appointment')
+    } catch {
+      setError('Failed to load appointment')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    const load = async () => { await fetchAppointment() }
-    load()
-  }, [id])
+  useEffect(() => { fetchAppointment() }, [id])
 
-  const handleStatusChange = async (status) => {
+  const handleStatus = async (status) => {
     setActionLoading(status)
     setError('')
     setFeedback('')
@@ -104,7 +89,7 @@ export default function AppointmentDetail() {
           notes: treatmentForm.notes,
           cost: parseFloat(treatmentForm.cost)
         })
-        setFeedback('Treatment updated successfully')
+        setFeedback('Treatment updated')
       } else {
         await createTreatment({
           appointmentId: id,
@@ -113,9 +98,9 @@ export default function AppointmentDetail() {
           notes: treatmentForm.notes,
           cost: parseFloat(treatmentForm.cost)
         })
-        setFeedback('Treatment recorded successfully')
+        setFeedback('Treatment recorded')
       }
-      setShowTreatmentForm(false)
+      setShowTreatment(false)
       await fetchAppointment()
     } catch (err) {
       setTreatmentError(err.response?.data?.message || 'Something went wrong')
@@ -134,165 +119,131 @@ export default function AppointmentDetail() {
         cost: appointment.treatment?.cost?.toString() || ''
       }
     })
-    setShowTreatmentForm(true)
+    setShowTreatment(true)
   }
 
-  const formatDateTime = (d) => new Date(d).toLocaleString()
+  const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
 
-  if (loading) return <div className="clinic-loading">Loading appointment...</div>
-  if (!appointment) return <div className="clinic-loading">{error || 'Appointment not found'}</div>
+  if (loading) return <div className="loading">Loading appointment...</div>
+  if (!appointment) return <div className="loading">{error || 'Appointment not found'}</div>
 
   const isCancelled = appointment.status === 'CANCELLED'
   const hasT = !!appointment.treatment
 
   return (
-    <div className="clinic-layout">
+    <div className="app-layout">
       <AppSidebar active="appointments" />
+      <main className="main">
+        <Link to="/clinic/appointments" className="back-link">
+          <i className="ti ti-arrow-left" aria-hidden="true" /> Back to appointments
+        </Link>
 
-      <main className="clinic-main">
-        <Link to="/clinic/appointments" className="back-link">← Back to appointments</Link>
-
-        <div className="clinic-page-header">
+        <div className="page-header">
           <div>
-            <div className="clinic-page-title">
+            <div className="page-title">
               {appointment.patient?.firstName} {appointment.patient?.lastName}
             </div>
-            <div className="clinic-page-subtitle">{formatDateTime(appointment.date)}</div>
+            <div className="page-subtitle">{formatDateTime(appointment.date)}</div>
           </div>
           <span className={`badge ${STATUS_BADGE[appointment.status]}`}>
-            {appointment.status}
+            {appointment.status.toLowerCase()}
           </span>
         </div>
 
         {error && <div className="feedback-error" style={{ marginBottom: '16px' }}>{error}</div>}
         {feedback && <div className="feedback-success" style={{ marginBottom: '16px' }}>{feedback}</div>}
 
-        {/* ── Appointment Details ── */}
-        <div className="clinic-detail-grid">
-          <div className="clinic-card">
-            <div className="clinic-card-label">Patient</div>
-            <div
-              className="clinic-card-value"
-              style={{ cursor: 'pointer', color: 'var(--accent)' }}
-              onClick={() => navigate(`/clinic/patients/${appointment.patientId}`)}
-            >
+        <div className="detail-grid">
+          <div className="detail-item" style={{ cursor: 'pointer' }}
+            onClick={() => navigate(`/clinic/patients/${appointment.patientId}`)}>
+            <div className="detail-label">Patient</div>
+            <div className="detail-value" style={{ color: 'var(--primary)' }}>
               {appointment.patient?.firstName} {appointment.patient?.lastName}
             </div>
           </div>
-          <div className="clinic-card">
-            <div className="clinic-card-label">Dentist</div>
-            <div className="clinic-card-value">
+          <div className="detail-item">
+            <div className="detail-label">Dentist</div>
+            <div className="detail-value">
               {appointment.dentist?.name
                 ? `${appointment.dentist.name.fName} ${appointment.dentist.name.lName}`
                 : appointment.dentist?.email}
             </div>
           </div>
-          <div className="clinic-card">
-            <div className="clinic-card-label">Date & Time</div>
-            <div className="clinic-card-value">{formatDateTime(appointment.date)}</div>
+          <div className="detail-item">
+            <div className="detail-label">Date & time</div>
+            <div className="detail-value">{formatDateTime(appointment.date)}</div>
           </div>
-          <div className="clinic-card">
-            <div className="clinic-card-label">Notes</div>
-            <div className="clinic-card-value">{appointment.notes || '—'}</div>
+          <div className="detail-item">
+            <div className="detail-label">Notes</div>
+            <div className="detail-value">{appointment.notes || '—'}</div>
           </div>
         </div>
 
-        {/* ── Actions ── */}
         {!isCancelled && (
-          <div className="clinic-card" style={{ marginBottom: '24px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', color: 'var(--text)' }}>
-              Actions
-            </div>
+          <div className="card" style={{ marginBottom: '16px' }}>
+            <div className="card-title">Actions</div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {appointment.status === 'SCHEDULED' && (
-                <button
-                  className="btn btn-ghost"
-                  disabled={!!actionLoading}
-                  onClick={() => handleStatusChange('CANCELLED')}
-                >
+                <button className="btn" disabled={!!actionLoading}
+                  onClick={() => handleStatus('CANCELLED')}>
                   {actionLoading === 'CANCELLED' ? 'Cancelling...' : 'Cancel appointment'}
                 </button>
               )}
               {!hasT && !isCancelled && (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => { dispatchTreatment({ type: 'init', payload: initialTreatmentForm }); setShowTreatmentForm(true) }}
-                >
-                  Record treatment
+                <button className="btn btn-primary"
+                  onClick={() => { dispatchTreatment({ type: 'init', payload: initialTreatment }); setShowTreatment(true) }}>
+                  <i className="ti ti-plus" aria-hidden="true" /> Record treatment
                 </button>
               )}
               {hasT && (
-                <button className="btn btn-ghost" onClick={startEditTreatment}>
-                  Edit treatment
+                <button className="btn" onClick={startEditTreatment}>
+                  <i className="ti ti-edit" aria-hidden="true" /> Edit treatment
                 </button>
               )}
               {isAdmin() && (
-                <button
-                  className="btn btn-danger"
-                  disabled={!!actionLoading}
-                  onClick={handleDelete}
-                >
-                  Delete appointment
+                <button className="btn btn-danger" disabled={!!actionLoading} onClick={handleDelete}>
+                  <i className="ti ti-trash" aria-hidden="true" /> Delete appointment
                 </button>
               )}
             </div>
           </div>
         )}
 
-        {/* ── Treatment Form ── */}
-        {showTreatmentForm && (
-          <div className="clinic-card" style={{ marginBottom: '24px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>
-              {hasT ? 'Edit treatment' : 'Record treatment'}
-            </div>
-            <form onSubmit={handleTreatmentSubmit} className="clinic-form">
+        {showTreatment && (
+          <div className="card" style={{ marginBottom: '16px' }}>
+            <div className="card-title">{hasT ? 'Edit treatment' : 'Record treatment'}</div>
+            <form onSubmit={handleTreatmentSubmit} className="form">
               <div className="form-row">
                 <div className="form-group">
-                  <label>Procedure *</label>
-                  <input
-                    value={treatmentForm.procedure}
-                    onChange={e => dispatchTreatment({ type: 'setField', field: 'procedure', value: e.target.value })}
-                    placeholder="e.g. Filling, Extraction, Cleaning"
-                    required
-                  />
+                  <label className="form-label">Procedure <span style={{ color: 'var(--danger-text)' }}>*</span></label>
+                  <input className="form-input" value={treatmentForm.procedure}
+                    onChange={e => dispatchTreatment({ type: 'set', field: 'procedure', value: e.target.value })}
+                    placeholder="e.g. Filling, Extraction, Cleaning" required />
                 </div>
                 <div className="form-group">
-                  <label>Tooth number (1–32)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="32"
+                  <label className="form-label">Tooth number (1–32)</label>
+                  <input type="number" min="1" max="32" className="form-input"
                     value={treatmentForm.toothNumber}
-                    onChange={e => dispatchTreatment({ type: 'setField', field: 'toothNumber', value: e.target.value })}
-                    placeholder="e.g. 14"
-                  />
+                    onChange={e => dispatchTreatment({ type: 'set', field: 'toothNumber', value: e.target.value })}
+                    placeholder="e.g. 14" />
                 </div>
               </div>
               <div className="form-group">
-                <label>Notes</label>
-                <textarea
-                  value={treatmentForm.notes}
-                  onChange={e => dispatchTreatment({ type: 'setField', field: 'notes', value: e.target.value })}
-                  placeholder="Clinical notes..."
-                />
+                <label className="form-label">Clinical notes</label>
+                <textarea className="form-textarea" value={treatmentForm.notes}
+                  onChange={e => dispatchTreatment({ type: 'set', field: 'notes', value: e.target.value })}
+                  placeholder="Clinical notes..." />
               </div>
               <div className="form-group">
-                <label>Cost (AUD) *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                <label className="form-label">Cost (AUD) <span style={{ color: 'var(--danger-text)' }}>*</span></label>
+                <input type="number" min="0" step="0.01" className="form-input"
                   value={treatmentForm.cost}
-                  onChange={e => dispatchTreatment({ type: 'setField', field: 'cost', value: e.target.value })}
-                  placeholder="0.00"
-                  required
-                />
+                  onChange={e => dispatchTreatment({ type: 'set', field: 'cost', value: e.target.value })}
+                  placeholder="0.00" required />
               </div>
               {treatmentError && <div className="feedback-error">{treatmentError}</div>}
               <div className="form-actions">
-                <button type="button" className="btn btn-ghost" onClick={() => setShowTreatmentForm(false)}>
-                  Cancel
-                </button>
+                <button type="button" className="btn" onClick={() => setShowTreatment(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={treatmentLoading}>
                   {treatmentLoading ? 'Saving...' : 'Save treatment'}
                 </button>
@@ -301,28 +252,25 @@ export default function AppointmentDetail() {
           </div>
         )}
 
-        {/* ── Treatment Record ── */}
-        {hasT && !showTreatmentForm && (
-          <div className="clinic-card">
-            <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '16px', color: 'var(--text)' }}>
-              Treatment record
-            </div>
-            <div className="clinic-detail-grid">
-              <div>
-                <div className="clinic-card-label">Procedure</div>
-                <div className="clinic-card-value">{appointment.treatment.procedure}</div>
+        {hasT && !showTreatment && (
+          <div className="card">
+            <div className="card-title">Treatment record</div>
+            <div className="detail-grid" style={{ marginBottom: 0 }}>
+              <div className="detail-item">
+                <div className="detail-label">Procedure</div>
+                <div className="detail-value">{appointment.treatment.procedure}</div>
               </div>
-              <div>
-                <div className="clinic-card-label">Tooth number</div>
-                <div className="clinic-card-value">{appointment.treatment.toothNumber || '—'}</div>
+              <div className="detail-item">
+                <div className="detail-label">Tooth number</div>
+                <div className="detail-value">{appointment.treatment.toothNumber || '—'}</div>
               </div>
-              <div>
-                <div className="clinic-card-label">Cost</div>
-                <div className="clinic-card-value">${appointment.treatment.cost.toFixed(2)}</div>
+              <div className="detail-item">
+                <div className="detail-label">Cost</div>
+                <div className="detail-value">${appointment.treatment.cost.toFixed(2)}</div>
               </div>
-              <div>
-                <div className="clinic-card-label">Notes</div>
-                <div className="clinic-card-value">{appointment.treatment.notes || '—'}</div>
+              <div className="detail-item">
+                <div className="detail-label">Notes</div>
+                <div className="detail-value">{appointment.treatment.notes || '—'}</div>
               </div>
             </div>
           </div>

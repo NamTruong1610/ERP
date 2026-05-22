@@ -1,15 +1,10 @@
 import { useState, useEffect, useRef, useReducer } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/useAuth'
-import {
-  getAllAppointments,
-  getMyAppointments,
-  createAppointment
-} from '../../api/clinic'
-import { getAllPatients } from '../../api/clinic'
+import { getAllAppointments, getMyAppointments, createAppointment, getAllPatients } from '../../api/clinic'
 import { getDentists } from '../../api/user'
 import AppSidebar from '../../components/AppSidebar'
-import './clinic.css'
+import '../../styles/global.css'
 
 const STATUS_BADGE = {
   SCHEDULED: 'badge-scheduled',
@@ -17,21 +12,13 @@ const STATUS_BADGE = {
   CANCELLED: 'badge-cancelled'
 }
 
-const initialForm = {
-  dentistId: '',
-  patientId: '',
-  date: '',
-  notes: ''
-}
+const initialForm = { dentistId: '', patientId: '', date: '', notes: '' }
 
 function formReducer(state, action) {
   switch (action.type) {
-    case 'setField':
-      return { ...state, [action.field]: action.value }
-    case 'reset':
-      return initialForm
-    default:
-      return state
+    case 'set': return { ...state, [action.field]: action.value }
+    case 'reset': return initialForm
+    default: return state
   }
 }
 
@@ -43,7 +30,7 @@ function CreateAppointmentModal({ onClose, onCreated }) {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    const loadOptions = async () => {
+    const load = async () => {
       try {
         const [pData, dData] = await Promise.all([getAllPatients(), getDentists()])
         setPatients(pData.patients)
@@ -52,11 +39,11 @@ function CreateAppointmentModal({ onClose, onCreated }) {
         setError('Failed to load options')
       }
     }
-    loadOptions()
+    load()
   }, [])
 
   const handleChange = (e) => {
-    dispatch({ type: 'setField', field: e.target.name, value: e.target.value })
+    dispatch({ type: 'set', field: e.target.name, value: e.target.value })
     setError('')
   }
 
@@ -77,11 +64,16 @@ function CreateAppointmentModal({ onClose, onCreated }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">Schedule appointment</div>
-        <form onSubmit={handleSubmit} className="clinic-form">
+        <div className="modal-header">
+          <div className="modal-title">Schedule appointment</div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
+            <i className="ti ti-x" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="form">
           <div className="form-group">
-            <label>Patient *</label>
-            <select name="patientId" value={form.patientId} onChange={handleChange} required>
+            <label className="form-label">Patient <span style={{ color: 'var(--danger-text)' }}>*</span></label>
+            <select name="patientId" className="form-select" value={form.patientId} onChange={handleChange} required>
               <option value="">Select patient</option>
               {patients.map(p => (
                 <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
@@ -89,8 +81,8 @@ function CreateAppointmentModal({ onClose, onCreated }) {
             </select>
           </div>
           <div className="form-group">
-            <label>Dentist *</label>
-            <select name="dentistId" value={form.dentistId} onChange={handleChange} required>
+            <label className="form-label">Dentist <span style={{ color: 'var(--danger-text)' }}>*</span></label>
+            <select name="dentistId" className="form-select" value={form.dentistId} onChange={handleChange} required>
               <option value="">Select dentist</option>
               {dentists.map(d => (
                 <option key={d.id} value={d.id}>
@@ -100,27 +92,19 @@ function CreateAppointmentModal({ onClose, onCreated }) {
             </select>
           </div>
           <div className="form-group">
-            <label>Date & Time *</label>
-            <input
-              name="date"
-              type="datetime-local"
-              value={form.date}
-              onChange={handleChange}
-              required
-            />
+            <label className="form-label">Date & time <span style={{ color: 'var(--danger-text)' }}>*</span></label>
+            <input name="date" type="datetime-local" className="form-input"
+              value={form.date} onChange={handleChange} required />
           </div>
           <div className="form-group">
-            <label>Notes</label>
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              placeholder="Any notes for this appointment..."
-            />
+            <label className="form-label">Notes</label>
+            <textarea name="notes" className="form-textarea"
+              value={form.notes} onChange={handleChange}
+              placeholder="Any notes for this appointment..." />
           </div>
           {error && <div className="feedback-error">{error}</div>}
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Scheduling...' : 'Schedule appointment'}
             </button>
@@ -135,7 +119,6 @@ export default function Appointments() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
   const searchRef = useRef(null)
-
   const [appointments, setAppointments] = useState([])
   const [filtered, setFiltered] = useState([])
   const [search, setSearch] = useState('')
@@ -145,58 +128,56 @@ export default function Appointments() {
 
   const fetchAppointments = async () => {
     try {
-      const data = isAdmin()
-        ? await getAllAppointments()
-        : await getMyAppointments()
+      const data = isAdmin() ? await getAllAppointments() : await getMyAppointments()
       setAppointments(data.appointments)
       setFiltered(data.appointments)
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load appointments')
+    } catch {
+      setError('Failed to load appointments')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    const load = async () => { await fetchAppointments() }
-    load()
+    fetchAppointments()
     searchRef.current?.focus()
   }, [])
 
   useEffect(() => {
     const q = search.toLowerCase()
-    setFiltered(
-      appointments.filter(a =>
-        a.patient?.firstName.toLowerCase().includes(q) ||
-        a.patient?.lastName.toLowerCase().includes(q) ||
-        a.status.toLowerCase().includes(q) ||
-        a.treatment?.procedure?.toLowerCase().includes(q)
-      )
-    )
+    setFiltered(appointments.filter(a =>
+      a.patient?.firstName.toLowerCase().includes(q) ||
+      a.patient?.lastName.toLowerCase().includes(q) ||
+      a.status.toLowerCase().includes(q) ||
+      a.treatment?.procedure?.toLowerCase().includes(q)
+    ))
   }, [search, appointments])
 
-  const formatDateTime = (d) => new Date(d).toLocaleString()
+  const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
 
   return (
-    <div className="clinic-layout">
+    <div className="app-layout">
       <AppSidebar active="appointments" />
-
-      <main className="clinic-main">
-        <div className="clinic-page-header">
+      <main className="main">
+        <div className="page-header">
           <div>
-            <div className="clinic-page-title">Appointments</div>
-            <div className="clinic-page-subtitle">{appointments.length} total appointments</div>
+            <div className="page-title">Appointments</div>
+            <div className="page-subtitle">{appointments.length} total appointments</div>
           </div>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <input
-              ref={searchRef}
-              className="search-bar"
-              placeholder="Search by patient, status..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div className="page-actions">
+            <div className="search-wrap">
+              <i className="ti ti-search" aria-hidden="true" />
+              <input
+                ref={searchRef}
+                className="search-input"
+                placeholder="Search appointments..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
             <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-              + New appointment
+              <i className="ti ti-plus" aria-hidden="true" />
+              New appointment
             </button>
           </div>
         </div>
@@ -204,16 +185,24 @@ export default function Appointments() {
         {error && <div className="feedback-error" style={{ marginBottom: '16px' }}>{error}</div>}
 
         {loading ? (
-          <div className="clinic-loading">Loading appointments...</div>
+          <div className="loading">Loading appointments...</div>
         ) : filtered.length === 0 ? (
-          <div className="clinic-empty">No appointments found</div>
+          <div className="table-wrap">
+            <div className="empty">
+              <i className="ti ti-calendar" aria-hidden="true" />
+              <div className="empty-title">No appointments found</div>
+              <div className="empty-subtitle">
+                {search ? 'Try a different search term' : 'Schedule your first appointment'}
+              </div>
+            </div>
+          </div>
         ) : (
-          <div className="clinic-table-wrap">
-            <table className="clinic-table">
+          <div className="table-wrap">
+            <table className="table">
               <thead>
                 <tr>
-                  <th>Date</th>
                   <th>Patient</th>
+                  <th>Date</th>
                   <th>Dentist</th>
                   <th>Status</th>
                   <th>Procedure</th>
@@ -221,12 +210,16 @@ export default function Appointments() {
               </thead>
               <tbody>
                 {filtered.map(appt => (
-                  <tr
-                    key={appt.id}
-                    onClick={() => navigate(`/clinic/appointments/${appt.id}`)}
-                  >
-                    <td>{formatDateTime(appt.date)}</td>
-                    <td>{appt.patient?.firstName} {appt.patient?.lastName}</td>
+                  <tr key={appt.id} onClick={() => navigate(`/clinic/appointments/${appt.id}`)}>
+                    <td>
+                      <div className="avatar-cell">
+                        <div className="avatar">
+                          {`${appt.patient?.firstName?.[0]}${appt.patient?.lastName?.[0]}`.toUpperCase()}
+                        </div>
+                        {appt.patient?.firstName} {appt.patient?.lastName}
+                      </div>
+                    </td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{formatDateTime(appt.date)}</td>
                     <td>
                       {appt.dentist?.name
                         ? `${appt.dentist.name.fName} ${appt.dentist.name.lName}`
@@ -234,10 +227,10 @@ export default function Appointments() {
                     </td>
                     <td>
                       <span className={`badge ${STATUS_BADGE[appt.status]}`}>
-                        {appt.status}
+                        {appt.status.toLowerCase()}
                       </span>
                     </td>
-                    <td>{appt.treatment?.procedure || '—'}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{appt.treatment?.procedure || '—'}</td>
                   </tr>
                 ))}
               </tbody>

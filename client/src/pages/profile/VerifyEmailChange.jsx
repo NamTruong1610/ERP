@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { verifyEmailChange } from '../../api/user'
-import '../auth/auth.css'
+import '../../styles/global.css'
  
 export default function VerifyEmailChange() {
   const [searchParams] = useSearchParams()
