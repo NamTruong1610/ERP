@@ -1,672 +1,490 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../../context/useAuth'
+import { useNavigate } from 'react-router-dom'
 import {
-  getProfile,
-  updateName,
-  addPhone,
-  removePhone,
-  addAddress,
-  updateAddress,
-  removeAddress,
-  changePassword,
-  changeEmail,
-  disable2fa,
-  enable2fa
+  getProfile, updateName, addPhone, removePhone,
+  addAddress, updateAddress, removeAddress,
+  changePassword, changeEmail, disable2fa, enable2fa
 } from '../../api/user'
-import '../../styles/global.css'
+import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/AppSidebar'
+import '../../styles/global.css'
 
-
-// ─── Name Section ──────────────────────────────────────────────────────────────
-function NameSection({ profile, onUpdate }) {
-  const [form, setForm] = useState({
-    fName: profile.name?.fName || '',
-    mName: profile.name?.mName || '',
-    lName: profile.name?.lName || ''
-  })
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    setSuccess('')
-    try {
-      await updateName({ name: form })
-      setSuccess('Name updated successfully')
-      onUpdate()
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+function Section({ title, children }) {
   return (
-    <div className="profile-section">
-      <div className="section-header">
-        <div className="section-title">Name</div>
-        <div className="section-subtitle">Update your display name.</div>
-      </div>
-      <div className="profile-card">
-        <form onSubmit={handleSubmit} className="profile-form">
-          <div className="form-row">
-            <div className="form-group">
-              <label>First name</label>
-              <input
-                value={form.fName}
-                onChange={e => setForm(p => ({ ...p, fName: e.target.value }))}
-                placeholder="John"
-              />
-            </div>
-            <div className="form-group">
-              <label>Last name</label>
-              <input
-                value={form.lName}
-                onChange={e => setForm(p => ({ ...p, lName: e.target.value }))}
-                placeholder="Smith"
-              />
-            </div>
-          </div>
-          <div className="form-group">
-            <label>Middle name (optional)</label>
-            <input
-              value={form.mName}
-              onChange={e => setForm(p => ({ ...p, mName: e.target.value }))}
-              placeholder="Paul"
-            />
-          </div>
-          {error && <div className="feedback-error">{error}</div>}
-          {success && <div className="feedback-success">{success}</div>}
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Saving...' : 'Save changes'}
-            </button>
-          </div>
-        </form>
-      </div>
+    <div className="card" style={{ marginBottom: '16px' }}>
+      <div className="card-title">{title}</div>
+      {children}
     </div>
   )
 }
 
-// ─── Phones Section ────────────────────────────────────────────────────────────
-function PhonesSection({ phones, onUpdate }) {
-  const [showAdd, setShowAdd] = useState(false)
-  const [newPhone, setNewPhone] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleAdd = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      await addPhone({ phone: newPhone })
-      setNewPhone('')
-      setShowAdd(false)
-      onUpdate()
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleRemove = async (phone) => {
-    try {
-      await removePhone({ phone })
-      onUpdate()
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    }
-  }
-
+function Field({ label, value }) {
   return (
-    <div className="profile-section">
-      <div className="section-header">
-        <div className="section-title">Phone numbers</div>
-        <div className="section-subtitle">Manage your contact numbers.</div>
-      </div>
-
-      {phones.map((phone, i) => (
-        <div key={i} className="list-item">
-          <span className="list-item-text">{phone}</span>
-          <button
-            className="btn btn-danger btn-sm"
-            onClick={() => handleRemove(phone)}
-          >
-            Remove
-          </button>
-        </div>
-      ))}
-
-      {error && <div className="feedback-error" style={{ marginBottom: '8px' }}>{error}</div>}
-
-      {showAdd ? (
-        <div className="profile-card">
-          <form onSubmit={handleAdd} className="profile-form">
-            <div className="form-group">
-              <label>Phone number</label>
-              <input
-                type="tel"
-                value={newPhone}
-                onChange={e => setNewPhone(e.target.value)}
-                placeholder="+61 400 000 000"
-                required
-              />
-            </div>
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => { setShowAdd(false); setNewPhone(''); setError('') }}
-              >
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Adding...' : 'Add phone'}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : (
-        <button className="add-toggle" onClick={() => setShowAdd(true)}>
-          + Add phone number
-        </button>
-      )}
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{label}</span>
+      <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>{value || '—'}</span>
     </div>
   )
 }
 
-// ─── Addresses Section ─────────────────────────────────────────────────────────
-const AddressForm = ({ form, setForm, onSubmit, submitLabel, onCancel, error, loading }) => (
-  <form onSubmit={onSubmit} className="profile-form">
-    <div className="form-group">
-      <label>Street</label>
-      <input
-        value={form.street}
-        onChange={e => setForm(p => ({ ...p, street: e.target.value }))}
-        placeholder="123 Main St"
-      />
-    </div>
-    <div className="form-row">
-      <div className="form-group">
-        <label>Suburb</label>
-        <input
-          value={form.suburb}
-          onChange={e => setForm(p => ({ ...p, suburb: e.target.value }))}
-          placeholder="Haymarket"
-        />
-      </div>
-      <div className="form-group">
-        <label>Postcode</label>
-        <input
-          value={form.post}
-          onChange={e => setForm(p => ({ ...p, post: e.target.value }))}
-          placeholder="2000"
-        />
-      </div>
-    </div>
-    <div className="form-group">
-      <label>City</label>
-      <input
-        value={form.city}
-        onChange={e => setForm(p => ({ ...p, city: e.target.value }))}
-        placeholder="Sydney"
-      />
-    </div>
-    {error && <div className="feedback-error">{error}</div>}
-    <div className="form-actions">
-      <button type="button" className="btn btn-ghost" onClick={onCancel}>
-        Cancel
-      </button>
-      <button type="submit" className="btn btn-primary" disabled={loading}>
-        {loading ? 'Saving...' : submitLabel}
-      </button>
-    </div>
-  </form>
-)
-
-function AddressesSection({ addresses, onUpdate }) {
-  const [showAdd, setShowAdd] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [form, setForm] = useState({ street: '', suburb: '', post: '', city: '' })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const resetForm = () => setForm({ street: '', suburb: '', post: '', city: '' })
-
-  const handleCancel = () => {
-    setEditingId(null)
-    setShowAdd(false)
-    resetForm()
-    setError('')
-  }
-
-  const handleAdd = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      await addAddress({ address: form })
-      resetForm()
-      setShowAdd(false)
-      onUpdate()
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleUpdate = async (e, addressId) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      await updateAddress({ addressId, address: form })
-      setEditingId(null)
-      resetForm()
-      onUpdate()
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleRemove = async (addressId) => {
-    try {
-      await removeAddress({ addressId })
-      onUpdate()
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    }
-  }
-
-  const startEdit = (address) => {
-    setEditingId(address.id)
-    setForm({
-      street: address.street || '',
-      suburb: address.suburb || '',
-      post: address.post || '',
-      city: address.city || ''
-    })
-    setShowAdd(false)
-  }
-
-  return (
-    <div className="profile-section">
-      <div className="section-header">
-        <div className="section-title">Addresses</div>
-        <div className="section-subtitle">Manage your saved addresses.</div>
-      </div>
-
-      {addresses.map((address) => (
-        <div key={address.id}>
-          {editingId === address.id ? (
-            <div className="profile-card">
-              <AddressForm
-                form={form}
-                setForm={setForm}
-                onSubmit={(e) => handleUpdate(e, address.id)}
-                submitLabel="Save changes"
-                onCancel={handleCancel}
-                error={error}
-                loading={loading}
-              />
-            </div>
-          ) : (
-            <div className="list-item">
-              <div>
-                <div className="list-item-text">{address.street}</div>
-                <div className="list-item-sub">
-                  {[address.suburb, address.post, address.city].filter(Boolean).join(', ')}
-                </div>
-              </div>
-              <div className="list-actions">
-                <button className="btn btn-ghost btn-sm" onClick={() => startEdit(address)}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={() => handleRemove(address.id)}>Remove</button>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-
-      {showAdd ? (
-        <div className="profile-card">
-          <AddressForm
-            form={form}
-            setForm={setForm}
-            onSubmit={handleAdd}
-            submitLabel="Add address"
-            onCancel={handleCancel}
-            error={error}
-            loading={loading}
-          />
-        </div>
-      ) : (
-        !editingId && (
-          <button className="add-toggle" onClick={() => setShowAdd(true)}>
-            + Add address
-          </button>
-        )
-      )}
-    </div>
-  )
-}
-
-// ─── Password Section ──────────────────────────────────────────────────────────
-function PasswordSection({ navigate }) {
-  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmNewPassword: '' })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      await changePassword(form)
-      navigate('/login')
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="profile-section">
-      <div className="section-header">
-        <div className="section-title">Change password</div>
-        <div className="section-subtitle">You will be logged out of all devices after changing your password.</div>
-      </div>
-      <div className="profile-card">
-        <form onSubmit={handleSubmit} className="profile-form">
-          <div className="form-group">
-            <label>Current password</label>
-            <input
-              type="password"
-              value={form.currentPassword}
-              onChange={e => setForm(p => ({ ...p, currentPassword: e.target.value }))}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>New password</label>
-            <input
-              type="password"
-              value={form.newPassword}
-              onChange={e => setForm(p => ({ ...p, newPassword: e.target.value }))}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Confirm new password</label>
-            <input
-              type="password"
-              value={form.confirmNewPassword}
-              onChange={e => setForm(p => ({ ...p, confirmNewPassword: e.target.value }))}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-          {error && <div className="feedback-error">{error}</div>}
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Changing...' : 'Change password'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ─── Email Section ─────────────────────────────────────────────────────────────
-function EmailSection({ currentEmail }) {
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    setSuccess('')
-    try {
-      await changeEmail(form)
-      setSuccess(`A verification email has been sent to ${form.email}. Check your inbox to confirm the change.`)
-      setForm({ email: '', password: '' })
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="profile-section">
-      <div className="section-header">
-        <div className="section-title">Change email</div>
-        <div className="section-subtitle">Current email: <strong>{currentEmail}</strong></div>
-      </div>
-      <div className="profile-card">
-        <form onSubmit={handleSubmit} className="profile-form">
-          <div className="form-group">
-            <label>New email address</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-              placeholder="new@example.com"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Confirm with your password</label>
-            <input
-              type="password"
-              value={form.password}
-              onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-          {error && <div className="feedback-error">{error}</div>}
-          {success && <div className="feedback-success">{success}</div>}
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Sending...' : 'Send verification email'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ─── 2FA Section ───────────────────────────────────────────────────────────────
-function TwoFASection({ mfaEnabled, navigate }) {
-  const { logoutUser } = useAuth()
-  const [enabled, setEnabled] = useState(mfaEnabled)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ password: '', otp: '' })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleToggle = () => {
-    setShowForm(true)
-    setError('')
-    setForm({ password: '', otp: '' })
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      if (enabled) {
-        await disable2fa(form)
-        logoutUser()        // clear context immediately
-        navigate('/login') // then force re-login after disabling
-      } else {
-        await enable2fa(form)
-        setEnabled(true)
-        setShowForm(false)
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="profile-section">
-      <div className="section-header">
-        <div className="section-title">Two-factor authentication</div>
-        <div className="section-subtitle">Add an extra layer of security to your account.</div>
-      </div>
-      <div className="profile-card">
-        <div className="toggle-row">
-          <div className="toggle-info">
-            <div className="toggle-label">Authenticator app</div>
-            <div className="toggle-desc">
-              {enabled ? '2FA is currently enabled.' : '2FA is currently disabled.'}
-            </div>
-          </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={handleToggle}
-              disabled={showForm}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </div>
-
-        {showForm && (
-          <form onSubmit={handleSubmit} className="profile-form" style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              {enabled
-                ? 'Enter your password and current OTP to disable 2FA. You will be logged out of all devices.'
-                : 'Enter your password and OTP from your authenticator app to re-enable 2FA.'}
-            </p>
-            <div className="form-group">
-              <label>Password</label>
-              <input
-                type="password"
-                value={form.password}
-                onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>One-time code</label>
-              <input
-                type="text"
-                value={form.otp}
-                onChange={e => setForm(p => ({ ...p, otp: e.target.value }))}
-                placeholder="000000"
-                maxLength={6}
-                inputMode="numeric"
-                required
-              />
-            </div>
-            {error && <div className="feedback-error">{error}</div>}
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => { setShowForm(false); setError('') }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className={`btn ${enabled ? 'btn-danger' : 'btn-primary'}`}
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : enabled ? 'Disable 2FA' : 'Enable 2FA'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Main Profile Page ─────────────────────────────────────────────────────────
 export default function Profile() {
   const navigate = useNavigate()
+  const { logoutUser } = useAuth()
+
   const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
+
+  const [showNameEdit, setShowNameEdit] = useState(false)
+  const [nameForm, setNameForm] = useState({ fName: '', mName: '', lName: '' })
+  const [nameLoading, setNameLoading] = useState(false)
+
+  const [newPhone, setNewPhone] = useState('')
+  const [phoneLoading, setPhoneLoading] = useState(false)
+
+  const [showAddressForm, setShowAddressForm] = useState(false)
+  const [addressForm, setAddressForm] = useState({ street: '', suburb: '', post: '', city: '' })
+  const [addressLoading, setAddressLoading] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState(null)
+
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [passwordLoading, setPasswordLoading] = useState(false)
+
+  const [showEmailForm, setShowEmailForm] = useState(false)
+  const [emailForm, setEmailForm] = useState({ newEmail: '', password: '' })
+  const [emailLoading, setEmailLoading] = useState(false)
+
+  const [show2faForm, setShow2faForm] = useState(false)
+  const [tfaForm, setTfaForm] = useState({ password: '', otp: '' })
+  const [tfaLoading, setTfaLoading] = useState(false)
 
   const fetchProfile = async () => {
     try {
       const data = await getProfile()
       setProfile(data)
+    } catch {
+      setError('Failed to load profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchProfile() }, [])
+
+  const showFeedback = (msg) => {
+    setFeedback(msg)
+    setTimeout(() => setFeedback(''), 3000)
+  }
+
+  const handleNameSubmit = async (e) => {
+    e.preventDefault()
+    setNameLoading(true)
+    try {
+      await updateName(nameForm)
+      showFeedback('Name updated')
+      setShowNameEdit(false)
+      await fetchProfile()
     } catch (err) {
-      if (err.response?.status === 401) navigate('/login')
-      else setError('Failed to load profile')
+      setError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setNameLoading(false)
     }
   }
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const data = await getProfile()
-        setProfile(data)
-      } catch (err) {
-        if (err.response?.status === 401) navigate('/login')
-        else setError('Failed to load profile')
+  const handleAddPhone = async (e) => {
+    e.preventDefault()
+    setPhoneLoading(true)
+    try {
+      await addPhone({ phone: newPhone })
+      setNewPhone('')
+      showFeedback('Phone added')
+      await fetchProfile()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setPhoneLoading(false)
+    }
+  }
+
+  const handleRemovePhone = async (phone) => {
+    try {
+      await removePhone(phone)
+      showFeedback('Phone removed')
+      await fetchProfile()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    }
+  }
+
+  const handleAddressSubmit = async (e) => {
+    e.preventDefault()
+    setAddressLoading(true)
+    try {
+      if (editingAddressId) {
+        await updateAddress(editingAddressId, addressForm)
+        showFeedback('Address updated')
+      } else {
+        await addAddress(addressForm)
+        showFeedback('Address added')
       }
+      setShowAddressForm(false)
+      setEditingAddressId(null)
+      setAddressForm({ street: '', suburb: '', post: '', city: '' })
+      await fetchProfile()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setAddressLoading(false)
     }
-    loadProfile()
-  }, [])
-
-  if (!profile) {
-    return (
-      <div className="profile-loading">
-        {error || 'Loading...'}
-      </div>
-    )
   }
+
+  const handleRemoveAddress = async (id) => {
+    try {
+      await removeAddress(id)
+      showFeedback('Address removed')
+      await fetchProfile()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    }
+  }
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault()
+    setPasswordLoading(true)
+    try {
+      await changePassword(passwordForm)
+      showFeedback('Password changed — please sign in again')
+      setShowPasswordForm(false)
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setTimeout(() => { logoutUser(); navigate('/login') }, 1500)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault()
+    setEmailLoading(true)
+    try {
+      await changeEmail(emailForm)
+      showFeedback('Verification email sent — check your inbox')
+      setShowEmailForm(false)
+      setEmailForm({ newEmail: '', password: '' })
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
+  const handle2faSubmit = async (e) => {
+    e.preventDefault()
+    setTfaLoading(true)
+    try {
+      if (profile.mfaEnabled) {
+        await disable2fa(tfaForm)
+        showFeedback('2FA disabled')
+        logoutUser()
+        navigate('/login')
+      } else {
+        await enable2fa(tfaForm)
+        showFeedback('2FA enabled')
+      }
+      setShow2faForm(false)
+      setTfaForm({ password: '', otp: '' })
+      await fetchProfile()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setTfaLoading(false)
+    }
+  }
+
+  if (loading) return <div className="loading">Loading profile...</div>
+
+  const fullName = profile?.name
+    ? [profile.name.fName, profile.name.mName, profile.name.lName].filter(Boolean).join(' ')
+    : '—'
+
+  const initials = profile?.name
+    ? `${profile.name.fName?.[0] ?? ''}${profile.name.lName?.[0] ?? ''}`.toUpperCase()
+    : profile?.email?.[0]?.toUpperCase() ?? '?'
 
   return (
-    <div className="profile-layout">
+    <div className="app-layout">
       <AppSidebar active="profile" />
+      <main className="main" style={{ maxWidth: '720px' }}>
+        <div className="page-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="avatar" style={{ width: '48px', height: '48px', fontSize: '16px' }}>{initials}</div>
+            <div>
+              <div className="page-title">{fullName}</div>
+              <div className="page-subtitle">{profile?.email}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {profile?.roles?.map(r => (
+              <span key={r} className={`badge badge-${r.toLowerCase()}`}>{r.toLowerCase()}</span>
+            ))}
+          </div>
+        </div>
 
-      <main className="profile-main">
-        <div id="name">
-          <NameSection profile={profile} onUpdate={fetchProfile} />
-        </div>
-        <div id="phones">
-          <PhonesSection phones={profile.phones || []} onUpdate={fetchProfile} />
-        </div>
-        <div id="addresses">
-          <AddressesSection addresses={profile.addresses || []} onUpdate={fetchProfile} />
-        </div>
-        <div id="password">
-          <PasswordSection navigate={navigate} />
-        </div>
-        <div id="email">
-          <EmailSection currentEmail={profile.email} />
-        </div>
-        <div id="2fa">
-          <TwoFASection mfaEnabled={profile.mfaEnabled} navigate={navigate} />
-        </div>
+        {error && <div className="feedback-error" style={{ marginBottom: '16px' }} onClick={() => setError('')}>{error}</div>}
+        {feedback && <div className="feedback-success" style={{ marginBottom: '16px' }}>{feedback}</div>}
+
+        {/* Name */}
+        <Section title="Personal information">
+          {!showNameEdit ? (
+            <>
+              <Field label="First name" value={profile?.name?.fName} />
+              <Field label="Middle name" value={profile?.name?.mName} />
+              <Field label="Last name" value={profile?.name?.lName} />
+              <div style={{ marginTop: '12px' }}>
+                <button className="btn btn-sm" onClick={() => {
+                  setNameForm({ fName: profile?.name?.fName || '', mName: profile?.name?.mName || '', lName: profile?.name?.lName || '' })
+                  setShowNameEdit(true)
+                }}>
+                  <i className="ti ti-edit" /> Edit name
+                </button>
+              </div>
+            </>
+          ) : (
+            <form onSubmit={handleNameSubmit} className="form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">First name</label>
+                  <input className="form-input" value={nameForm.fName}
+                    onChange={e => setNameForm(p => ({ ...p, fName: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Middle name</label>
+                  <input className="form-input" value={nameForm.mName}
+                    onChange={e => setNameForm(p => ({ ...p, mName: e.target.value }))} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Last name</label>
+                <input className="form-input" value={nameForm.lName}
+                  onChange={e => setNameForm(p => ({ ...p, lName: e.target.value }))} />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={() => setShowNameEdit(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={nameLoading}>
+                  {nameLoading ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          )}
+        </Section>
+
+        {/* Phones */}
+        <Section title="Phone numbers">
+          {profile?.phones?.length ? (
+            <div style={{ marginBottom: '12px' }}>
+              {profile.phones.map(phone => (
+                <div key={phone} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '13px' }}>{phone}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => handleRemovePhone(phone)}
+                    style={{ color: 'var(--danger-text)' }}>
+                    <i className="ti ti-trash" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: '13px', color: 'var(--text-hint)', marginBottom: '12px' }}>No phones added</div>
+          )}
+          <form onSubmit={handleAddPhone} style={{ display: 'flex', gap: '8px' }}>
+            <input className="form-input" style={{ flex: 1 }} value={newPhone}
+              onChange={e => setNewPhone(e.target.value)} placeholder="Add phone number" />
+            <button type="submit" className="btn btn-primary" disabled={phoneLoading || !newPhone}>
+              {phoneLoading ? '...' : 'Add'}
+            </button>
+          </form>
+        </Section>
+
+        {/* Addresses */}
+        <Section title="Addresses">
+          {profile?.addresses?.length ? (
+            <div style={{ marginBottom: '12px' }}>
+              {profile.addresses.map(addr => (
+                <div key={addr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+                    {[addr.street, addr.suburb, addr.post, addr.city].filter(Boolean).join(', ')}
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => {
+                      setAddressForm({ street: addr.street || '', suburb: addr.suburb || '', post: addr.post || '', city: addr.city || '' })
+                      setEditingAddressId(addr.id)
+                      setShowAddressForm(true)
+                    }}>
+                      <i className="ti ti-edit" />
+                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleRemoveAddress(addr.id)}
+                      style={{ color: 'var(--danger-text)' }}>
+                      <i className="ti ti-trash" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: '13px', color: 'var(--text-hint)', marginBottom: '12px' }}>No addresses added</div>
+          )}
+          {showAddressForm ? (
+            <form onSubmit={handleAddressSubmit} className="form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Street</label>
+                  <input className="form-input" value={addressForm.street}
+                    onChange={e => setAddressForm(p => ({ ...p, street: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Suburb</label>
+                  <input className="form-input" value={addressForm.suburb}
+                    onChange={e => setAddressForm(p => ({ ...p, suburb: e.target.value }))} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Postcode</label>
+                  <input className="form-input" value={addressForm.post}
+                    onChange={e => setAddressForm(p => ({ ...p, post: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">City</label>
+                  <input className="form-input" value={addressForm.city}
+                    onChange={e => setAddressForm(p => ({ ...p, city: e.target.value }))} />
+                </div>
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={() => { setShowAddressForm(false); setEditingAddressId(null) }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={addressLoading}>
+                  {addressLoading ? 'Saving...' : editingAddressId ? 'Update address' : 'Add address'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button className="btn btn-sm" onClick={() => { setAddressForm({ street: '', suburb: '', post: '', city: '' }); setShowAddressForm(true) }}>
+              <i className="ti ti-plus" /> Add address
+            </button>
+          )}
+        </Section>
+
+        {/* Password */}
+        <Section title="Password">
+          {!showPasswordForm ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Change your account password</span>
+              <button className="btn btn-sm" onClick={() => setShowPasswordForm(true)}>
+                <i className="ti ti-lock" /> Change password
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handlePasswordSubmit} className="form">
+              <div className="form-group">
+                <label className="form-label">Current password</label>
+                <input type="password" className="form-input" value={passwordForm.currentPassword}
+                  onChange={e => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))} required />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">New password</label>
+                  <input type="password" className="form-input" value={passwordForm.newPassword}
+                    onChange={e => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Confirm password</label>
+                  <input type="password" className="form-input" value={passwordForm.confirmPassword}
+                    onChange={e => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))} required />
+                </div>
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={() => setShowPasswordForm(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={passwordLoading}>
+                  {passwordLoading ? 'Saving...' : 'Change password'}
+                </button>
+              </div>
+            </form>
+          )}
+        </Section>
+
+        {/* Email */}
+        <Section title="Email address">
+          {!showEmailForm ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{profile?.email}</span>
+              <button className="btn btn-sm" onClick={() => setShowEmailForm(true)}>
+                <i className="ti ti-mail" /> Change email
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleEmailSubmit} className="form">
+              <div className="form-group">
+                <label className="form-label">New email</label>
+                <input type="email" className="form-input" value={emailForm.newEmail}
+                  onChange={e => setEmailForm(p => ({ ...p, newEmail: e.target.value }))} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Current password</label>
+                <input type="password" className="form-input" value={emailForm.password}
+                  onChange={e => setEmailForm(p => ({ ...p, password: e.target.value }))} required />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={() => setShowEmailForm(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={emailLoading}>
+                  {emailLoading ? 'Sending...' : 'Send verification'}
+                </button>
+              </div>
+            </form>
+          )}
+        </Section>
+
+        {/* 2FA */}
+        <Section title="Two-factor authentication">
+          {!show2faForm ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  2FA is currently&nbsp;
+                </span>
+                <span className={`badge ${profile?.mfaEnabled ? 'badge-active' : 'badge-pending'}`}>
+                  {profile?.mfaEnabled ? 'enabled' : 'disabled'}
+                </span>
+              </div>
+              <button
+                className={`btn btn-sm ${profile?.mfaEnabled ? 'btn-danger' : ''}`}
+                onClick={() => setShow2faForm(true)}>
+                {profile?.mfaEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handle2faSubmit} className="form">
+              <div className="form-group">
+                <label className="form-label">Current password</label>
+                <input type="password" className="form-input" value={tfaForm.password}
+                  onChange={e => setTfaForm(p => ({ ...p, password: e.target.value }))} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Authentication code</label>
+                <input type="text" className="form-input" value={tfaForm.otp}
+                  onChange={e => setTfaForm(p => ({ ...p, otp: e.target.value }))}
+                  placeholder="000000" maxLength={6}
+                  style={{ letterSpacing: '0.2em', textAlign: 'center' }} required />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={() => setShow2faForm(false)}>Cancel</button>
+                <button type="submit" className={`btn ${profile?.mfaEnabled ? 'btn-danger' : 'btn-primary'}`} disabled={tfaLoading}>
+                  {tfaLoading ? 'Processing...' : profile?.mfaEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+                </button>
+              </div>
+            </form>
+          )}
+        </Section>
       </main>
     </div>
   )

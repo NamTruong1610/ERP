@@ -1,19 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useReducer } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import {
-  getUser,
-  suspendUser,
-  reactivateUser,
-  forceLogoutUser,
-  resendActivationEmail,
-  reset2fa,
-  assignRole,
-  removeRole,
-  deleteUser,
-  updateUser
+  getUser, suspendUser, reactivateUser, forceLogoutUser,
+  resendActivationEmail, reset2fa, assignRole, removeRole,
+  deleteUser, updateUser
 } from '../../api/admin'
-import AppSidebar from '../../components/AppSidebar'
 import { useAuth } from '../../context/useAuth'
+import AppSidebar from '../../components/AppSidebar'
 import '../../styles/global.css'
 
 const STATUS_BADGE = {
@@ -26,6 +19,15 @@ const STATUS_BADGE = {
 
 const AVAILABLE_ROLES = ['STAFF', 'ADMIN']
 
+function editReducer(state, action) {
+  switch (action.type) {
+    case 'set': return { ...state, [action.field]: action.value }
+    case 'setName': return { ...state, name: { ...state.name, [action.field]: action.value } }
+    case 'init': return action.payload
+    default: return state
+  }
+}
+
 export default function AdminUserDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -36,11 +38,12 @@ export default function AdminUserDetail() {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
   const [actionLoading, setActionLoading] = useState('')
-
-  const [editForm, setEditForm] = useState({})
   const [showEdit, setShowEdit] = useState(false)
+  const [editForm, dispatchEdit] = useReducer(editReducer, {})
   const [editError, setEditError] = useState('')
   const [editLoading, setEditLoading] = useState(false)
+
+  const isSelf = currentUser?.id === id
 
   const fetchUser = async () => {
     try {
@@ -54,41 +57,24 @@ export default function AdminUserDetail() {
     }
   }
 
-  useEffect(() => {
-    const load = async () => { await fetchUser() }
-    load()
-  }, [id])
+  useEffect(() => { fetchUser() }, [id])
+
+  const showFeedback = (msg) => {
+    setFeedback(msg)
+    setTimeout(() => setFeedback(''), 3000)
+  }
 
   const runAction = async (label, fn) => {
     setActionLoading(label)
     setError('')
-    setFeedback('')
     try {
       const result = await fn()
-      setFeedback(result.message || `${label} successful`)
+      showFeedback(result.message || `${label} successful`)
       await fetchUser()
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
       setActionLoading('')
-    }
-  }
-
-  const handleAssignRole = async (role) => {
-    await runAction('Assign role', () => assignRole(id, role))
-  }
-
-  const handleRemoveRole = async (role) => {
-    await runAction('Remove role', () => removeRole(id, role))
-  }
-
-  const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to permanently delete this user? This cannot be undone.')) return
-    try {
-      await deleteUser(id)
-      navigate('/admin/users')
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
     }
   }
 
@@ -100,7 +86,7 @@ export default function AdminUserDetail() {
       const updated = await updateUser(id, editForm)
       setUser(updated)
       setShowEdit(false)
-      setFeedback('User updated successfully')
+      showFeedback('User updated')
     } catch (err) {
       setEditError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -108,14 +94,14 @@ export default function AdminUserDetail() {
     }
   }
 
-  const startEdit = () => {
-    setEditForm({
-      name: user.name || {},
-      email: user.email,
-      phones: user.phones || [],
-      status: user.status
-    })
-    setShowEdit(true)
+  const handleDelete = async () => {
+    if (!window.confirm('Permanently delete this user? This cannot be undone.')) return
+    try {
+      await deleteUser(id)
+      navigate('/admin/users')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    }
   }
 
   const formatName = (name) => {
@@ -123,225 +109,195 @@ export default function AdminUserDetail() {
     return [name.fName, name.mName, name.lName].filter(Boolean).join(' ') || '—'
   }
 
-  const formatDate = (d) => d ? new Date(d).toLocaleString() : '—'
+  const formatDate = (d) => d ? new Date(d).toLocaleString('en-AU') : '—'
 
-  const isSelf = currentUser?.id === id
+  const initials = (u) => {
+    if (u?.name?.fName && u?.name?.lName) return `${u.name.fName[0]}${u.name.lName[0]}`.toUpperCase()
+    return u?.email?.[0]?.toUpperCase() ?? '?'
+  }
 
-  if (loading) return <div className="admin-loading">Loading user...</div>
-  if (!user) return <div className="admin-loading">{error || 'User not found'}</div>
+  const availableToAssign = AVAILABLE_ROLES.filter(r => !user?.roles?.includes(r))
 
-  const availableToAssign = AVAILABLE_ROLES.filter(r => !user.roles?.includes(r))
+  if (loading) return <div className="loading">Loading user...</div>
+  if (!user) return <div className="loading">{error || 'User not found'}</div>
 
   return (
-    <div className="admin-layout">
+    <div className="app-layout">
       <AppSidebar active="admin" />
-
-      <main className="admin-main">
-        <Link to="/admin/users" className="back-link">← Back to users</Link>
+      <main className="main" style={{ maxWidth: '720px' }}>
+        <Link to="/admin/users" className="back-link">
+          <i className="ti ti-arrow-left" aria-hidden="true" /> Back to users
+        </Link>
 
         <div className="page-header">
-          <div>
-            <div className="page-title">{formatName(user.name)}</div>
-            <div className="page-subtitle">{user.email}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="avatar" style={{ width: '44px', height: '44px', fontSize: '16px' }}>
+              {initials(user)}
+            </div>
+            <div>
+              <div className="page-title">{formatName(user.name)}</div>
+              <div className="page-subtitle">{user.email}</div>
+            </div>
           </div>
           <span className={`badge ${STATUS_BADGE[user.status] || 'badge-pending'}`}>
-            {user.status}
+            {user.status.toLowerCase().replace(/_/g, ' ')}
           </span>
         </div>
 
         {error && <div className="feedback-error" style={{ marginBottom: '16px' }}>{error}</div>}
         {feedback && <div className="feedback-success" style={{ marginBottom: '16px' }}>{feedback}</div>}
 
-        {/* ── Details ── */}
-        <div className="detail-grid">
-          <div className="detail-card">
-            <div className="detail-label">Email</div>
-            <div className="detail-value">{user.email}</div>
-          </div>
-          <div className="detail-card">
-            <div className="detail-label">Status</div>
-            <div className="detail-value">{user.status}</div>
-          </div>
-          <div className="detail-card">
-            <div className="detail-label">2FA</div>
-            <div className="detail-value">{user.mfaEnabled ? 'Enabled' : 'Disabled'}</div>
-          </div>
-          <div className="detail-card">
-            <div className="detail-label">Created</div>
-            <div className="detail-value">{formatDate(user.createdAt)}</div>
-          </div>
-          <div className="detail-card">
-            <div className="detail-label">Last updated</div>
-            <div className="detail-value">{formatDate(user.updatedAt)}</div>
-          </div>
-          <div className="detail-card">
-            <div className="detail-label">Phones</div>
-            <div className="detail-value">
-              {user.phones?.length ? user.phones.join(', ') : '—'}
+        {/* Details */}
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <div className="card-title">Details</div>
+          <div className="detail-grid" style={{ marginBottom: 0 }}>
+            <div className="detail-item">
+              <div className="detail-label">Email</div>
+              <div className="detail-value">{user.email}</div>
+            </div>
+            <div className="detail-item">
+              <div className="detail-label">Status</div>
+              <div className="detail-value">{user.status.toLowerCase().replace(/_/g, ' ')}</div>
+            </div>
+            <div className="detail-item">
+              <div className="detail-label">2FA</div>
+              <div className="detail-value">{user.mfaEnabled ? 'Enabled' : 'Disabled'}</div>
+            </div>
+            <div className="detail-item">
+              <div className="detail-label">Phones</div>
+              <div className="detail-value">{user.phones?.length ? user.phones.join(', ') : '—'}</div>
+            </div>
+            <div className="detail-item">
+              <div className="detail-label">Created</div>
+              <div className="detail-value">{formatDate(user.createdAt)}</div>
+            </div>
+            <div className="detail-item">
+              <div className="detail-label">Last updated</div>
+              <div className="detail-value">{formatDate(user.updatedAt)}</div>
             </div>
           </div>
         </div>
 
-        {/* ── Addresses ── */}
-        {user.addresses?.length > 0 && (
-          <div className="detail-card" style={{ marginBottom: '16px' }}>
-            <div className="detail-label" style={{ marginBottom: '12px' }}>Addresses</div>
-            {user.addresses.map((a, i) => (
-              <div key={i} style={{ marginBottom: '8px', fontSize: '13px', color: 'var(--text)' }}>
-                {[a.street, a.suburb, a.post, a.city].filter(Boolean).join(', ')}
-              </div>
-            ))}
+        {/* Edit */}
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showEdit ? '16px' : 0 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>Edit user</div>
+            {!showEdit && (
+              <button className="btn btn-sm" onClick={() => {
+                dispatchEdit({ type: 'init', payload: { name: user.name || {}, email: user.email, status: user.status } })
+                setShowEdit(true)
+              }}>
+                <i className="ti ti-edit" /> Edit
+              </button>
+            )}
           </div>
-        )}
-
-        {/* ── Edit ── */}
-        {showEdit ? (
-          <div className="actions-panel" style={{ marginBottom: '16px' }}>
-            <div className="actions-panel-title">Edit user</div>
-            <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="detail-grid">
+          {showEdit && (
+            <form onSubmit={handleUpdate} className="form">
+              <div className="form-row">
                 <div className="form-group">
-                  <label>First name</label>
-                  <input
-                    value={editForm.name?.fName || ''}
-                    onChange={e => setEditForm(p => ({ ...p, name: { ...p.name, fName: e.target.value } }))}
-                    placeholder="First name"
-                  />
+                  <label className="form-label">First name</label>
+                  <input className="form-input" value={editForm.name?.fName || ''}
+                    onChange={e => dispatchEdit({ type: 'setName', field: 'fName', value: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Last name</label>
-                  <input
-                    value={editForm.name?.lName || ''}
-                    onChange={e => setEditForm(p => ({ ...p, name: { ...p.name, lName: e.target.value } }))}
-                    placeholder="Last name"
-                  />
+                  <label className="form-label">Last name</label>
+                  <input className="form-input" value={editForm.name?.lName || ''}
+                    onChange={e => dispatchEdit({ type: 'setName', field: 'lName', value: e.target.value })} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input type="email" className="form-input" value={editForm.email || ''}
+                    onChange={e => dispatchEdit({ type: 'set', field: 'email', value: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Email</label>
-                  <input
-                    type="email"
-                    value={editForm.email || ''}
-                    onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))}
-                    placeholder="Email"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Status</label>
-                  <select
-                    value={editForm.status || ''}
-                    onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                    <option value="PENDING_ACTIVATION">PENDING_ACTIVATION</option>
-                    <option value="PENDING_MFA_SETUP">PENDING_MFA_SETUP</option>
-                    <option value="PENDING_MFA_VERIFICATION">PENDING_MFA_VERIFICATION</option>
+                  <label className="form-label">Status</label>
+                  <select className="form-select" value={editForm.status || ''}
+                    onChange={e => dispatchEdit({ type: 'set', field: 'status', value: e.target.value })}>
+                    <option value="ACTIVE">Active</option>
+                    <option value="SUSPENDED">Suspended</option>
+                    <option value="PENDING_ACTIVATION">Pending activation</option>
+                    <option value="PENDING_MFA_SETUP">Pending MFA setup</option>
+                    <option value="PENDING_MFA_VERIFICATION">Pending MFA verification</option>
                   </select>
                 </div>
               </div>
               {editError && <div className="feedback-error">{editError}</div>}
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setShowEdit(false)}>Cancel</button>
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={() => setShowEdit(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={editLoading}>
                   {editLoading ? 'Saving...' : 'Save changes'}
                 </button>
               </div>
             </form>
-          </div>
-        ) : (
-          <div style={{ marginBottom: '16px' }}>
-            <button className="btn btn-ghost" onClick={startEdit}>Edit user</button>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* ── Roles ── */}
-        <div className="actions-panel">
-          <div className="actions-panel-title">Roles</div>
-          <div className="roles-list">
+        {/* Roles */}
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <div className="card-title">Roles</div>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
             {user.roles?.length ? user.roles.map(role => (
-              <span key={role} className="role-tag">
-                {role}
-                <button onClick={() => handleRemoveRole(role)} title="Remove role">×</button>
+              <span key={role} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                className={`badge badge-${role.toLowerCase()}`}>
+                {role.toLowerCase()}
+                <button onClick={() => runAction('Remove role', () => removeRole(id, role))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 0 2px', lineHeight: 1, color: 'inherit' }}
+                  aria-label={`Remove ${role}`}>×</button>
               </span>
-            )) : <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No roles assigned</span>}
+            )) : <span style={{ fontSize: '13px', color: 'var(--text-hint)' }}>No roles assigned</span>}
           </div>
           {availableToAssign.length > 0 && (
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
               {availableToAssign.map(role => (
-                <button
-                  key={role}
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => handleAssignRole(role)}
+                <button key={role} className="btn btn-sm"
                   disabled={!!actionLoading}
-                >
-                  + {role}
+                  onClick={() => runAction('Assign role', () => assignRole(id, role))}>
+                  <i className="ti ti-plus" /> {role.toLowerCase()}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* ── Actions ── */}
-        <div className="actions-panel">
-          <div className="actions-panel-title">Actions</div>
-          <div className="actions-grid">
+        {/* Actions */}
+        <div className="card">
+          <div className="card-title">Actions</div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {user.status === 'ACTIVE' && !isSelf && (
-              <button
-                className="btn btn-ghost"
-                disabled={!!actionLoading}
-                onClick={() => runAction('Suspend', () => suspendUser(id))}
-              >
+              <button className="btn" disabled={!!actionLoading}
+                onClick={() => runAction('Suspend', () => suspendUser(id))}>
                 {actionLoading === 'Suspend' ? 'Suspending...' : 'Suspend user'}
               </button>
             )}
-
             {user.status === 'SUSPENDED' && (
-              <button
-                className="btn btn-ghost"
-                disabled={!!actionLoading}
-                onClick={() => runAction('Reactivate', () => reactivateUser(id))}
-              >
+              <button className="btn" disabled={!!actionLoading}
+                onClick={() => runAction('Reactivate', () => reactivateUser(id))}>
                 {actionLoading === 'Reactivate' ? 'Reactivating...' : 'Reactivate user'}
               </button>
             )}
-
             {user.status === 'PENDING_ACTIVATION' && (
-              <button
-                className="btn btn-ghost"
-                disabled={!!actionLoading}
-                onClick={() => runAction('Resend activation', () => resendActivationEmail(id))}
-              >
+              <button className="btn" disabled={!!actionLoading}
+                onClick={() => runAction('Resend activation', () => resendActivationEmail(id))}>
                 {actionLoading === 'Resend activation' ? 'Sending...' : 'Resend activation email'}
               </button>
             )}
-
             {user.mfaEnabled && (
-              <button
-                className="btn btn-ghost"
-                disabled={!!actionLoading}
-                onClick={() => runAction('Reset 2FA', () => reset2fa(id))}
-              >
+              <button className="btn" disabled={!!actionLoading}
+                onClick={() => runAction('Reset 2FA', () => reset2fa(id))}>
                 {actionLoading === 'Reset 2FA' ? 'Resetting...' : 'Reset 2FA'}
               </button>
             )}
-
             {!isSelf && (
-              <button
-                className="btn btn-ghost"
-                disabled={!!actionLoading}
-                onClick={() => runAction('Force logout', () => forceLogoutUser(id))}
-              >
+              <button className="btn" disabled={!!actionLoading}
+                onClick={() => runAction('Force logout', () => forceLogoutUser(id))}>
                 {actionLoading === 'Force logout' ? 'Logging out...' : 'Force logout'}
               </button>
             )}
-
             {!isSelf && (
-              <button
-                className="btn btn-danger"
-                disabled={!!actionLoading}
-                onClick={handleDelete}
-              >
-                Delete user
+              <button className="btn btn-danger" disabled={!!actionLoading} onClick={handleDelete}>
+                <i className="ti ti-trash" /> Delete user
               </button>
             )}
           </div>

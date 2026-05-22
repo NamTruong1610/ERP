@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { verifyMfaLogin } from '../../api/auth'
+import { verifyMfaLogin, getMe } from '../../api/auth'
 import { useAuth } from '../../context/useAuth'
 import '../../styles/global.css'
 
@@ -22,8 +22,9 @@ export default function VerifyMfaLogin() {
     e.preventDefault()
     setLoading(true)
     try {
-      const data = await verifyMfaLogin({ mfaLoginTokenId, otp, rememberMe })
-      loginUser(data.user)
+      await verifyMfaLogin({ mfaLoginTokenId, otp, rememberMe })
+      const me = await getMe()  // ← fetch user after cookies are set
+      loginUser(me)
       navigate('/home')
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid code')

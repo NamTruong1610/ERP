@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { login } from '../../api/auth'
+import { login, getMe } from '../../api/auth'
 import { useAuth } from '../../context/useAuth'
 import '../../styles/global.css'
 
@@ -25,7 +25,9 @@ export default function Login() {
       if (data.mfaLoginTokenId) {
         navigate('/login/mfa', { state: { mfaLoginTokenId: data.mfaLoginTokenId, rememberMe: form.rememberMe } })
       } else {
-        loginUser(data.user)
+        // Session cookie is now set — fetch the user from /auth/me
+        const me = await getMe()
+        loginUser(me)
         navigate('/home')
       }
     } catch (err) {

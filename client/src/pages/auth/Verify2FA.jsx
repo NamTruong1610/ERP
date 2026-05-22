@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { verify2faSetup } from '../../api/activation'
+import { getMe } from '../../api/auth'
 import { useAuth } from '../../context/useAuth'
 import '../../styles/global.css'
 
@@ -22,8 +23,9 @@ export default function Verify2FA() {
     e.preventDefault()
     setLoading(true)
     try {
-      const data = await verify2faSetup({ activationToken, mfaToken, otp })
-      loginUser(data.user)
+      await verify2faSetup({ activationToken, mfaToken, otp })
+      const me = await getMe()  // ← fetch user after cookies are set
+      loginUser(me)
       navigate('/home')
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid code')

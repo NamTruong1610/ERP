@@ -78,11 +78,10 @@ exports.deleteUserRole = async (userData, role) => {
 exports.updateUser = async (oldUserData, updatedUserData) => {
   const { name, addresses, ...rest } = updatedUserData
 
-  // Strip Prisma relation fields — only pass actual data fields
   const nameData = name ? {
-    fName: name.fName,
-    mName: name.mName,
-    lName: name.lName
+    fName: name.fName ?? '',
+    mName: name.mName ?? '',
+    lName: name.lName ?? ''
   } : undefined
 
   return await prisma.user.update({
@@ -97,43 +96,6 @@ exports.updateUser = async (oldUserData, updatedUserData) => {
           }
         }
       })
-    },
-    include: userInclude
-  })
-}
-
-exports.updateUserByName = async (oldUserData, updatedUserData) => {
-  return await prisma.user.update({
-    where: { id: oldUserData.id },
-    data: {
-      name: {
-        upsert: {
-          create: updatedUserData.name,
-          update: updatedUserData.name
-        }
-      }
-    },
-    include: userInclude
-  })
-}
-
-exports.updateUserByPhones = async (oldUserData, phone) => {
-  if (!oldUserData.phones.includes(phone)) {
-    return await prisma.user.update({
-      where: { id: oldUserData.id },
-      data: {
-        phones: { push: phone }
-      },
-      include: userInclude
-    })
-  }
-}
-
-exports.deleteUserPhoneByPhone = async (oldUserData, phone) => {
-  return await prisma.user.update({
-    where: { id: oldUserData.id },
-    data: {
-      phones: oldUserData.phones.filter(p => p !== phone)
     },
     include: userInclude
   })

@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect, useRef, useReducer } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getAllUsers, createUser } from '../../api/admin'
 import AppSidebar from '../../components/AppSidebar'
 import '../../styles/global.css'
- 
+
 const STATUS_BADGE = {
   ACTIVE: 'badge-active',
   SUSPENDED: 'badge-suspended',
@@ -11,18 +11,35 @@ const STATUS_BADGE = {
   PENDING_MFA_SETUP: 'badge-pending',
   PENDING_MFA_VERIFICATION: 'badge-pending',
 }
- 
+
+const initialForm = { email: '', fName: '', lName: '' }
+
+function formReducer(state, action) {
+  switch (action.type) {
+    case 'set': return { ...state, [action.field]: action.value }
+    case 'reset': return initialForm
+    default: return state
+  }
+}
+
 function CreateUserModal({ onClose, onCreated }) {
-  const [email, setEmail] = useState('')
+  const [form, dispatch] = useReducer(formReducer, initialForm)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
- 
+  const firstRef = useRef(null)
+
+  useEffect(() => { firstRef.current?.focus() }, [])
+
+  const handleChange = (e) => {
+    dispatch({ type: 'set', field: e.target.name, value: e.target.value })
+    setError('')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
     try {
-      await createUser({ email })
+      await createUser(form)
       onCreated()
       onClose()
     } catch (err) {
@@ -31,29 +48,37 @@ function CreateUserModal({ onClose, onCreated }) {
       setLoading(false)
     }
   }
- 
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">Create user</div>
-        <div className="modal-subtitle">
-          An activation email will be sent to the provided address.
+        <div className="modal-header">
+          <div className="modal-title">Create new user</div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
+            <i className="ti ti-x" />
+          </button>
         </div>
-        <form onSubmit={handleSubmit} className="modal-form">
+        <form onSubmit={handleSubmit} className="form">
           <div className="form-group">
-            <label>Email address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setError('') }}
-              placeholder="user@example.com"
-              required
-              autoFocus
-            />
+            <label className="form-label">Email <span style={{ color: 'var(--danger-text)' }}>*</span></label>
+            <input ref={firstRef} name="email" type="email" className="form-input"
+              value={form.email} onChange={handleChange} placeholder="user@example.com" required />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">First name</label>
+              <input name="fName" className="form-input"
+                value={form.fName} onChange={handleChange} placeholder="John" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Last name</label>
+              <input name="lName" className="form-input"
+                value={form.lName} onChange={handleChange} placeholder="Smith" />
+            </div>
           </div>
           {error && <div className="feedback-error">{error}</div>}
-          <div className="modal-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <div className="form-actions">
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Creating...' : 'Create user'}
             </button>
@@ -63,121 +88,136 @@ function CreateUserModal({ onClose, onCreated }) {
     </div>
   )
 }
- 
+
 export default function AdminUsers() {
   const navigate = useNavigate()
+  const searchRef = useRef(null)
   const [users, setUsers] = useState([])
   const [filtered, setFiltered] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
- 
+
   const fetchUsers = async () => {
     try {
       const data = await getAllUsers()
       setUsers(data.users)
       setFiltered(data.users)
-    } catch (err) {
-      if (err.response?.status === 401 || err.response?.status === 403) navigate('/login')
-      else setError('Failed to load users')
+    } catch {
+      setError('Failed to load users')
     } finally {
       setLoading(false)
     }
   }
- 
+
   useEffect(() => {
-    const load = async () => {
-      await fetchUsers()
-    }
-    load()
+    fetchUsers()
+    searchRef.current?.focus()
   }, [])
- 
+
   useEffect(() => {
     const q = search.toLowerCase()
-    setFiltered(
-      users.filter(u =>
-        u.email.toLowerCase().includes(q) ||
-        u.status.toLowerCase().includes(q) ||
-        (u.name?.fName || '').toLowerCase().includes(q) ||
-        (u.name?.lName || '').toLowerCase().includes(q)
-      )
-    )
+    setFiltered(users.filter(u =>
+      u.email.toLowerCase().includes(q) ||
+      u.name?.fName?.toLowerCase().includes(q) ||
+      u.name?.lName?.toLowerCase().includes(q) ||
+      u.status.toLowerCase().includes(q)
+    ))
   }, [search, users])
- 
- 
+
   const formatName = (name) => {
     if (!name) return '—'
     return [name.fName, name.lName].filter(Boolean).join(' ') || '—'
   }
- 
+
+  const initials = (u) => {
+    if (u.name?.fName && u.name?.lName) return `${u.name.fName[0]}${u.name.lName[0]}`.toUpperCase()
+    return u.email[0].toUpperCase()
+  }
+
   return (
-    <div className="admin-layout">
+    <div className="app-layout">
       <AppSidebar active="admin" />
- 
-      <main className="admin-main">
+      <main className="main">
         <div className="page-header">
           <div>
-            <div className="page-title">Users</div>
+            <div className="page-title">User management</div>
             <div className="page-subtitle">{users.length} total users</div>
           </div>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <input
-              className="search-bar"
-              placeholder="Search by name, email, status..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div className="page-actions">
+            <div className="search-wrap">
+              <i className="ti ti-search" aria-hidden="true" />
+              <input ref={searchRef} className="search-input"
+                placeholder="Search users..." value={search}
+                onChange={e => setSearch(e.target.value)} />
+            </div>
             <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-              + Create user
+              <i className="ti ti-plus" aria-hidden="true" /> New user
             </button>
           </div>
         </div>
- 
+
         {error && <div className="feedback-error" style={{ marginBottom: '16px' }}>{error}</div>}
- 
+
         {loading ? (
-          <div className="admin-loading">Loading users...</div>
+          <div className="loading">Loading users...</div>
         ) : filtered.length === 0 ? (
-          <div className="empty-state">No users found</div>
+          <div className="table-wrap">
+            <div className="empty">
+              <i className="ti ti-users" aria-hidden="true" />
+              <div className="empty-title">No users found</div>
+            </div>
+          </div>
         ) : (
           <div className="table-wrap">
-            <table className="admin-table">
+            <table className="table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
+                  <th>User</th>
                   <th>Status</th>
                   <th>Roles</th>
                   <th>2FA</th>
-                  <th>Created</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(user => (
-                  <tr key={user.id} onClick={() => navigate(`/admin/users/${user.id}`)}>
-                    <td>{formatName(user.name)}</td>
-                    <td>{user.email}</td>
+                {filtered.map(u => (
+                  <tr key={u.id} onClick={() => navigate(`/admin/users/${u.id}`)}>
                     <td>
-                      <span className={`badge ${STATUS_BADGE[user.status] || 'badge-pending'}`}>
-                        {user.status}
+                      <div className="avatar-cell">
+                        <div className="avatar">{initials(u)}</div>
+                        <div>
+                          <div style={{ fontWeight: 500 }}>{formatName(u.name)}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{u.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge ${STATUS_BADGE[u.status] || 'badge-pending'}`}>
+                        {u.status.toLowerCase().replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td>{user.roles?.join(', ') || '—'}</td>
-                    <td>{user.mfaEnabled ? '✓' : '—'}</td>
-                    <td>{new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        {u.roles?.map(r => (
+                          <span key={r} className={`badge badge-${r.toLowerCase()}`}>{r.toLowerCase()}</span>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge ${u.mfaEnabled ? 'badge-active' : 'badge-pending'}`}>
+                        {u.mfaEnabled ? 'enabled' : 'disabled'}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
- 
+
         {showCreate && (
-          <CreateUserModal
-            onClose={() => setShowCreate(false)}
-            onCreated={fetchUsers}
-          />
+          <CreateUserModal onClose={() => setShowCreate(false)} onCreated={fetchUsers} />
         )}
       </main>
     </div>

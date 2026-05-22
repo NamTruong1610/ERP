@@ -30,7 +30,9 @@ router.get('/me', requireAuth, async (req, res, next) => {
     }
     return res.status(200).json({
       id: userRecord.id,
-      roles: userRecord.roles
+      roles: userRecord.roles,
+      email: userRecord.email,      
+      name: userRecord.name 
     })
   } catch (error) {
     next(error)
