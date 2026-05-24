@@ -1,4 +1,4 @@
-# Dental Clinic ERP System — Software Architecture Documentation
+# DentaCore — Dental Clinic ERP System
 
 ## Table of Contents
 
@@ -32,12 +32,13 @@
 
 Dental clinics traditionally manage patient records, appointment schedules, and treatment histories using paper files or disconnected spreadsheets. This leads to lost records, scheduling conflicts, and no centralised view of a patient's history across visits.
 
-This system solves that by providing a centralised digital platform where:
-- **Dentists** can view their appointment schedule, record treatments after each visit, and access a patient's full history
+DentaCore solves that by providing a centralised digital platform where:
+
+- **Dentists** can view the full appointment schedule, record treatments after each visit, and access a patient's complete history
 - **Administrators** can manage staff accounts, control access permissions, schedule appointments, and oversee the entire clinic's operations
 - **Patients** are registered once and their history — every appointment, procedure, and cost — is tracked automatically over time
 
-Built as a full-stack monorepo with a Node.js/Express backend and a React/Vite frontend, the system includes enterprise-grade security features: multi-factor authentication, role-based access control, secure session management, and automated account lifecycle management.
+Built as a full-stack monorepo with a Node.js/Express backend and a React/Vite frontend, the system includes enterprise-grade security: multi-factor authentication, role-based access control, rotating session tokens, and automated account lifecycle management.
 
 ---
 
@@ -66,7 +67,7 @@ npx prisma generate
 npx prisma migrate dev
 
 # Start the server
-npm start
+npm run dev
 ```
 
 The backend runs on `http://localhost:5500`.
@@ -88,30 +89,34 @@ The frontend runs on `http://localhost:5173`.
 ### First Login
 
 A default admin account is seeded automatically on first server start:
+
 - **Email:** `admin@erp.com`
 - **Password:** `Admin@123`
 
-It is strongly recommended to change this password immediately after first login.
+Change this password immediately after first login.
 
 ---
 
 ## Tech Stack
 
 ### Backend
+
 | Technology | Purpose |
 | --- | --- |
 | Node.js + Express | HTTP server and routing |
 | PostgreSQL | Primary relational database |
-| Prisma (v7) | ORM and database client |
+| Prisma v7 | ORM and database client |
 | Redis | Session storage, token management, TTL-based cleanup |
 | bcrypt | Password hashing |
 | speakeasy | TOTP-based MFA (Google Authenticator compatible) |
+| qrcode | Server-side QR code generation for MFA setup |
 | Resend | Transactional email delivery |
 | helmet | HTTP security headers |
 | cookie-parser | Cookie parsing middleware |
 | node-cron | Scheduled cleanup of expired user accounts |
 
 ### Frontend
+
 | Technology | Purpose |
 | --- | --- |
 | React 18 | UI component framework |
@@ -119,6 +124,7 @@ It is strongly recommended to change this password immediately after first login
 | React Router v6 | Client-side routing |
 | Axios | HTTP client with interceptors |
 | React Context API | Global auth state management |
+| Tabler Icons | Icon webfont |
 
 ---
 
@@ -150,7 +156,7 @@ It is strongly recommended to change this password immediately after first login
 │   │   └── rbacMiddleware.js        # Permission checking (requirePermission)
 │   ├── routes/
 │   │   ├── activationRoutes.js
-│   │   ├── authRoutes.js            # Includes /me session check endpoint
+│   │   ├── authRoutes.js
 │   │   ├── userRoutes.js
 │   │   ├── adminRoutes.js
 │   │   ├── patientRoutes.js
@@ -166,33 +172,36 @@ It is strongly recommended to change this password immediately after first login
 │       ├── passwordUtils.js
 │       ├── mfaUtils.js
 │       ├── emailUtils.js
-│       └── cleanupUtils.js          # Expired user account cleanup
+│       └── cleanupUtils.js
 │
 └── client/                          # Frontend
     ├── vite.config.js
-    ├── src/
-    │   ├── main.jsx
-    │   ├── App.jsx
-    │   ├── api/
-    │   │   ├── axiosInstance.js     # Axios config, interceptors, redirect guard
-    │   │   ├── activation.js
-    │   │   ├── auth.js              # Includes getMe for session check
-    │   │   ├── user.js
-    │   │   ├── admin.js
-    │   │   └── clinic.js            # Patients, appointments, treatments
-    │   ├── context/
-    │   │   ├── AuthContext.js
-    │   │   ├── AuthProvider.jsx     # Calls /auth/me on mount
-    │   │   └── useAuth.js
-    │   ├── components/
-    │   │   ├── ProtectedRoute.jsx
-    │   │   └── AppSidebar.jsx       # Shared sidebar across all pages
-    │   └── pages/
-    │       ├── auth/
-    │       ├── home/
-    │       ├── profile/
-    │       ├── admin/
-    │       └── clinic/              # Patients, appointments, treatments
+    ├── index.html
+    └── src/
+        ├── main.jsx                 # AuthProvider mounted here, outside BrowserRouter
+        ├── App.jsx                  # All routes
+        ├── styles/
+        │   └── global.css           # Single design system CSS file
+        ├── api/
+        │   ├── axiosInstance.js     # Axios config, interceptors, retry + redirect guard
+        │   ├── activation.js
+        │   ├── auth.js
+        │   ├── user.js
+        │   ├── admin.js
+        │   └── clinic.js            # Patients, appointments, treatments
+        ├── context/
+        │   ├── AuthContext.js
+        │   ├── AuthProvider.jsx
+        │   └── useAuth.js
+        ├── components/
+        │   ├── ProtectedRoute.jsx
+        │   └── AppSidebar.jsx
+        └── pages/
+            ├── auth/
+            ├── home/
+            ├── profile/
+            ├── admin/
+            └── clinic/
 ```
 
 ---
@@ -202,11 +211,12 @@ It is strongly recommended to change this password immediately after first login
 ### Entry Point
 
 `index.js` bootstraps in this order:
+
 1. Connect to PostgreSQL via Prisma
 2. Connect to Redis
 3. Seed admin user if not present
 4. Start Express server
-5. Run immediate expired account cleanup then schedule hourly cron job
+5. Run immediate expired account cleanup, then schedule hourly cron job
 
 ```javascript
 await prismaConnect()
@@ -216,6 +226,8 @@ await appConfig(app)
 await cleanupExpiredUsers()
 cron.schedule('0 * * * *', async () => { await cleanupExpiredUsers() })
 ```
+
+---
 
 ### Configuration
 
@@ -238,7 +250,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter })
 ```
 
-**`RBACConfig.js`** defines all permissions and role assignments statically in code:
+**`RBACConfig.js`** defines all permissions and role assignments statically:
 
 ```javascript
 PERMISSIONS = {
@@ -255,7 +267,7 @@ PERMISSIONS = {
 }
 
 ROLES = {
-  STAFF: [ ...profile + clinic permissions ],
+  STAFF: [ ...profile permissions + clinic permissions including APPOINTMENTS_READ_ALL ],
   ADMIN: [ ...all permissions ]
 }
 ```
@@ -264,7 +276,7 @@ ROLES = {
 
 ### Database
 
-**PostgreSQL** accessed via **Prisma ORM**. Six tables:
+PostgreSQL accessed via Prisma ORM. Six tables:
 
 **`User`** — Dentist/staff accounts
 
@@ -278,33 +290,33 @@ ROLES = {
 | `roles` | String[] | Default: `["STAFF"]` |
 | `phones` | String[] | |
 | `mfaSecret` | String? | TOTP secret |
-| `mfaUri` | String? | otpauth URL |
+| `mfaUri` | String? | otpauth URL stored for QR regeneration |
 | `mfaEnabled` | Boolean | |
 | `expiresAt` | DateTime? | Null for permanent accounts |
 
-**`UserName`** — One-to-one with User (cascade delete)
+**`UserName`** — One-to-one with User (cascade delete). Stores `fName`, `mName`, `lName` separately to allow independent updates.
 
-**`Address`** — One-to-many with User (cascade delete)
+**`Address`** — One-to-many with User (cascade delete). Each address has its own row with `street`, `suburb`, `post`, `city`.
 
 **`Patient`** — Dental clinic patients
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | `id` | String (cuid) | Primary key |
-| `firstName` | String | Required |
-| `lastName` | String | Required |
+| `firstName` | String | |
+| `lastName` | String | |
 | `dob` | DateTime | Date of birth |
-| `gender` | String | Required |
+| `gender` | String | |
 | `phone` | String? | |
 | `email` | String? | |
 | `address` | String? | |
 
-**`Appointment`** — Links dentist to patient
+**`Appointment`** — Links dentist (User) to patient
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | `id` | String (cuid) | Primary key |
-| `dentistId` | String | FK → User |
+| `dentistId` | String? | FK → User, `onDelete: SetNull` |
 | `patientId` | String | FK → Patient |
 | `date` | DateTime | |
 | `status` | String | `SCHEDULED`, `COMPLETED`, `CANCELLED` |
@@ -315,20 +327,26 @@ ROLES = {
 | Field | Type | Notes |
 | --- | --- | --- |
 | `id` | String (cuid) | Primary key |
-| `appointmentId` | String | Unique FK → Appointment |
-| `procedure` | String | e.g. Filling, Extraction |
+| `appointmentId` | String | Unique FK → Appointment, `onDelete: Cascade` |
+| `procedure` | String | e.g. Filling, Extraction, Cleaning |
 | `toothNumber` | Int? | 1–32 |
 | `notes` | String? | |
 | `cost` | Float | AUD |
 
 **Entity Relationships:**
+
 ```
 User (Dentist) ──── many ──── Appointment ──── one ──── Treatment
                                    │
 Patient ────────── many ───────────┘
 ```
 
-**TTL Strategy**: New users have `expiresAt` set to +48hrs. A cron job runs hourly deleting records where `expiresAt < now`. On activation, `expiresAt` is set to `null`.
+**Key cascade decisions:**
+- Deleting a dentist user sets `dentistId` to null on their appointments (`SetNull`) — appointment history preserved
+- Deleting an appointment cascades to its treatment (`Cascade`) — no orphaned treatment records
+- Deleting a patient cascades to all their appointments and treatments
+
+**TTL Strategy:** New users have `expiresAt` set to +48hrs. Hourly cron job deletes records where `expiresAt < now`. On activation completion, `expiresAt` is set to null.
 
 ---
 
@@ -342,33 +360,33 @@ Patient ────────── many ───────────┘
 | `token:recover:{tokenId}` | String (JSON) | 15 mins | Password recovery |
 | `token:email_change:{tokenId}` | String (JSON) | 15 mins | Email change verification |
 | `mfa:{userId}` | String | 10 mins | MFA setup handshake |
-| `user_sessions:{userId}` | Sorted Set | — | Session ID registry (score = expiry) |
-| `user_remember:{userId}` | Sorted Set | — | Remember token registry (score = expiry) |
+| `user_sessions:{userId}` | Sorted Set | — | Session ID registry (score = expiry timestamp) |
+| `user_remember:{userId}` | Sorted Set | — | Remember token registry (score = expiry timestamp) |
 | `user_mfa_login:{userId}` | String (JSON) | 6 mins | User → MFA login token map |
 | `user_recover:{userId}` | String (JSON) | 16 mins | User → recovery token map |
 | `user_email_change:{userId}` | String (JSON) | 16 mins | User → email change token map |
 
-Sorted sets use expiry timestamps as scores enabling lazy zombie cleanup via `ZREMRANGEBYSCORE key 0 Date.now()` on every authenticated request.
+Sorted sets use expiry timestamps as scores, enabling lazy cleanup via `ZREMRANGEBYSCORE key 0 Date.now()` on every authenticated request. Redis automatically deletes empty sorted sets — a key disappearing after logout is expected behavior, not a bug.
 
 ---
 
 ### Authentication & Session Management
 
-**Login (no MFA):** Validate credentials → generate sessionId → store in Redis → set cookie
+**Login (no MFA):** Validate credentials → generate `sessionId` → store in Redis with 30-min TTL → set `SESSIONID` httpOnly cookie
 
-**Login (with MFA):** Validate credentials → generate mfaLoginTokenId → return to client → client submits OTP → validate → create session
+**Login (with MFA):** Validate credentials → generate `mfaLoginTokenId` → return to client → client submits OTP → validate → create session → set cookie
 
-**Session Validation (`requireAuth`):** Check SESSIONID cookie → Redis lookup → PostgreSQL user fetch → set req.user. Falls back to REMEMBER cookie with token rotation.
+**Remember Me:** If checked at login, a `rememberTokenId` is stored in Redis (7 days) and set as a `REMEMBER` httpOnly cookie. On every authenticated request, if `SESSIONID` has expired but `REMEMBER` is valid, the token is rotated (old deleted, new created) and a new session is issued automatically.
 
-**`GET /api/v2/auth/me`:** Lightweight session check endpoint. Returns only `{ id, roles }`. Used by `AuthProvider` on mount — intentionally separate from `getProfile` to keep concerns distinct and response minimal.
+**`GET /api/v2/auth/me`:** Lightweight session check. Returns `{ id, roles, email, name }`. Used by `AuthProvider` on mount — intentionally separate from `getProfile` to keep concerns distinct and the response minimal.
 
 ---
 
 ### Middleware
 
-**`requireAuth`**: Validates session, fetches fresh user from PostgreSQL on every request (ensures immediate suspension enforcement), sets `req.user`.
+**`requireAuth`**: Validates `SESSIONID` cookie via Redis → fetches fresh user from PostgreSQL on every request (ensures immediate suspension enforcement) → sets `req.user`. Falls back to `REMEMBER` token rotation if session has expired.
 
-**`requirePermission(permission)`**: Factory returning async middleware. Fresh PostgreSQL role lookup on every request ensures role changes take effect immediately.
+**`requirePermission(permission)`**: Factory returning async middleware. Performs fresh PostgreSQL role lookup on every request — role changes take effect immediately without requiring re-login.
 
 ---
 
@@ -399,6 +417,7 @@ POST   /api/v2/user/email
 POST   /api/v2/user/email/verify
 POST   /api/v2/user/2fa/enable
 POST   /api/v2/user/2fa/disable
+GET    /api/v2/user/dentists
 
 GET    /api/v2/admin/users
 GET    /api/v2/admin/users/:id
@@ -436,15 +455,35 @@ DELETE /api/v2/treatments/:id
 
 ---
 
+### Controllers
+
+Controllers handle request validation, orchestrate service calls, and manage Redis operations. They never call Prisma directly.
+
+**`activationControllers.js`**: Three-step account activation — set password, get MFA QR code, verify OTP. On completion, creates a session so the user is automatically logged in.
+
+**`authControllers.js`**: Login, MFA login verification, logout (single device), logout all, forgot/reset password.
+
+**`userControllers.js`**: Profile read/update, phone management, address CRUD, password change, email change with verification flow, MFA enable/disable.
+
+**`adminControllers.js`**: User CRUD, suspend/reactivate, force logout, resend activation, reset 2FA (resends activation email so user re-enters setup flow), role management. Status changes only through dedicated controllers — `updateUserController` explicitly excludes status from allowed fields.
+
+**`patientControllers.js`**: Patient CRUD.
+
+**`appointmentControllers.js`**: Appointment CRUD. All staff see all appointments (`APPOINTMENTS_READ_ALL` assigned to STAFF role).
+
+**`treatmentControllers.js`**: Treatment CRUD. Recording a treatment automatically sets the linked appointment to `COMPLETED`.
+
+---
+
 ### Services
 
-All Prisma queries are in service files. Controllers never call Prisma directly.
+All Prisma queries live in service files. Controllers never call Prisma directly.
 
-**`userService.js`**: User CRUD, roles, name/phone/address operations. `updateUser` strips internal Prisma relation fields (`id`, `userId`) from nested name objects before passing to upsert.
+**`userService.js`**: User CRUD, role management, name/phone/address operations. `updateUser` handles nested name upsert — `UserName` is one-to-one so it upserts through the parent. Address operations target rows directly by `addressId` due to one-to-many cardinality.
 
 **`patientService.js`**: Patient CRUD. `findPatientById` includes full appointment and treatment history.
 
-**`appointmentService.js`**: Appointment CRUD with dentist/patient filtering. All queries include dentist, patient, and treatment relations.
+**`appointmentService.js`**: Appointment CRUD with dentist/patient filtering. All queries include dentist (with name), patient, and treatment relations.
 
 **`treatmentService.js`**: Treatment CRUD. All queries include full appointment with dentist and patient.
 
@@ -452,15 +491,15 @@ All Prisma queries are in service files. Controllers never call Prisma directly.
 
 ### Utilities
 
-**`activationTokenUtils.js`**: Cryptographically random token generation. Only hashed versions stored — raw token sent to user once.
+**`activationTokenUtils.js`**: Cryptographically random token generation via `crypto.randomBytes`. Only hashed versions stored in the database — raw token sent to user once via email.
 
 **`passwordUtils.js`**: bcrypt hashing and comparison.
 
-**`mfaUtils.js`**: speakeasy TOTP secret generation and OTP verification.
+**`mfaUtils.js`**: speakeasy TOTP secret generation (`DentaCore` as issuer) and OTP verification with a 1-step window for clock drift tolerance.
 
-**`emailUtils.js`**: Resend SDK wrapper. Three email types: activation, password recovery, email change verification.
+**`emailUtils.js`**: Resend SDK wrapper. Three email types: account activation, password recovery, email change verification.
 
-**`cleanupUtils.js`**: `DELETE FROM User WHERE expiresAt < NOW()` — replaces MongoDB's TTL index.
+**`cleanupUtils.js`**: Deletes PostgreSQL user records where `expiresAt < now`. Replaces the MongoDB TTL index pattern.
 
 ---
 
@@ -468,11 +507,12 @@ All Prisma queries are in service files. Controllers never call Prisma directly.
 
 ### Project Setup
 
-**`vite.config.js`**: Proxies `/api` requests from port 5173 → 5500. Solves CORS in development.
+**`vite.config.js`**: Proxies `/api` requests from port 5173 → 5500, solving CORS in development.
 
 **`axiosInstance.js`**:
 - `baseURL: '/api/v2'`, `withCredentials: true`
-- 401 interceptor with `isRedirecting` flag prevents double redirects from simultaneous failing requests
+- 401 interceptor retries the failed request once before redirecting — handles the remember me token rotation race condition where a new session cookie may not yet be available when a second concurrent request fires
+- `isRedirecting` flag prevents duplicate redirects
 - Public paths excluded from redirect: `/login`, `/activate`, `/forgot-password`, `/reset-password`
 
 ---
@@ -480,13 +520,15 @@ All Prisma queries are in service files. Controllers never call Prisma directly.
 ### Auth Context & Route Guards
 
 **`AuthProvider.jsx`**:
-- Calls `GET /api/v2/auth/me` on mount — not `getProfile`. Returns only `{ id, roles }` for minimal response and clear separation of concerns.
-- Only clears `user` on 401 — a 500 server error does not log the user out
-- Exposes `user`, `loading`, `login()`, `logoutUser()`, `isAdmin()`
+- Mounted outside `BrowserRouter` in `main.jsx` — mounts once for the entire app lifetime
+- Calls `GET /api/v2/auth/me` on mount. Returns `{ id, roles, email, name }` — enough for session validation and sidebar display without fetching the full profile
+- Only clears `user` on 401 — a 500 error does not log the user out
+- Exposes `user`, `loading`, `login()`, `logoutUser()`, `isAdmin()`, `refreshUser()`
+- `refreshUser()` re-calls `getMe()` to sync the sidebar after profile name changes
 
-**`AppSidebar.jsx`**: Shared sidebar across all authenticated pages. Navigation sections: Main (Home, Profile), Clinic (Patients, Appointments), Admin (admin only), Session (Sign out). `active` prop highlights current page link.
+**`AppSidebar.jsx`**: Shared sidebar across all authenticated pages. Shows user initials, name, and roles in the footer. Navigation sections: Main (Home, Profile), Clinic (Patients, Appointments), Admin (admin only), Session (Sign out). `active` prop highlights the current page.
 
-**`ProtectedRoute`**: Redirects to `/login` if unauthenticated.
+**`ProtectedRoute`**: Redirects unauthenticated users to `/login`.
 
 **`AdminRoute`**: Redirects non-admins to `/home`.
 
@@ -494,19 +536,21 @@ All Prisma queries are in service files. Controllers never call Prisma directly.
 
 ### Pages
 
-**Activation** (`/activate` → `/activate/2fa` → `/activate/2fa/verify`): Three-step flow, state passed via router state.
+**Activation** (`/activate` → `/activate/2fa` → `/activate/2fa/verify`):
+Three-step flow. State (`activationToken`, `mfaToken`) passed between steps via React Router state. QR code generated server-side via `qrcode` package and returned as a base64 data URL. On successful OTP verification, user is redirected to `/login` to sign in with their new account.
 
-**Auth**: Login → `/home`, MFA login, forgot/reset password.
+**Auth**: Login → `/home` after `getMe()`. MFA login (`/login/mfa`). Forgot/reset password.
 
-**Home** (`/home`): Default landing page. Personalised greeting, role badge, empty state ready for future dashboard widgets.
+**Home** (`/home`): Personalised greeting with time-of-day, current date. Stat card placeholders ready for future dashboard data.
 
-**Profile** (`/profile`): Name, phones, addresses, password, email, 2FA sections. `AddressForm` at module level to prevent remount. 2FA disable calls `logoutUser()` before navigating.
+**Profile** (`/profile`): Sections for personal information, phones, addresses, password, email, and 2FA. Name updates call `refreshUser()` to sync the sidebar immediately. Password change invalidates all sessions and redirects to login. 2FA disable invalidates all sessions and redirects to login.
 
-**Admin**: User list with search, user detail with contextual actions. Self-deletion prevented on frontend (`isSelf` check) and backend.
+**Admin** (`/admin/users`, `/admin/users/:id`):
+User list with search. Clicking own row redirects to `/profile`. User detail shows contextual actions based on status — Suspend (active users), Reactivate (suspended), Resend activation (pending), Reset 2FA (when `mfaSecret` exists). Self-deletion and self-suspension prevented on both frontend and backend. Status only changes through dedicated action endpoints — not the edit form.
 
 **Clinic**:
-- `Patients.jsx` / `PatientDetail.jsx` — patient CRUD, appointment history. Uses `useReducer` for forms, `useRef` for search auto-focus.
-- `Appointments.jsx` / `AppointmentDetail.jsx` — admins see all, dentists see own. Treatment recorded inline on appointment detail. Recording treatment auto-completes the appointment.
+- `Patients.jsx` / `PatientDetail.jsx` — Patient CRUD with appointment history table
+- `Appointments.jsx` / `AppointmentDetail.jsx` — All staff see all appointments. Edit appointment (date, dentist, notes), cancel, record/edit treatment inline. Admins can delete any appointment regardless of status. Deleting an appointment cascades to its treatment.
 
 ---
 
@@ -514,24 +558,24 @@ All Prisma queries are in service files. Controllers never call Prisma directly.
 
 ```
 src/api/
-├── axiosInstance.js
-├── activation.js   setPassword, get2faSecret, verify2faSetup
-├── auth.js         login, verifyMfaLogin, getMe, forgotPassword,
-│                   resetPassword, logout, logoutAll
-├── user.js         getProfile, updateName, addPhone, removePhone,
-│                   addAddress, updateAddress, removeAddress,
-│                   changePassword, changeEmail, verifyEmailChange,
-│                   disable2fa, enable2fa
-├── admin.js        getAllUsers, getUser, createUser, updateUser,
-│                   deleteUser, suspendUser, reactivateUser,
-│                   forceLogoutUser, resendActivationEmail,
-│                   reset2fa, assignRole, removeRole
-└── clinic.js       getAllPatients, getPatient, createPatient, updatePatient,
-                    deletePatient, getAllAppointments, getMyAppointments,
-                    getAppointment, getAppointmentsByPatient,
-                    createAppointment, updateAppointment, deleteAppointment,
-                    getTreatment, getTreatmentByAppointment, createTreatment,
-                    updateTreatment, deleteTreatment
+├── axiosInstance.js   Axios config, 401 retry interceptor, redirect guard
+├── activation.js      setPassword, get2faSecret, verify2faSetup
+├── auth.js            login, verifyMfaLogin, getMe, forgotPassword,
+│                      resetPassword, logout, logoutAll
+├── user.js            getProfile, updateName, addPhone, removePhone,
+│                      addAddress, updateAddress, removeAddress,
+│                      changePassword, changeEmail, verifyEmailChange,
+│                      disable2fa, enable2fa, getDentists
+├── admin.js           getAllUsers, getUser, createUser, updateUser,
+│                      deleteUser, suspendUser, reactivateUser,
+│                      forceLogoutUser, resendActivationEmail,
+│                      reset2fa, assignRole, removeRole
+└── clinic.js          getAllPatients, getPatient, createPatient, updatePatient,
+                       deletePatient, getAllAppointments, getMyAppointments,
+                       getAppointment, getAppointmentsByPatient,
+                       createAppointment, updateAppointment, deleteAppointment,
+                       getTreatment, getTreatmentByAppointment, createTreatment,
+                       updateTreatment, deleteTreatment
 ```
 
 ---
@@ -540,23 +584,23 @@ src/api/
 
 **Password Security**: bcrypt hashing. Never stored or logged as plain text.
 
-**Token Security**: Cryptographically random. Only hashed versions in PostgreSQL/Redis. Raw token sent once.
+**Token Security**: Cryptographically random via `crypto.randomBytes`. Only hashed versions stored in PostgreSQL/Redis. Raw token sent to the user once via email.
 
-**Session Security**: Server-side Redis storage. Client holds opaque ID in httpOnly, secure, sameSite=strict cookie.
+**Session Security**: Server-side Redis storage. Client holds an opaque session ID in an httpOnly, secure, sameSite=strict cookie. No sensitive data in the cookie itself.
 
-**Cookie Rotation**: Remember Me tokens rotate on every use.
+**Remember Me Rotation**: Remember Me tokens rotate on every use — the old token is deleted before the new one is created, closing the window for token replay attacks.
 
-**MFA**: TOTP via speakeasy. Secret persists when disabled — re-enabling doesn't require new QR scan unless admin resets it.
+**MFA**: TOTP via speakeasy, issuer `DentaCore`. Secret persists in the database when MFA is disabled — re-enabling does not require a new QR scan unless an admin resets it. Admin reset clears the secret, sets status to `PENDING_MFA_SETUP`, and sends a new activation email so the user re-enters the setup flow.
 
-**RBAC**: Fresh PostgreSQL role lookup on every request. Role changes take effect immediately.
+**RBAC**: Fresh PostgreSQL role lookup on every request via `requirePermission`. Role changes take effect immediately without requiring re-login.
 
-**Suspension Enforcement**: `requireAuth` fetches user on every request. Suspended users rejected immediately.
+**Suspension Enforcement**: `requireAuth` fetches the full user record from PostgreSQL on every request. Suspended or deleted users are rejected at the middleware layer before reaching any controller.
 
-**Input Validation**: Explicit field whitelists on update endpoints. Prisma relation fields stripped from nested objects before update.
+**Input Validation**: Explicit field whitelists on all update endpoints. Status changes are rejected by `updateUserController` — status only changes through dedicated controllers (`suspendUser`, `reactivateUser`, activation flow).
 
-**Self-Deletion Prevention**: Admins cannot delete own account — enforced on backend and frontend.
+**Self-Deletion Prevention**: Admins cannot delete or suspend their own account. Enforced on both backend (ID comparison) and frontend (`isSelf` check).
 
-**Session Check Separation**: `/auth/me` for session validation (returns `{ id, roles }`). `/user/profile` for full profile data. Intentionally separate concerns.
+**Session Cleanup on Sensitive Operations**: Password change, 2FA disable, user deletion, and force logout all invalidate Redis sessions and remember tokens immediately. Remember tokens are deleted before sessions to close the race condition window where token rotation could create a new session after cleanup begins.
 
 ---
 
@@ -565,42 +609,58 @@ src/api/
 **Account Creation and Activation:**
 ```
 Admin creates user (email only)
-    → PostgreSQL User row created, PENDING_ACTIVATION, expiresAt +48hrs
-    → Activation email sent (Resend)
+    → PostgreSQL User row: PENDING_ACTIVATION, expiresAt +48hrs
+    → Activation email sent via Resend
     → User clicks link → /activate?token=TOKEN
     → Sets password → status: PENDING_MFA_SETUP
-    → Scans QR → mfaSecret stored, status: PENDING_MFA_VERIFICATION
-    → Verifies OTP → status: ACTIVE, mfaEnabled: true, expiresAt: null
+    → QR code generated server-side, displayed for scanning
+    → mfaSecret stored → status: PENDING_MFA_VERIFICATION
+    → User verifies OTP → status: ACTIVE, mfaEnabled: true, expiresAt: null
+    → Redirected to /login
 ```
 
 **Expired Account Cleanup:**
 ```
 Server starts → cleanupExpiredUsers() runs immediately
-Cron job runs every hour at :00 → DELETE WHERE expiresAt < NOW()
+Hourly cron at :00 → DELETE FROM User WHERE expiresAt < NOW()
 ```
 
 **Login with MFA:**
 ```
-Submit email + password → validate → generate mfaLoginTokenId (Redis, 5 mins)
-    → Navigate to /login/mfa
-    → Submit OTP → validate → create session in Redis
-    → login({ id, roles }) called in AuthContext
-    → Navigate to /home
+POST /auth/login → validate credentials → generate mfaLoginTokenId (Redis, 5 mins)
+    → client navigates to /login/mfa
+    → POST /auth/login/mfa/verify → validate OTP
+    → create session in Redis (30 mins) → set SESSIONID cookie
+    → client calls GET /auth/me → AuthContext populated
+    → navigate to /home
+```
+
+**Remember Me Token Rotation:**
+```
+SESSIONID expired → requireAuth checks REMEMBER cookie
+    → valid → delete old token → create new token (7 days)
+    → create new session (30 mins) → set new cookies
+    → request continues transparently
+    → if second concurrent request fires before new cookie arrives:
+        → 401 → axios interceptor retries once → succeeds with new cookie
 ```
 
 **Authenticated Request:**
 ```
-SESSIONID cookie → requireAuth → Redis lookup → PostgreSQL user fetch
-    → requirePermission → PostgreSQL roles → RBACConfig lookup
-    → Controller → Response
+SESSIONID cookie → requireAuth
+    → Redis session lookup → PostgreSQL user fetch
+    → requirePermission → RBACConfig lookup
+    → Controller → Service → Prisma → PostgreSQL
+    → Response
 ```
 
 **Clinic Flow:**
 ```
-Register patient → Schedule appointment (links dentist + patient)
+Register patient
+    → Schedule appointment (links dentist + patient, status: SCHEDULED)
     → After visit: record treatment on appointment detail page
     → Appointment status auto-updates to COMPLETED
-    → Treatment visible in patient appointment history
+    → Treatment and cost visible in patient appointment history
 ```
 
 ---
