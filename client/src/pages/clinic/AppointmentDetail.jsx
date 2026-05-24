@@ -4,6 +4,7 @@ import {
   getAppointment, updateAppointment, deleteAppointment,
   createTreatment, updateTreatment
 } from '../../api/clinic'
+import { getDentists } from '../../api/user'
 import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/AppSidebar'
 import '../../styles/global.css'
@@ -16,7 +17,7 @@ const STATUS_BADGE = {
 
 const initialTreatment = { procedure: '', toothNumber: '', notes: '', cost: '' }
 
-function treatmentReducer(state, action) {
+function reducer(state, action) {
   switch (action.type) {
     case 'set': return { ...state, [action.field]: action.value }
     case 'init': return action.payload
@@ -30,6 +31,13 @@ const formatDentist = (dentist) => {
   return dentist.email
 }
 
+const toLocalDatetimeValue = (isoString) => {
+  if (!isoString) return ''
+  const d = new Date(isoString)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default function AppointmentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -40,8 +48,15 @@ export default function AppointmentDetail() {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
   const [actionLoading, setActionLoading] = useState('')
+
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, dispatchEdit] = useReducer(reducer, {})
+  const [dentists, setDentists] = useState([])
+  const [editError, setEditError] = useState('')
+  const [editLoading, setEditLoading] = useState(false)
+
   const [showTreatment, setShowTreatment] = useState(false)
-  const [treatmentForm, dispatchTreatment] = useReducer(treatmentReducer, initialTreatment)
+  const [treatmentForm, dispatchTreatment] = useReducer(reducer, initialTreatment)
   const [treatmentError, setTreatmentError] = useState('')
   const [treatmentLoading, setTreatmentLoading] = useState(false)
 
@@ -57,6 +72,46 @@ export default function AppointmentDetail() {
   }
 
   useEffect(() => { fetchAppointment() }, [id])
+
+  const startEdit = async () => {
+    if (!dentists.length) {
+      try {
+        const data = await getDentists()
+        setDentists(data.dentists)
+      } catch {
+        setEditError('Failed to load dentists')
+      }
+    }
+    dispatchEdit({
+      type: 'init',
+      payload: {
+        dentistId: appointment.dentistId || '',
+        date: toLocalDatetimeValue(appointment.date),
+        notes: appointment.notes || ''
+      }
+    })
+    setShowEdit(true)
+  }
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault()
+    setEditLoading(true)
+    setEditError('')
+    try {
+      await updateAppointment(id, {
+        dentistId: editForm.dentistId,
+        date: new Date(editForm.date).toISOString(),
+        notes: editForm.notes
+      })
+      setFeedback('Appointment updated')
+      setShowEdit(false)
+      await fetchAppointment()
+    } catch (err) {
+      setEditError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setEditLoading(false)
+    }
+  }
 
   const handleStatus = async (status) => {
     setActionLoading(status)
@@ -159,6 +214,7 @@ export default function AppointmentDetail() {
         {error && <div className="feedback-error" style={{ marginBottom: '16px' }}>{error}</div>}
         {feedback && <div className="feedback-success" style={{ marginBottom: '16px' }}>{feedback}</div>}
 
+        {/* Details */}
         <div className="detail-grid">
           <div className="detail-item" style={{ cursor: 'pointer' }}
             onClick={() => navigate(`/clinic/patients/${appointment.patientId}`)}>
@@ -183,26 +239,34 @@ export default function AppointmentDetail() {
           </div>
         </div>
 
-        {!isCancelled && (
+        {/* Actions — shown for admins always, for staff only when not cancelled */}
+        {(!isCancelled || isAdmin()) && (
           <div className="card" style={{ marginBottom: '16px' }}>
             <div className="card-title">Actions</div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {appointment.status === 'SCHEDULED' && (
-                <button className="btn" disabled={!!actionLoading}
-                  onClick={() => handleStatus('CANCELLED')}>
-                  {actionLoading === 'CANCELLED' ? 'Cancelling...' : 'Cancel appointment'}
-                </button>
-              )}
-              {!hasT && !isCancelled && (
-                <button className="btn btn-primary"
-                  onClick={() => { dispatchTreatment({ type: 'init', payload: initialTreatment }); setShowTreatment(true) }}>
-                  <i className="ti ti-plus" aria-hidden="true" /> Record treatment
-                </button>
-              )}
-              {hasT && (
-                <button className="btn" onClick={startEditTreatment}>
-                  <i className="ti ti-edit" aria-hidden="true" /> Edit treatment
-                </button>
+              {!isCancelled && (
+                <>
+                  <button className="btn" onClick={startEdit}>
+                    <i className="ti ti-edit" aria-hidden="true" /> Edit appointment
+                  </button>
+                  {appointment.status === 'SCHEDULED' && (
+                    <button className="btn" disabled={!!actionLoading}
+                      onClick={() => handleStatus('CANCELLED')}>
+                      {actionLoading === 'CANCELLED' ? 'Cancelling...' : 'Cancel appointment'}
+                    </button>
+                  )}
+                  {!hasT && (
+                    <button className="btn btn-primary"
+                      onClick={() => { dispatchTreatment({ type: 'init', payload: initialTreatment }); setShowTreatment(true) }}>
+                      <i className="ti ti-plus" aria-hidden="true" /> Record treatment
+                    </button>
+                  )}
+                  {hasT && (
+                    <button className="btn" onClick={startEditTreatment}>
+                      <i className="ti ti-edit" aria-hidden="true" /> Edit treatment
+                    </button>
+                  )}
+                </>
               )}
               {isAdmin() && (
                 <button className="btn btn-danger" disabled={!!actionLoading} onClick={handleDelete}>
@@ -213,6 +277,48 @@ export default function AppointmentDetail() {
           </div>
         )}
 
+        {/* Edit appointment form */}
+        {showEdit && (
+          <div className="card" style={{ marginBottom: '16px' }}>
+            <div className="card-title">Edit appointment</div>
+            <form onSubmit={handleEditSubmit} className="form">
+              <div className="form-group">
+                <label className="form-label">Dentist</label>
+                <select className="form-select" value={editForm.dentistId}
+                  onChange={e => dispatchEdit({ type: 'set', field: 'dentistId', value: e.target.value })}>
+                  <option value="">No dentist assigned</option>
+                  {dentists.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.name ? `${d.name.fName} ${d.name.lName}` : d.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date & time</label>
+                <input type="datetime-local" className="form-input"
+                  value={editForm.date}
+                  onChange={e => dispatchEdit({ type: 'set', field: 'date', value: e.target.value })}
+                  required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Notes</label>
+                <textarea className="form-textarea" value={editForm.notes}
+                  onChange={e => dispatchEdit({ type: 'set', field: 'notes', value: e.target.value })}
+                  placeholder="Any notes for this appointment..." />
+              </div>
+              {editError && <div className="feedback-error">{editError}</div>}
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={() => setShowEdit(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={editLoading}>
+                  {editLoading ? 'Saving...' : 'Save changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Treatment form */}
         {showTreatment && (
           <div className="card" style={{ marginBottom: '16px' }}>
             <div className="card-title">{hasT ? 'Edit treatment' : 'Record treatment'}</div>
@@ -256,6 +362,7 @@ export default function AppointmentDetail() {
           </div>
         )}
 
+        {/* Treatment record */}
         {hasT && !showTreatment && (
           <div className="card">
             <div className="card-title">Treatment record</div>

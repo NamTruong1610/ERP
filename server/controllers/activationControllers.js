@@ -41,7 +41,7 @@ exports.setPasswordController = async (req, res, next) => {
     let rawMfaToken = null
 
     if (!userRecord || Date.now() > userRecord.expiresAt) {
-      await deleteUserById(userRecord.id)
+      if (userRecord) await deleteUserById(userRecord.id)
       return res.status(404).json({
         message: "Token expired"
       })
@@ -106,7 +106,7 @@ exports.get2faSecretController = async (req, res, next) => {
     const userRecord = await findUserByActivationToken(hashedActivationToken)
 
     if (!userRecord || Date.now() > userRecord.expiresAt) {
-      await deleteUserById(userRecord.id)
+      if (userRecord) await deleteUserById(userRecord.id)
       return res.status(404).json({
         message: "Token expired"
       })
@@ -157,7 +157,7 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
     const hashedActivationToken = await hashToken(activationToken);
     const userRecord = await findUserByActivationToken(hashedActivationToken)
     if (!userRecord || Date.now() > userRecord.expiresAt) {
-      await deleteUserById(userRecord.id)
+      if (userRecord) await deleteUserById(userRecord.id)
       return res.status(404).json({
         message: "Token expired"
       })

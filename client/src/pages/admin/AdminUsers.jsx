@@ -13,7 +13,7 @@ const STATUS_BADGE = {
   PENDING_MFA_VERIFICATION: 'badge-pending',
 }
 
-const initialForm = { email: '', fName: '', lName: '' }
+const initialForm = { email: '' }
 
 function formReducer(state, action) {
   switch (action.type) {
@@ -64,18 +64,6 @@ function CreateUserModal({ onClose, onCreated }) {
             <label className="form-label">Email <span style={{ color: 'var(--danger-text)' }}>*</span></label>
             <input ref={firstRef} name="email" type="email" className="form-input"
               value={form.email} onChange={handleChange} placeholder="user@example.com" required />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">First name</label>
-              <input name="fName" className="form-input"
-                value={form.fName} onChange={handleChange} placeholder="John" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Last name</label>
-              <input name="lName" className="form-input"
-                value={form.lName} onChange={handleChange} placeholder="Smith" />
-            </div>
           </div>
           {error && <div className="feedback-error">{error}</div>}
           <div className="form-actions">

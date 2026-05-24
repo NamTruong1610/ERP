@@ -49,7 +49,7 @@ export default function Profile() {
   const [editingAddressId, setEditingAddressId] = useState(null)
 
   const [showPasswordForm, setShowPasswordForm] = useState(false)
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmNewPassword: '' })
   const [passwordLoading, setPasswordLoading] = useState(false)
 
   const [showEmailForm, setShowEmailForm] = useState(false)
@@ -158,7 +158,7 @@ export default function Profile() {
       await changePassword(passwordForm)
       showFeedback('Password changed — please sign in again')
       setShowPasswordForm(false)
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmNewPassword: '' })
       setTimeout(() => { logoutUser(); navigate('/login') }, 1500)
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
@@ -400,8 +400,8 @@ export default function Profile() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Confirm password</label>
-                  <input type="password" className="form-input" value={passwordForm.confirmPassword}
-                    onChange={e => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))} required />
+                  <input type="password" className="form-input" value={passwordForm.confirmNewPassword}
+                    onChange={e => setPasswordForm(p => ({ ...p, confirmNewPassword: e.target.value }))} required />
                 </div>
               </div>
               <div className="form-actions">

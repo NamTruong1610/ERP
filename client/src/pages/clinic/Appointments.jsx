@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useReducer } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/useAuth'
-import { getAllAppointments, getMyAppointments, createAppointment, getAllPatients } from '../../api/clinic'
+import { getAllAppointments, createAppointment, getAllPatients } from '../../api/clinic'
 import { getDentists } from '../../api/user'
 import AppSidebar from '../../components/AppSidebar'
 import '../../styles/global.css'
@@ -117,7 +116,6 @@ function CreateAppointmentModal({ onClose, onCreated }) {
 
 export default function Appointments() {
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
   const searchRef = useRef(null)
   const [appointments, setAppointments] = useState([])
   const [filtered, setFiltered] = useState([])
@@ -128,7 +126,7 @@ export default function Appointments() {
 
   const fetchAppointments = async () => {
     try {
-      const data = isAdmin() ? await getAllAppointments() : await getMyAppointments()
+      const data = await getAllAppointments() 
       setAppointments(data.appointments)
       setFiltered(data.appointments)
     } catch {

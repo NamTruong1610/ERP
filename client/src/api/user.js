@@ -48,8 +48,8 @@ export const changePassword = async ({ currentPassword, newPassword, confirmNewP
 }
  
 // Email
-export const changeEmail = async ({ email, password }) => {
-  const { data } = await axiosInstance.post('/user/email', { email, password })
+export const changeEmail = async ({ newEmail, password }) => {
+  const { data } = await axiosInstance.post('/user/email', { email: newEmail, password })
   return data
 }
  
