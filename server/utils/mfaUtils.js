@@ -1,7 +1,7 @@
 const speakeasy = require("speakeasy");
 
-exports.generateMfaSecret = async (name) => {
-  const secret = await speakeasy.generateSecret({
+exports.generateMfaSecret = (name) => {
+  const secret = speakeasy.generateSecret({
     length: 20,
     name: `DentaCore:${name}`,
     issuer: 'DentaCore'
@@ -9,8 +9,8 @@ exports.generateMfaSecret = async (name) => {
   return secret;
 }
 
-exports.verifyMfaOtp = async (otp, mfaSecret) => {
-  const verified = await speakeasy.totp.verify({
+exports.verifyMfaOtp = (otp, mfaSecret) => {
+  const verified = speakeasy.totp.verify({
     secret: mfaSecret,
     encoding: "base32",
     token: otp,

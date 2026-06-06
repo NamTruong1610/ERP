@@ -78,11 +78,10 @@ exports.deleteUserRole = async (userData, role) => {
 exports.updateUser = async (oldUserData, updatedUserData) => {
   const { name, addresses, ...rest } = updatedUserData
 
-  const nameData = name ? {
-    fName: name.fName ?? '',
-    mName: name.mName ?? '',
-    lName: name.lName ?? ''
-  } : undefined
+  const nameData = name ? Object.fromEntries(
+    Object.entries({ fName: name.fName, mName: name.mName, lName: name.lName })
+      .filter(([_, v]) => v !== undefined && v !== '')
+  ) : undefined
 
   return await prisma.user.update({
     where: { id: oldUserData.id },

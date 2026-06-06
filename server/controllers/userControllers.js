@@ -9,6 +9,10 @@ const {
 } = require("../services/userService")
 
 const {
+  invalidateAllUserSessions
+} = require("../services/sessionService")
+
+const {
   comparePasswordHash,
   hashPassword
 } = require("../utils/passwordUtils")
@@ -188,17 +192,7 @@ exports.changePasswordController = async (req, res, next) => {
     await updateUser(userRecord, { password: hashedPassword })
 
     // Invalidate all other sessions so other devices are forced to re-login
-    const sessionIds = await redisClient.zRange(`user_sessions:${id}`, 0, -1)
-    for (const sessionId of sessionIds) {
-      await redisClient.del(`session:${sessionId}`)
-    }
-    await redisClient.del(`user_sessions:${id}`)
-
-    const rememberTokens = await redisClient.zRange(`user_remember:${id}`, 0, -1)
-    for (const tokenId of rememberTokens) {
-      await redisClient.del(`token:remember:${tokenId}`)
-    }
-    await redisClient.del(`user_remember:${id}`)
+    await invalidateAllUserSessions(id)
 
     res.clearCookie("SESSIONID", { httpOnly: true, secure: true, sameSite: "strict" })
     res.clearCookie("REMEMBER", { httpOnly: true, secure: true, sameSite: "strict" })
@@ -318,17 +312,7 @@ exports.disable2faController = async (req, res, next) => {
     await updateUser(userRecord, { mfaEnabled: false })
 
     // Invalidate all sessions and force re-login
-    const sessionIds = await redisClient.zRange(`user_sessions:${id}`, 0, -1)
-    for (const sessionId of sessionIds) {
-      await redisClient.del(`session:${sessionId}`)
-    }
-    await redisClient.del(`user_sessions:${id}`)
-
-    const rememberTokens = await redisClient.zRange(`user_remember:${id}`, 0, -1)
-    for (const tokenId of rememberTokens) {
-      await redisClient.del(`token:remember:${tokenId}`)
-    }
-    await redisClient.del(`user_remember:${id}`)
+    await invalidateAllUserSessions(id)
 
     res.clearCookie("SESSIONID", { httpOnly: true, secure: true, sameSite: "strict" })
     res.clearCookie("REMEMBER", { httpOnly: true, secure: true, sameSite: "strict" })

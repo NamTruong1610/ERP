@@ -1,0 +1,18 @@
+module.exports = {
+  SESSION_TTL_SECONDS: 30 * 60,
+  SESSION_TTL_MS: 30 * 60 * 1000,
+  REMEMBER_TTL_SECONDS: 7 * 24 * 60 * 60,
+  REMEMBER_TTL_MS: 7 * 24 * 60 * 60 * 1000,
+  MFA_LOGIN_TTL_SECONDS: 5 * 60,
+  MFA_LOGIN_MAP_TTL_SECONDS: 6 * 60,
+  MFA_SETUP_TTL_SECONDS: 10 * 60,
+  RECOVERY_TTL_SECONDS: 15 * 60,
+  RECOVERY_MAP_TTL_SECONDS: 16 * 60,
+  ACTIVATION_TTL_MS: 48 * 60 * 60 * 1000,
+  COOKIE_OPTIONS: {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict"
+  }
+}
+

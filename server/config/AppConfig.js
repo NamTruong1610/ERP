@@ -21,8 +21,9 @@ exports.appConfig = async (app) => {
   app.use('/api/v2/patients', patientRoutes);
   app.use('/api/v2/appointments', appointmentRoutes);
   app.use('/api/v2/treatments', treatmentRoutes)
-  app.listen(port, () => {
-    console.log(`App listening on port ${port}`);
+  app.use((err, req, res, next) => {
+    console.error(err)
+    res.status(500).json({ message: 'Internal server error' })
   })
 }
 

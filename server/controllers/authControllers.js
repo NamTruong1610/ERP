@@ -5,6 +5,11 @@ const {
 } = require("../services/userService")
 
 const {
+  createUserSession,
+  invalidateAllUserSessions
+} = require("../services/sessionService")
+
+const {
   hashPassword,
   comparePasswordHash
 } = require("../utils/passwordUtils")
@@ -22,6 +27,23 @@ const {
 const {
   sendAccountRecoveryEmail
 } = require("../utils/emailUtils")
+
+exports.getMeController = async (req, res, next) => {
+  try {
+    const userRecord = await findUserById(req.user.id)
+    if (!userRecord || userRecord.status !== 'ACTIVE') {
+      return res.status(401).json({ message: 'Unauthenticated' })
+    }
+    return res.status(200).json({
+      id: userRecord.id,
+      roles: userRecord.roles,
+      email: userRecord.email,
+      name: userRecord.name
+    })
+  } catch (error) {
+    next(error)
+  }
+}
 
 
 exports.loginController = async (req, res, next) => {
@@ -55,57 +77,15 @@ exports.loginController = async (req, res, next) => {
 
     if (!userRecord.mfaEnabled) {
       // Create a session and save its id into a cookie
-      const sessionId = await generateActivationToken()
-      await redisClient.set(
-        `session:${sessionId}`,
-        JSON.stringify({
-          id: userRecord.id,
-          userAgent: req.headers["user-agent"],
-          ip: req.ip,
-          createdAt: Date.now()
-        }),
-        { EX: 30 * 60 } // 30 mins
-      )
-
-      // Create a remember token if "Remember Me" is checked
-      if (rememberMe) {
-        const rememberMeTokenId = await generateActivationToken()
-        await redisClient.set(
-          `token:remember:${rememberMeTokenId}`,
-          JSON.stringify({
-            id: userRecord.id,
-            createdAt: Date.now()
-          }),
-          { EX: 7 * 24 * 60 * 60 } // 7 days
-        )
-
-        // Create a remember token in user->remember tokens map
-        await redisClient.zAdd(`user_remember:${userRecord.id}`, {
-          score: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-          value: rememberMeTokenId
-        })
-
-        res.cookie("REMEMBER", rememberMeTokenId, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "strict",
-          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-        })
-      }
-
-      // Create a session in user->sessions map
-      await redisClient.zAdd(`user_sessions:${userRecord.id}`, {
-        score: Date.now() + 30 * 60 * 1000, // 30 mins
-        value: sessionId
-      })
+      const { sessionId, rememberTokenId } = await createUserSession(userRecord.id, req.headers["user-agent"], req.ip, rememberMe)
 
       // Set local login cookie storing the session id
-      res.cookie("SESSIONID", sessionId, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "strict",
-        maxAge: 30 * 60 * 1000 // 30 mins
-      })
+      res.cookie('SESSIONID', sessionId, { ...COOKIE_OPTIONS, maxAge: SESSION_TTL_MS })
+
+      // Create a remember token if "Remember Me" is checked
+      if (rememberTokenId) {
+        res.cookie('REMEMBER', rememberTokenId, { ...COOKIE_OPTIONS, maxAge: REMEMBER_TTL_MS })
+      }
 
       return res.status(200).json({
         message: "Login successful"
@@ -209,60 +189,20 @@ exports.verify2faLoginController = async (req, res, next) => {
 
     // Create login session
     // Create a session and save its id into a cookie
-    const sessionId = await generateActivationToken()
-    await redisClient.set(
-      `session:${sessionId}`,
-      JSON.stringify({
-        id: userRecord.id,
-        userAgent: req.headers["user-agent"],
-        ip: req.ip,
-        createdAt: Date.now()
-      }),
-      { EX: 30 * 60 } // 30 mins
-    )
+    const { sessionId, rememberTokenId } = await createUserSession(userRecord.id, req.headers["user-agent"], req.ip, rememberMe)
+
+    // Set local login cookie storing the session id
+    res.cookie('SESSIONID', sessionId, { ...COOKIE_OPTIONS, maxAge: SESSION_TTL_MS })
 
     // Create a remember token if "Remember Me" is checked
-    if (rememberMe) {
-      const rememberMeTokenId = await generateActivationToken()
-      await redisClient.set(
-        `token:remember:${rememberMeTokenId}`,
-        JSON.stringify({
-          id: userRecord.id,
-          createdAt: Date.now()
-        }),
-        { EX: 7 * 24 * 60 * 60 } // 7 days
-      )
-
-      // Create a remember token in user->remember tokens map
-      await redisClient.zAdd(`user_remember:${userRecord.id}`, {
-        score: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-        value: rememberMeTokenId
-      })
-      res.cookie("REMEMBER", rememberMeTokenId, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      })
+    if (rememberTokenId) {
+      res.cookie('REMEMBER', rememberTokenId, { ...COOKIE_OPTIONS, maxAge: REMEMBER_TTL_MS })
     }
-
-    // Create a session in user->sessions map
-    await redisClient.zAdd(`user_sessions:${userRecord.id}`, {
-      score: Date.now() + 30 * 60 * 1000, // 30 mins
-      value: sessionId
-    })
 
     // Delete 2fa login token and user->2fa login token map
     await redisClient.del(`user_mfa_login:${userRecord.id}`)
     await redisClient.del(`token:mfa_login:${mfaLoginTokenId}`)
 
-    // Set local login cookie storing the session id
-    res.cookie("SESSIONID", sessionId, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-      maxAge: 30 * 60 * 1000 // 30 mins
-    })
 
     return res.status(200).json({
       message: "Login successful"
@@ -327,19 +267,7 @@ exports.logoutAllController = async (req, res, next) => {
   try {
     const userId = req.user.id; // Assuming this is set by requireAuth middleware
 
-    // Get all active session IDs for the user
-    const sessionIds = await redisClient.zRange(`user_sessions:${userId}`, 0, -1);
-    for (const sessionId of sessionIds) {
-      await redisClient.del(`session:${sessionId}`);
-    }
-    await redisClient.del(`user_sessions:${userId}`);
-
-    // Get all remember tokens for the user
-    const rememberTokens = await redisClient.zRange(`user_remember:${userId}`, 0, -1);
-    for (const tokenId of rememberTokens) {
-      await redisClient.del(`token:remember:${tokenId}`);
-    }
-    await redisClient.del(`user_remember:${userId}`);
+    await invalidateAllUserSessions(id)
 
     // Clear cookies for the current device (browser)
     res.clearCookie("SESSIONID", {
@@ -456,8 +384,6 @@ exports.resetPasswordController = async (req, res, next) => {
       })
     }
 
-    console.log(recoveryTokenData.id)
-
     const hashedPassword = await hashPassword(password)
 
     await updateUser(userRecord, {
@@ -466,22 +392,7 @@ exports.resetPasswordController = async (req, res, next) => {
 
     // Delete user->recovery tokens map, recovery token, user->sessions map, login sessions, user->remember map, rememberMe tokens
     // Delete user->sessions map and login sessions
-    const sessionIds = await redisClient.zRange(`user_sessions:${userRecord.id}`, 0, -1)
-    if (sessionIds && sessionIds.length) {
-      for (const sessionId of sessionIds) {
-        await redisClient.del(`session:${sessionId}`); // Delete session from Redis
-      }
-      await redisClient.del(`user_sessions:${userRecord.id}`); // Clear the user->sessions map
-    }
-
-    // Delete user->remember map and rememberMe tokens
-    const rememberTokens = await redisClient.zRange(`user_remember:${userRecord.id}`, 0, -1)
-    if (rememberTokens && rememberTokens.length) {
-      for (const tokenId of rememberTokens) {
-        await redisClient.del(`token:remember:${tokenId}`); // Delete each token
-      }
-      await redisClient.del(`user_remember:${userRecord.id}`); // Clear the user->remember tokens map
-    }
+    await invalidateAllUserSessions(id)
 
     // Delete user->recovery tokens map and recovery token
     await redisClient.del(`user_recover:${userRecord.id}`)

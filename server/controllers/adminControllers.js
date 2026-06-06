@@ -10,6 +10,10 @@ const {
 } = require("../services/userService")
 
 const {
+  invalidateAllUserSessions
+} = require("../services/sessionService")
+
+const {
   generateActivationToken,
   hashToken
 } = require("../utils/activationTokenUtils")
@@ -72,17 +76,7 @@ exports.deleteUserController = async (req, res, next) => {
     }
 
     // Invalidate all sessions and remember tokens
-    const sessionIds = await redisClient.zRange(`user_sessions:${id}`, 0, -1)
-    for (const sessionId of sessionIds) {
-      await redisClient.del(`session:${sessionId}`)
-    }
-    await redisClient.del(`user_sessions:${id}`)
-
-    const rememberTokens = await redisClient.zRange(`user_remember:${id}`, 0, -1)
-    for (const tokenId of rememberTokens) {
-      await redisClient.del(`token:remember:${tokenId}`)
-    }
-    await redisClient.del(`user_remember:${id}`)
+    await invalidateAllUserSessions(id)
 
     await deleteUserById(id);
 
@@ -146,17 +140,7 @@ exports.suspendUserController = async (req, res, next) => {
     }
 
     // Invalidate all sessions and remember tokens
-    const sessionIds = await redisClient.zRange(`user_sessions:${id}`, 0, -1)
-    for (const sessionId of sessionIds) {
-      await redisClient.del(`session:${sessionId}`)
-    }
-    await redisClient.del(`user_sessions:${id}`)
-
-    const rememberTokens = await redisClient.zRange(`user_remember:${id}`, 0, -1)
-    for (const tokenId of rememberTokens) {
-      await redisClient.del(`token:remember:${tokenId}`)
-    }
-    await redisClient.del(`user_remember:${id}`)
+    await invalidateAllUserSessions(id)
 
     await updateUser(userRecord, { status: "SUSPENDED" })
 
@@ -187,17 +171,19 @@ exports.reset2faController = async (req, res, next) => {
     })
 
     // Invalidate all sessions so the user is forced to log in and set up 2FA again
-    const sessionIds = await redisClient.zRange(`user_sessions:${id}`, 0, -1)
-    for (const sessionId of sessionIds) {
-      await redisClient.del(`session:${sessionId}`)
-    }
-    await redisClient.del(`user_sessions:${id}`)
+    await invalidateAllUserSessions(id)
 
-    const rememberTokens = await redisClient.zRange(`user_remember:${id}`, 0, -1)
-    for (const tokenId of rememberTokens) {
-      await redisClient.del(`token:remember:${tokenId}`)
-    }
-    await redisClient.del(`user_remember:${id}`)
+    const rawActivationTokenId = await generateActivationToken()
+    const hashedActivationTokenId = await hashToken(rawActivationTokenId)
+
+    await updateUser(userRecord, {
+      mfaSecret: null,
+      mfaUri: null,
+      mfaEnabled: false,
+      status: "PENDING_MFA_SETUP",
+      activationTokenId: hashedActivationTokenId,
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000)
+    })
 
     await sendAccountActivationEmail(userRecord.email, rawActivationTokenId)
 
@@ -290,17 +276,7 @@ exports.forceLogoutUserController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    const sessionIds = await redisClient.zRange(`user_sessions:${id}`, 0, -1)
-    for (const sessionId of sessionIds) {
-      await redisClient.del(`session:${sessionId}`)
-    }
-    await redisClient.del(`user_sessions:${id}`)
-
-    const rememberTokens = await redisClient.zRange(`user_remember:${id}`, 0, -1)
-    for (const tokenId of rememberTokens) {
-      await redisClient.del(`token:remember:${tokenId}`)
-    }
-    await redisClient.del(`user_remember:${id}`)
+    await invalidateAllUserSessions(id)
 
     return res.status(200).json({ message: "User forcefully logged out successfully" })
   } catch (error) {

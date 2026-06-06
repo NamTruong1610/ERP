@@ -188,7 +188,6 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
 
     // Delete mfa setup token and user record ttl from Redis and MongoDb
     await redisClient.del(mfaTokenKey)
-    await deleteUserExpiresAtById(userRecord.id)
 
     return res.status(200).json({
       message: "User 2fa successfully activated"

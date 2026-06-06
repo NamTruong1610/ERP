@@ -7,39 +7,10 @@ const { redisConnect } = require('./config/RedisConfig');
 const { appConfig } = require('./config/AppConfig')
 const cron = require('node-cron')
 const { cleanupExpiredUsers } = require('./utils/cleanupUtils')
+const { seedAdminUser } = require('./utils/seedUtils')
 
 const { hashPassword } = require('./utils/passwordUtils')
 
-const seedAdminUser = async () => {
-  const existing = await prisma.user.findUnique({
-    where: { email: 'test1@gmail.com' }
-  })
-
-  if (existing) {
-    console.log('Admin user already exists')
-    return
-  }
-
-  const hashedPassword = await hashPassword('123456')
-
-  await prisma.user.create({
-    data: {
-      email: 'test1@gmail.com',
-      password: hashedPassword,
-      status: 'ACTIVE',
-      roles: ['ADMIN', 'STAFF'],
-      mfaEnabled: false,
-      name: {
-        create: {
-          fName: 'Admin',
-          lName: 'User'
-        }
-      }
-    }
-  })
-
-  console.log('Admin user created')
-}
 
 const startServer = async () => {
   // Redis Sessions Database Connection
@@ -54,14 +25,18 @@ const startServer = async () => {
   };
   app.use(cors(corsOptions));
 
-  // Database Connection
-  // await dbConnect();
-  // Redis Connection
+  // Prisma Connection
   await prismaConnect();
+  // Redis Connection
   await redisConnect();
+  // Seed testing admin user
   await seedAdminUser()
+
   // App Default Config
   await appConfig(app);
+    app.listen(process.env.PORT || 5500, () => {
+    console.log(`App listening on port ${process.env.PORT || 5500}`)
+  })
 
   // Run immediately on startup
   await cleanupExpiredUsers()
@@ -70,5 +45,7 @@ const startServer = async () => {
   cron.schedule('0 * * * *', async () => {
     await cleanupExpiredUsers()
   })
+
+
 };
 startServer();

@@ -1,8 +1,8 @@
 const { v4: uuidv4 } = require('uuid')
 const crypto = require("crypto");
 
-exports.generateActivationToken = async () => {
-  return await uuidv4();
+exports.generateActivationToken = () => {
+  return uuidv4();
 }
 
 exports.hashToken = async (token) => {
