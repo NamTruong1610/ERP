@@ -15,12 +15,9 @@ model User {
   id                String    @id @default(cuid())
   email             String    @unique
   password          String?
-  activationTokenId String?   @unique
   status            String    @default("PENDING_ACTIVATION")
-  roles             String[]  @default(["STAFF"])
+  roles             UserRole
   phones            String[]  @default([])
-  mfaSecret         String?
-  mfaUri            String?
   mfaEnabled        Boolean   @default(false)
   expiresAt         DateTime?
   createdAt         DateTime  @default(now())
@@ -28,7 +25,49 @@ model User {
 
   name              UserName?
   addresses         Address[]
-  appointments Appointment[]
+  appointments      Appointment[]
+  userActivation    UserActivation?
+  userMfa           UserMfa
+}
+
+enum Role {
+  STAFF
+  ADMIN
+  SUPER_ADMIN
+}
+
+model UserRole {
+  id         String   @id @default(cuid())
+  userId     String
+  role       Role
+  assignedBy String?  
+  assignedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role]) 
+}
+
+model UserMfa {
+  id                String    @id @default(cuid())
+  mfaSecret         String?
+  mfaUri            String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime
+
+  user              User      @relation(fields: [userId], references: [id])
+  userId            String    @unique
+}
+
+model UserActivation {
+  id                String    @id @default(cuid())
+  tokenHash         String    @unique
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String    @unique
 }
 
 model UserName {
@@ -90,4 +129,108 @@ model Treatment {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  
+  actorId    String?  // null for system-triggered events
+  actorType  ActorType @default(SYSTEM)
+
+  targetId   String?
+  targetType TargetType?
+  
+  action     AuditAction
+  
+  metadata   Json?    
+  ip         String?
+  userAgent  String?
+  trigger    TriggerType @default(USER_ACTION)
+  
+  createdAt  DateTime @default(now())
+}
+
+enum ActorType {
+  USER       
+  SYSTEM     
+}
+
+enum TargetType {
+  USER
+  PATIENT
+  APPOINTMENT
+  TREATMENT
+  FILE
+  SESSION
+  ROLE
+}
+
+enum TriggerType {
+  USER_ACTION    // initiated by a human via the UI
+  ADMIN_ACTION   // initiated by an admin via the admin panel
+  SYSTEM         // cron job or automated process
+  CASCADE        // side effect of another operation
+}
+
+enum AuditAction {
+  // Auth
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGIN_MFA_FAILED
+  LOGOUT
+  LOGOUT_ALL
+  SESSION_EXPIRED
+  SESSION_REVOKED
+  REMEMBER_TOKEN_ROTATED
+
+  // Account lifecycle
+  USER_CREATED
+  USER_ACTIVATED
+  USER_SUSPENDED
+  USER_REACTIVATED
+  USER_DELETED
+  USER_EXPIRED_DELETED  // cron cleanup
+
+  // Account changes
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+  EMAIL_CHANGED
+  EMAIL_CHANGE_REQUESTED
+  MFA_ENABLED
+  MFA_DISABLED
+  MFA_RESET             // admin reset
+
+  // Role management
+  ROLE_ASSIGNED
+  ROLE_REMOVED
+
+  // Admin actions
+  FORCE_LOGOUT
+  ACTIVATION_RESENT
+  ACCOUNT_UNLOCKED
+
+  // Patient records
+  PATIENT_CREATED
+  PATIENT_UPDATED
+  PATIENT_DELETED
+
+  // Appointments
+  APPOINTMENT_CREATED
+  APPOINTMENT_UPDATED
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_DELETED
+
+  // Treatments
+  TREATMENT_CREATED
+  TREATMENT_UPDATED
+  TREATMENT_DELETED
+
+  // Files (future)
+  FILE_UPLOADED
+  FILE_DOWNLOADED
+  FILE_DELETED
+
+  // Audit
+  AUDIT_CORRECTION      // append-only correction reference
+  AUDIT_PURGE           // legal deletion order
 }
