@@ -14,6 +14,10 @@ const {
 } = require("../services/sessionService")
 
 const {
+  createUserActivation
+} = require("../services/activationTokenService")
+
+const {
   generateActivationToken,
   hashToken
 } = require("../utils/activationTokenUtils")
@@ -25,19 +29,21 @@ const {
 const { redisClient } = require("../config/RedisConfig")
 const { ROLES } = require('../config/RBACConfig')
 
+const { UserStatus } = require('@prisma/client')
+
 exports.createUserController = async (req, res, next) => {
   const { email } = req.body
   try {
     const userRecord = await findUserByEmail(email);
 
     // To inform the admin this account was created but not activated yet
-    if (userRecord && userRecord.status == "PENDING_ACTIVATION") {
+    if (userRecord && userRecord.status == UserStatus.PENDING_ACTIVATION) {
       return res.status(403).json({
         message: 'User account awaiting activation'
       })
     }
 
-    if (userRecord && userRecord.status == "ACTIVE") {
+    if (userRecord && userRecord.status == UserStatus.ACTIVE) {
       return res.status(403).json({
         message: 'User account already exists'
       })
@@ -45,12 +51,12 @@ exports.createUserController = async (req, res, next) => {
 
     const rawActivationTokenId = await generateActivationToken();
     const hashedActivationTokenId = await hashToken(rawActivationTokenId);
-    const TTL = 48 * 60 * 60 * 1000 // 48 hours
+    
     const newUser = await createUser({
       email: email,
-      activationTokenId: hashedActivationTokenId,
-      expiresAt: new Date(Date.now() + TTL)
     });
+
+    await createUserActivation(userRecord.id, hashedActivationTokenId)
 
     await sendAccountActivationEmail(email, rawActivationTokenId);
 
@@ -201,7 +207,7 @@ exports.resendActivationEmailController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    if (userRecord.status !== "PENDING_ACTIVATION") {
+    if (userRecord.status !== UserStatus.PENDING_ACTIVATION) {
       return res.status(400).json({ message: "User account is already activated" })
     }
 
@@ -343,7 +349,7 @@ exports.reactivateUserController = async (req, res, next) => {
       return res.status(400).json({ message: "User is not suspended" })
     }
 
-    await updateUser(userRecord, { status: "ACTIVE" })
+    await updateUser(userRecord, { status: UserStatus.ACTIVE })
 
     return res.status(200).json({ message: "User reactivated successfully" })
   } catch (error) {

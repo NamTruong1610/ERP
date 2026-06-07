@@ -15,7 +15,7 @@ model User {
   id                String    @id @default(cuid())
   email             String    @unique
   password          String?
-  status            String    @default("PENDING_ACTIVATION")
+  status            UserStatus    @default(PENDING_ACTIVATION)
   roles             UserRole
   phones            String[]  @default([])
   mfaEnabled        Boolean   @default(false)
@@ -28,12 +28,6 @@ model User {
   appointments      Appointment[]
   userActivation    UserActivation?
   userMfa           UserMfa
-}
-
-enum Role {
-  STAFF
-  ADMIN
-  SUPER_ADMIN
 }
 
 model UserRole {
@@ -61,7 +55,7 @@ model UserMfa {
 
 model UserActivation {
   id                String    @id @default(cuid())
-  tokenHash         String    @unique
+  tokenId           String    @unique
   expiresAt         DateTime
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -110,7 +104,7 @@ model Appointment {
   dentistId   String?
   patientId   String
   date        DateTime
-  status      String       @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  status      AppointmentStatus       @default(SCHEDULED) // SCHEDULED, COMPLETED, CANCELLED
   notes       String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -148,6 +142,12 @@ model AuditLog {
   trigger    TriggerType @default(USER_ACTION)
   
   createdAt  DateTime @default(now())
+}
+
+enum Role {
+  STAFF
+  ADMIN
+  SUPER_ADMIN
 }
 
 enum ActorType {
@@ -233,4 +233,18 @@ enum AuditAction {
   // Audit
   AUDIT_CORRECTION      // append-only correction reference
   AUDIT_PURGE           // legal deletion order
+}
+
+enum UserStatus {
+  PENDING_ACTIVATION        // account created, activation email sent, not yet activated
+  PENDING_MFA_SETUP         // password set, MFA not yet configured
+  PENDING_MFA_VERIFICATION  // MFA secret generated, OTP not yet verified
+  ACTIVE                    // fully activated, can log in
+  SUSPENDED                 // manually suspended by admin, cannot log in
+}
+
+enum AppointmentStatus {
+  SCHEDULED   // booked, upcoming
+  COMPLETED   // treatment recorded, auto-set
+  CANCELLED   // manually cancelled
 }
