@@ -85,7 +85,7 @@ export default function AppSidebar({ active }) {
           <div>
             <div className="user-info-name" style={{ fontSize: '12px' }}>{displayName}</div>
             <div className="user-info-role">
-              {user?.roles?.map(r => r.toLowerCase()).join(', ')}
+              {user?.roles?.map(r => r.role.toLowerCase()).join(', ')}
             </div>
           </div>
         </div>

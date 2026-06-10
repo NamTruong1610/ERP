@@ -1,4 +1,5 @@
 const { prisma } = require('../config/PrismaConfig')
+const { hashPassword } = require('../utils/passwordUtils')
 
 exports.seedAdminUser = async () => {
   const existing = await prisma.user.findUnique({
@@ -17,12 +18,21 @@ exports.seedAdminUser = async () => {
       email: 'test1@gmail.com',
       password: hashedPassword,
       status: 'ACTIVE',
-      roles: ['ADMIN', 'STAFF'],
-      mfaEnabled: false,
       name: {
         create: {
           fName: 'Admin',
           lName: 'User'
+        }
+      },
+      roles: {
+        create: [
+          { role: 'ADMIN' },
+          { role: 'STAFF' }
+        ]
+      },
+      userMfa: {
+        create: {
+          enabled: false
         }
       }
     }

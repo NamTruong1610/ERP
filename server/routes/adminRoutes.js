@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const {
   createUserController,
-  deleteUserController,
+  hardDeleteUserController,
   getAllUsersController,
   getUserController,
   updateUserController,
@@ -23,7 +23,7 @@ router.get("/users", requireAuth, requirePermission(PERMISSIONS.USERS_READ), get
 router.get("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_READ), getUserController)
 router.post("/users", requireAuth, requirePermission(PERMISSIONS.USERS_CREATE), createUserController)
 router.patch("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_UPDATE), updateUserController)
-router.delete("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_DELETE), deleteUserController)
+router.delete("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_DELETE), hardDeleteUserController)
 
 router.post("/users/:id/suspend", requireAuth, requirePermission(PERMISSIONS.USERS_SUSPEND), suspendUserController)
 router.post("/users/:id/reactivate", requireAuth, requirePermission(PERMISSIONS.USERS_REACTIVATE), reactivateUserController)

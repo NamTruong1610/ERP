@@ -3,27 +3,27 @@ const { prisma } = require('../config/PrismaConfig')
 // Include name and addresses by default for most queries
 const userInclude = {
   name: true,
-  addresses: true
+  addresses: true,
+  roles: true,
+  userMfa: true,
+  userActivation: true
 }
 
 exports.findUserByEmail = async (email) => {
   return await prisma.user.findUnique({
-    where: { email },
+    where: { 
+      email
+    },
     include: userInclude
   })
 }
 
 exports.findUserById = async (id) => {
   return await prisma.user.findUnique({
-    where: { id },
-    include: userInclude
-  })
-}
-
-exports.findUserByActivationToken = async (token) => {
-  return await prisma.user.findUnique({
-    where: { activationTokenId: token },
-    include: userInclude
+    where: { 
+      id
+    },
+    include: userInclude,
   })
 }
 
@@ -35,7 +35,11 @@ exports.findAllUsers = async () => {
       name: true,
       status: true,
       roles: true,
-      mfaEnabled: true,
+      userMfa: {
+        select: {
+          enabled: true
+        }
+      },
       createdAt: true,
       updatedAt: true
     }
@@ -51,27 +55,27 @@ exports.findAllDentistUsers = async() => {
 
 exports.createUser = async (newUserData) => {
   return await prisma.user.create({
-    data: newUserData
-  })
-}
-
-exports.createUserRole = async (userData, role) => {
-  return await prisma.user.update({
-    where: { id: userData.id },
     data: {
-      roles: { push: role }
+      ...newUserData,
+      roles: {
+        create: [{ role: 'STAFF' }]
+      }
     },
     include: userInclude
   })
 }
 
-exports.deleteUserRole = async (userData, role) => {
-  return await prisma.user.update({
-    where: { id: userData.id },
-    data: {
-      roles: userData.roles.filter(r => r !== role)
-    },
-    include: userInclude
+exports.createUserRole = async (userId, role) => {
+  return await prisma.userRole.create({
+    data: { userId, role }
+  })
+}
+
+exports.deleteUserRole = async (userId, role) => {
+  return await prisma.userRole.delete({
+    where: {
+      userId_role: { userId, role }  // composite unique constraint
+    }
   })
 }
 
@@ -129,12 +133,6 @@ exports.deleteUserAddressByAddressId = async (userData, addressId) => {
   })
 }
 
-exports.deleteUserExpiresAtById = async (userId) => {
-  return await prisma.user.update({
-    where: { id: userId },
-    data: { expiresAt: null }
-  })
-}
 
 exports.deleteUserById = async (id) => {
   return await prisma.user.delete({

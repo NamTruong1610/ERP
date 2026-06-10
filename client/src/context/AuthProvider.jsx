@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData) => setUser(userData)
   const logoutUser = () => setUser(null)
-  const isAdmin = () => user?.roles?.includes('ADMIN') ?? false
+  const isAdmin = () => user?.roles?.some(r => r.role === 'ADMIN') ?? false
   const refreshUser = async () => {
     try {
       const data = await getMe()

@@ -12,22 +12,21 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
+  id                String        @id @default(cuid())
+  email             String        @unique
   password          String?
   status            UserStatus    @default(PENDING_ACTIVATION)
-  roles             UserRole
-  phones            String[]  @default([])
-  mfaEnabled        Boolean   @default(false)
-  expiresAt         DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  roles             UserRole[]
+  phones            String[]      @default([])
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?     
 
   name              UserName?
   addresses         Address[]
   appointments      Appointment[]
   userActivation    UserActivation?
-  userMfa           UserMfa
+  userMfa           UserMfa?
 }
 
 model UserRole {
@@ -43,13 +42,13 @@ model UserRole {
 
 model UserMfa {
   id                String    @id @default(cuid())
+  enabled           Boolean   @default(false)
   mfaSecret         String?
   mfaUri            String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  deletedAt         DateTime
 
-  user              User      @relation(fields: [userId], references: [id])
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId            String    @unique
 }
 
@@ -58,7 +57,6 @@ model UserActivation {
   tokenId           String    @unique
   expiresAt         DateTime
   createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
 
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId            String    @unique

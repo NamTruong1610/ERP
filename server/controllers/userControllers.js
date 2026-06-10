@@ -13,6 +13,12 @@ const {
 } = require("../services/sessionService")
 
 const {
+  findMfaByUserId,
+  updateMfa,
+  createUserMfa
+} = require("../services/mfaService")
+
+const {
   comparePasswordHash,
   hashPassword
 } = require("../utils/passwordUtils")
@@ -30,12 +36,13 @@ const {
 } = require("../utils/mfaUtils")
 
 const { redisClient } = require("../config/RedisConfig")
+const { UserStatus } = require('@prisma/client')
 
 exports.getProfileController = async (req, res, next) => {
   const { id } = req.user
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(401).json({
         message: "User not found"
       })
@@ -48,7 +55,7 @@ exports.getProfileController = async (req, res, next) => {
       phones: userRecord.phones,
       addresses: userRecord.addresses,
       roles: userRecord.roles,
-      mfaEnabled: userRecord.mfaEnabled
+      mfaEnabled: userRecord.userMfa?.enabled ?? false
     })
 
   } catch (error) {
@@ -62,7 +69,7 @@ exports.updateNameController = async (req, res, next) => {
   const { name } = req.body
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(401).json({
         message: "User not found"
       })
@@ -83,7 +90,7 @@ exports.updatePhonesController = async (req, res, next) => {
   const { phone } = req.body
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(401).json({
         message: "User not found"
       })
@@ -102,7 +109,7 @@ exports.removePhoneController = async (req, res, next) => {
   const { phone } = req.params
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: "User not found" })
     }
 
@@ -121,7 +128,7 @@ exports.addAddressController = async (req, res, next) => {
   const { address } = req.body
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: "User not found" })
     }
 
@@ -139,12 +146,11 @@ exports.updateAddressController = async (req, res, next) => {
   const { address } = req.body
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: "User not found" })
     }
 
     const updatedUser = await updateUserAddressByAddressId(userRecord, addressId, address)
-
 
     return res.status(200).json({ addresses: updatedUser.addresses })
   } catch (error) {
@@ -157,7 +163,7 @@ exports.removeAddressController = async (req, res, next) => {
   const { addressId } = req.params
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: "User not found" })
     }
 
@@ -179,7 +185,7 @@ exports.changePasswordController = async (req, res, next) => {
     }
 
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: "User not found" })
     }
 
@@ -209,7 +215,7 @@ exports.changeEmailController = async (req, res, next) => {
   const { email, password } = req.body
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: "User not found" })
     }
 
@@ -271,7 +277,7 @@ exports.verifyEmailChangeController = async (req, res, next) => {
     }
 
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: "User not found" })
     }
 
@@ -291,11 +297,11 @@ exports.disable2faController = async (req, res, next) => {
   const { password, otp } = req.body
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: "User not found" })
     }
 
-    if (!userRecord.mfaEnabled) {
+    if (!userRecord.userMfa?.enabled) {
       return res.status(400).json({ message: "2FA is already disabled" })
     }
 
@@ -304,15 +310,15 @@ exports.disable2faController = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid password" })
     }
 
-    const validOtp = await verifyMfaOtp(otp, userRecord.mfaSecret)
+    const validOtp = await verifyMfaOtp(otp, userRecord.userMfa?.mfaSecret)
     if (!validOtp) {
       return res.status(401).json({ message: "Invalid OTP" })
     }
 
-    await updateUser(userRecord, { mfaEnabled: false })
+    await updateMfa(userRecord.id, { enabled: false })
 
     // Invalidate all sessions and force re-login
-    await invalidateAllUserSessions(id)
+    await invalidateAllUserSessions(userRecord.id)
 
     res.clearCookie("SESSIONID", { httpOnly: true, secure: true, sameSite: "strict" })
     res.clearCookie("REMEMBER", { httpOnly: true, secure: true, sameSite: "strict" })
@@ -328,16 +334,16 @@ exports.enable2faController = async (req, res, next) => {
   const { password, otp } = req.body
   try {
     const userRecord = await findUserById(id)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: "User not found" })
     }
 
-    if (userRecord.mfaEnabled) {
+    if (userRecord.userMfa?.enabled) {
       return res.status(400).json({ message: "2FA is already enabled" })
     }
 
     // Make sure the user has a secret from the initial setup
-    if (!userRecord.mfaSecret) {
+    if (!userRecord.userMfa?.mfaSecret) {
       return res.status(400).json({ message: "No 2FA secret found, contact an administrator" })
     }
 
@@ -347,12 +353,12 @@ exports.enable2faController = async (req, res, next) => {
     }
 
     // Verify OTP to confirm authenticator app is still working
-    const validOtp = await verifyMfaOtp(otp, userRecord.mfaSecret)
+    const validOtp = await verifyMfaOtp(otp, userRecord.userMfa?.mfaSecret)
     if (!validOtp) {
       return res.status(401).json({ message: "Invalid OTP" })
     }
 
-    await updateUser(userRecord, { mfaEnabled: true })
+    await updateMfa(userRecord.id, { enabled: true })
 
     return res.status(200).json({ message: "2FA enabled successfully" })
   } catch (error) {
@@ -368,3 +374,4 @@ exports.getDentistsController = async (req, res, next) => {
     next(error)
   }
 }
+

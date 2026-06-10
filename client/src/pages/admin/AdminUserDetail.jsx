@@ -116,7 +116,9 @@ export default function AdminUserDetail() {
     return u?.email?.[0]?.toUpperCase() ?? '?'
   }
 
-  const availableToAssign = AVAILABLE_ROLES.filter(r => !user?.roles?.includes(r))
+  const availableToAssign = AVAILABLE_ROLES.filter(r => 
+    !user?.roles?.some(ur => ur.role === r)
+  )
 
   if (loading) return <div className="loading">Loading user...</div>
   if (!user) return <div className="loading">{error || 'User not found'}</div>
@@ -161,7 +163,7 @@ export default function AdminUserDetail() {
             </div>
             <div className="detail-item">
               <div className="detail-label">2FA</div>
-              <div className="detail-value">{user.mfaEnabled ? 'Enabled' : 'Disabled'}</div>
+              <div className="detail-value">{user.userMfa?.enabled ? 'Enabled' : 'Disabled'}</div>
             </div>
             <div className="detail-item">
               <div className="detail-label">Phones</div>
@@ -228,12 +230,12 @@ export default function AdminUserDetail() {
           <div className="card-title">Roles</div>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
             {user.roles?.length ? user.roles.map(role => (
-              <span key={role} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                className={`badge badge-${role.toLowerCase()}`}>
-                {role.toLowerCase()}
-                <button onClick={() => runAction('Remove role', () => removeRole(id, role))}
+              <span key={role.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                className={`badge badge-${role.role.toLowerCase()}`}>
+                {role.role.toLowerCase()}
+                <button onClick={() => runAction('Remove role', () => removeRole(id, role.role))}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 0 2px', lineHeight: 1, color: 'inherit' }}
-                  aria-label={`Remove ${role}`}>×</button>
+                  aria-label={`Remove ${role.role}`}>×</button>
               </span>
             )) : <span style={{ fontSize: '13px', color: 'var(--text-hint)' }}>No roles assigned</span>}
           </div>
@@ -272,7 +274,7 @@ export default function AdminUserDetail() {
                 {actionLoading === 'Resend activation' ? 'Sending...' : 'Resend activation email'}
               </button>
             )}
-            {user.mfaSecret && !isSelf && (
+            {user.userMfa?.secret && !isSelf && (
               <button className="btn" disabled={!!actionLoading}
                 onClick={() => runAction('Reset 2FA', () => reset2fa(id))}>
                 {actionLoading === 'Reset 2FA' ? 'Resetting...' : 'Reset 2FA'}

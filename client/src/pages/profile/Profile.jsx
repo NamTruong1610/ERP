@@ -229,7 +229,7 @@ export default function Profile() {
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
             {profile?.roles?.map(r => (
-              <span key={r} className={`badge badge-${r.toLowerCase()}`}>{r.toLowerCase()}</span>
+              <span key={r.id} className={`badge badge-${r.role.toLowerCase()}`}>{r.role.toLowerCase()}</span>
             ))}
           </div>
         </div>

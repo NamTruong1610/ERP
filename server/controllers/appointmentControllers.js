@@ -11,6 +11,8 @@ const {
 const { findUserById } = require('../services/userService')
 const { findPatientById } = require('../services/patientService')
 
+const { UserStatus } = require('@prisma/client')
+
 const VALID_STATUSES = ['SCHEDULED', 'COMPLETED', 'CANCELLED']
 
 exports.getAllAppointmentsController = async (req, res, next) => {
@@ -69,7 +71,7 @@ exports.createAppointmentController = async (req, res, next) => {
 
     // Validate dentist exists and is active
     const dentist = await findUserById(dentistId)
-    if (!dentist || dentist.status !== 'ACTIVE') {
+    if (!dentist || dentist.status !== UserStatus.ACTIVE) {
       return res.status(404).json({ message: 'Dentist not found' })
     }
 
@@ -119,7 +121,7 @@ exports.updateAppointmentController = async (req, res, next) => {
 
     if (updates.dentistId) {
       const dentist = await findUserById(updates.dentistId)
-      if (!dentist || dentist.status !== 'ACTIVE') {
+      if (!dentist || dentist.status !== UserStatus.ACTIVE) {
         return res.status(404).json({ message: 'Dentist not found' })
       }
     }

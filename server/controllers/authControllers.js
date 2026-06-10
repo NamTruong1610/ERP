@@ -6,8 +6,15 @@ const {
 
 const {
   createUserSession,
+  invalidateLocalUserSession,
   invalidateAllUserSessions
 } = require("../services/sessionService")
+
+const {
+  findMfaByUserId,
+  updateMfa,
+  createUserMfa
+} = require("../services/mfaService")
 
 const {
   hashPassword,
@@ -18,7 +25,6 @@ const {
   generateActivationToken,
   hashToken
 } = require("../utils/activationTokenUtils")
-const { redisClient } = require("../config/RedisConfig")
 
 const {
   verifyMfaOtp,
@@ -28,10 +34,14 @@ const {
   sendAccountRecoveryEmail
 } = require("../utils/emailUtils")
 
+const { UserStatus } = require('@prisma/client')
+const { redisClient } = require("../config/RedisConfig")
+const { SESSION_TTL_MS, REMEMBER_TTL_MS, COOKIE_OPTIONS } = require("../config/constants.js")
+
 exports.getMeController = async (req, res, next) => {
   try {
     const userRecord = await findUserById(req.user.id)
-    if (!userRecord || userRecord.status !== 'ACTIVE') {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(401).json({ message: 'Unauthenticated' })
     }
     return res.status(200).json({
@@ -62,7 +72,7 @@ exports.loginController = async (req, res, next) => {
     }
 
     const userRecord = await findUserByEmail(email)
-    if (!userRecord || userRecord.status != "ACTIVE") {
+    if (!userRecord || userRecord.status != UserStatus.ACTIVE) {
       return res.status(404).json({
         message: "User not found"
       })
@@ -75,7 +85,7 @@ exports.loginController = async (req, res, next) => {
       })
     }
 
-    if (!userRecord.mfaEnabled) {
+    if (!userRecord.userMfa?.enabled) {
       // Create a session and save its id into a cookie
       const { sessionId, rememberTokenId } = await createUserSession(userRecord.id, req.headers["user-agent"], req.ip, rememberMe)
 
@@ -171,13 +181,13 @@ exports.verify2faLoginController = async (req, res, next) => {
 
     const userRecord = await findUserById(mfaLoginToken.id);
 
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(401).json({
         message: "Invalid token"
       })
     }
 
-    const validOtp = await verifyMfaOtp(otp, userRecord.mfaSecret)
+    const validOtp = await verifyMfaOtp(otp, userRecord.userMfa?.mfaSecret)
 
     if (!validOtp) {
       return res.status(401).json({
@@ -219,31 +229,7 @@ exports.logoutController = async (req, res, next) => {
     const sessionId = req.cookies.SESSIONID;
     const rememberTokenId = req.cookies.REMEMBER;
 
-    if (sessionId) {
-      const sessionRaw = await redisClient.get(`session:${sessionId}`);
-      if (sessionRaw) {
-        const session = JSON.parse(sessionRaw);
-
-        // Delete session from Redis
-        await redisClient.del(`session:${sessionId}`);
-
-        // Remove session id from user->sessions map. 'session.id' refers to the user's id field in session, not the session's own id
-        await redisClient.zRem(`user_sessions:${session.id}`, sessionId);
-      }
-    }
-
-    if (rememberTokenId) {
-      const rememberRaw = await redisClient.get(`token:remember:${rememberTokenId}`);
-      if (rememberRaw) {
-        const rememberData = JSON.parse(rememberRaw);
-
-        // Delete remember token from Redis
-        await redisClient.del(`token:remember:${rememberTokenId}`);
-
-        // Remove remember token from user -> remember tokens map
-        await redisClient.zRem(`user_remember:${rememberData.id}`, rememberTokenId);
-      }
-    }
+    await invalidateLocalUserSession(sessionId, rememberTokenId)
 
     // Clear cookies in the browser
     res.clearCookie("SESSIONID", {
@@ -267,7 +253,7 @@ exports.logoutAllController = async (req, res, next) => {
   try {
     const userId = req.user.id; // Assuming this is set by requireAuth middleware
 
-    await invalidateAllUserSessions(id)
+    await invalidateAllUserSessions(userId)
 
     // Clear cookies for the current device (browser)
     res.clearCookie("SESSIONID", {
@@ -293,7 +279,7 @@ exports.forgotPasswordController = async (req, res, next) => {
   const { email } = req.body
   try {
     const userRecord = await findUserByEmail(email)
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(200).json({
         message: "Recovery email has been sent"
       })
@@ -378,7 +364,7 @@ exports.resetPasswordController = async (req, res, next) => {
 
     const userRecord = await findUserById(recoveryTokenData.id)
 
-    if (!userRecord || userRecord.status !== "ACTIVE") {
+    if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
       return res.status(401).json({
         message: "User not found"
       })
@@ -392,7 +378,7 @@ exports.resetPasswordController = async (req, res, next) => {
 
     // Delete user->recovery tokens map, recovery token, user->sessions map, login sessions, user->remember map, rememberMe tokens
     // Delete user->sessions map and login sessions
-    await invalidateAllUserSessions(id)
+    await invalidateAllUserSessions(userRecord.id)
 
     // Delete user->recovery tokens map and recovery token
     await redisClient.del(`user_recover:${userRecord.id}`)

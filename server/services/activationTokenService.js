@@ -11,6 +11,13 @@ exports.createUserActivation = async (userId, hashedTokenId) => {
   })
 }
 
+exports.updateUserActivation = async (userId, data) => {
+  return await prisma.userActivation.update({
+    where: { userId },
+    data
+  })
+}
+
 exports.findUserActivationByTokenId = async (tokenId) => {
   return await prisma.userActivation.findUnique({
     where: { tokenId }

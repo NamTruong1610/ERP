@@ -7,6 +7,20 @@ exports.findMfaByUserId = async (userId) => {
   })
 }
 
+exports.createUserMfa = async (userId, data) => {
+  return await prisma.userMfa.create({
+    data: { ...data, userId }
+  })
+}
+
+exports.upsertUserMfa = async (userId, data) => {
+  return await prisma.userMfa.upsert({
+    where: { userId },
+    create: { userId, ...data },
+    update: data
+  })
+}
+
 exports.updateMfa = async (userId, data) => {
   return await prisma.userMfa.update({
     where: { userId },

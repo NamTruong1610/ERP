@@ -205,13 +205,13 @@ export default function AdminUsers() {
                     <td>
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                         {u.roles?.map(r => (
-                          <span key={r} className={`badge badge-${r.toLowerCase()}`}>{r.toLowerCase()}</span>
+                          <span key={r.id} className={`badge badge-${r.role.toLowerCase()}`}>{r.role.toLowerCase()}</span>
                         ))}
                       </div>
                     </td>
                     <td>
-                      <span className={`badge ${u.mfaEnabled ? 'badge-active' : 'badge-pending'}`}>
-                        {u.mfaEnabled ? 'enabled' : 'disabled'}
+                      <span className={`badge ${u.userMfa?.enabled ? 'badge-active' : 'badge-pending'}`}>
+                        {u.userMfa?.enabled ? 'enabled' : 'disabled'}
                       </span>
                     </td>
                   </tr>
