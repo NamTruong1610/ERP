@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { login, getMe } from '../../api/auth'
 import { useAuth } from '../../context/useAuth'
@@ -6,10 +6,16 @@ import '../../styles/global.css'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login: loginUser } = useAuth()
+  const { user, loading: authLoading, login: loginUser } = useAuth()
   const [form, setForm] = useState({ email: '', password: '', rememberMe: false })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/home', { replace: true })
+    }
+  }, [user, authLoading])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -25,7 +31,6 @@ export default function Login() {
       if (data.mfaLoginTokenId) {
         navigate('/login/mfa', { state: { mfaLoginTokenId: data.mfaLoginTokenId, rememberMe: form.rememberMe } })
       } else {
-        // Session cookie is now set — fetch the user from /auth/me
         const me = await getMe()
         loginUser(me)
         navigate('/home')
@@ -36,6 +41,8 @@ export default function Login() {
       setLoading(false)
     }
   }
+
+  if (authLoading) return <div className="loading">Loading...</div>
 
   return (
     <div style={{

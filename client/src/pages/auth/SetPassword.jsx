@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { setPassword } from '../../api/activation'
 import '../../styles/global.css'
@@ -10,6 +10,31 @@ export default function SetPassword() {
   const [form, setForm] = useState({ password: '', confirmPassword: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (!activationToken) {
+        setError('Invalid activation link')
+        setChecking(false)
+        return
+      }
+      try {
+        const data = await setPassword({ activationToken, password: null, confirmPassword: null })
+        if (data.passwordRequired === false) {
+          navigate('/activate/2fa', {
+            state: { activationToken: data.activationToken, mfaToken: data.mfaToken }
+          })
+        } else {
+          setChecking(false)
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'Invalid or expired token')
+        setChecking(false)
+      }
+    }
+    checkStatus()
+  }, [])
 
   const handleChange = (e) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -22,13 +47,17 @@ export default function SetPassword() {
     setLoading(true)
     try {
       const data = await setPassword({ activationToken, ...form })
-      navigate('/activate/2fa', { state: { activationToken: data.activationToken, mfaToken: data.mfaToken } })
+      navigate('/activate/2fa', {
+        state: { activationToken: data.activationToken, mfaToken: data.mfaToken }
+      })
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
   }
+
+  if (checking) return <div className="loading">Loading...</div>
 
   return (
     <div style={{

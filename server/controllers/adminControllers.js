@@ -2,8 +2,10 @@ const {
   findAllUsers,
   findUserByEmail,
   findUserById,
+  findAllUsersByString,
   createUser,
   updateUser,
+  softDeleteUserById,
   deleteUserById,
   createUserRole,
   deleteUserRole
@@ -16,11 +18,13 @@ const {
 const {
   createUserActivation,
   updateUserActivation 
-} = require("../services/activationTokenService")
+} = require("../services/activationService")
 
 const {
   findMfaByUserId,
-  updateMfa
+  updateMfa,
+  upsertUserMfa,
+  deleteMfa
 } = require("../services/mfaService")
 
 const {
@@ -32,34 +36,28 @@ const {
   sendAccountActivationEmail
 } = require("../utils/emailUtils")
 
-const { ACTIVATION_TTL_MS } = require('../config/constants')
+const { ACTIVATION_TTL_MS, ACTIVATION_EMAIL_IDEMPOTENCY_MS } = require('../config/constants')
 
 const { redisClient } = require("../config/RedisConfig")
 const { ROLES } = require('../config/RBACConfig')
 const { UserStatus } = require('@prisma/client')
+const { TIME_SERIES_BUCKET_TIMESTAMP } = require("redis")
 
 exports.createUserController = async (req, res, next) => {
   const { email } = req.body
   try {
-    const userRecord = await findUserByEmail(email);
+    const userRecord = await findUserByEmail(email)
 
-    // To inform the admin this account was already created 
     if (userRecord) {
-      return res.status(403).json({
-        message: 'User account already exists'
-      })
+      return res.status(409).json({ message: 'User account already exists' })
     }
 
-    const rawActivationTokenId = await generateActivationToken();
-    const hashedActivationTokenId = await hashToken(rawActivationTokenId);
-    
-    const newUser = await createUser({
-      email: email,
-    });
+    const rawActivationTokenId = await generateActivationToken()
+    const hashedActivationTokenId = await hashToken(rawActivationTokenId)
 
+    const newUser = await createUser({ email })
     await createUserActivation(newUser.id, hashedActivationTokenId)
-
-    await sendAccountActivationEmail(email, rawActivationTokenId);
+    await sendAccountActivationEmail(email, rawActivationTokenId)
 
     return res.status(201).json({
       id: newUser.id,
@@ -76,16 +74,21 @@ exports.softDeleteUserController = async (req, res, next) => {
   const { id } = req.params
   try {
     const userRecord = await findUserById(id);
-    if (!userRecord || userRecord.status == DELETED) {
+    if (!userRecord || userRecord.deletedAt !== null) {
       return res.status(404).json({
         message: 'No user found'
       })
     }
+    
+    await softDeleteUserById(userRecord.id)
 
     // Invalidate all sessions and remember tokens
     await invalidateAllUserSessions(id)
 
-    await deleteUserById(id);
+    return res.status(200).json({
+      message: 'User deleted successfully'
+    })
+
   } catch (error) {
     next(error)
   }
@@ -101,10 +104,10 @@ exports.hardDeleteUserController = async (req, res, next) => {
       })
     }
 
+    await deleteUserById(id)
+
     // Invalidate all sessions and remember tokens
     await invalidateAllUserSessions(id)
-
-    await deleteUserById(id);
 
     return res.status(200).json({
       message: 'User deleted successfully'
@@ -116,8 +119,11 @@ exports.hardDeleteUserController = async (req, res, next) => {
 }
 
 exports.getAllUsersController = async (req, res, next) => {
+  const { search } = req.query
   try {
-    const users = await findAllUsers();
+    const users = search
+      ? await findAllUsersByString(search)
+      : await findAllUsers()
     return res.status(200).json({ users })
   } catch (error) {
     next(error)
@@ -144,7 +150,7 @@ exports.getUserController = async (req, res, next) => {
       status: userRecord.status,
       userMfa: userRecord.userMfa ? {
         enabled: userRecord.userMfa.enabled,
-        secret: !!userRecord.userMfa.secret
+        mfaSecret: !!userRecord.userMfa.mfaSecret
       } : null,
       createdAt: userRecord.createdAt,
       updatedAt: userRecord.updatedAt
@@ -167,10 +173,10 @@ exports.suspendUserController = async (req, res, next) => {
       return res.status(400).json({ message: "User is already suspended" })
     }
 
+    await updateUser(userRecord, { status: UserStatus.SUSPENDED })
+
     // Invalidate all sessions and remember tokens
     await invalidateAllUserSessions(id)
-
-    await updateUser(userRecord, { status: UserStatus.SUSPENDED })
 
     return res.status(200).json({ message: "User suspended successfully" })
   } catch (error) {
@@ -178,7 +184,7 @@ exports.suspendUserController = async (req, res, next) => {
   }
 }
 
-// For users stuck in PENDING_ACTIVATION whose 48hr token expired
+// For users stuck in PENDING_ACTIVATION whose 48hr token expired (the user has already submitted their password and set up mfa, but hasn't verify otp for mfa)
 exports.reset2faController = async (req, res, next) => {
   const { id } = req.params
   try {
@@ -187,20 +193,33 @@ exports.reset2faController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    const userMfa = await findMfaByUserId(userRecord.id)
-
-    if (!userMfa.mfaSecret) {
+    if (!userRecord.userMfa?.mfaSecret) {
       return res.status(400).json({ message: "User has no 2FA setup to reset" })
+    }
+
+    if (userRecord.userActivation) {
+      let tokenAge = Date.now() - userRecord.userActivation?.updatedAt.getTime()
+      if (tokenAge < ACTIVATION_EMAIL_IDEMPOTENCY_MS) {
+        const remainingMs = ACTIVATION_EMAIL_IDEMPOTENCY_MS - tokenAge
+        const remainingMins = Math.ceil(remainingMs / 1000 / 60)
+        return res.status(429).json({
+          message: `Please wait ${remainingMins} minute${remainingMins === 1 ? '' : 's'} before resending`
+        })
+      }
     }
 
     const rawActivationTokenId = await generateActivationToken()
     const hashedActivationTokenId = await hashToken(rawActivationTokenId)
 
-    await updateUserActivation(userRecord.id, {
-      expiresAt: new Date(Date.now() + ACTIVATION_TTL_MS),
-      tokenId: hashedActivationTokenId
-    })
-
+    if (userRecord.userActivation) {
+      await updateUserActivation(userRecord.id, {
+        tokenId: hashedActivationTokenId,
+        expiresAt: new Date(Date.now() + ACTIVATION_TTL_MS)
+      })
+    } else {
+      await createUserActivation(userRecord.id, hashedActivationTokenId)
+    }
+    
     await updateMfa(userRecord.id, {
       mfaSecret: null,
       mfaUri: null,
@@ -239,6 +258,14 @@ exports.resendActivationEmailController = async (req, res, next) => {
     const hashedActivationTokenId = await hashToken(rawActivationTokenId)
 
     if (userRecord.userActivation) {
+      let tokenAge = Date.now() - userRecord.userActivation?.updatedAt.getTime()
+      if (tokenAge < ACTIVATION_EMAIL_IDEMPOTENCY_MS) {
+        const remainingMs = ACTIVATION_EMAIL_IDEMPOTENCY_MS - tokenAge
+        const remainingMins = Math.ceil(remainingMs / 1000 / 60)
+        return res.status(429).json({
+          message: `Please wait ${remainingMins} minute${remainingMins === 1 ? '' : 's'} before resending`
+        })
+      }
       await updateUserActivation(userRecord.id, {
         tokenId: hashedActivationTokenId,
         expiresAt: new Date(Date.now() + ACTIVATION_TTL_MS)
@@ -270,7 +297,7 @@ exports.assignRoleController = async (req, res, next) => {
       return res.status(400).json({ message: "Invalid role" })
     }
 
-    if (userRecord.roles.includes(role)) {
+    if (userRecord.roles.some(ur => ur.role === role)) {
       return res.status(400).json({ message: "User already has this role" })
     }
 
@@ -291,7 +318,7 @@ exports.removeRoleController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    if (!userRecord.roles.includes(role)) {
+    if (!userRecord.roles.some(ur => ur.role === role)) {
       return res.status(400).json({ message: "User does not have this role" })
     }
     const updatedUser = await deleteUserRole(userRecord.id, role)
@@ -347,7 +374,6 @@ exports.updateUserController = async (req, res, next) => {
     }
 
     const updatedUser = await updateUser(userRecord, updates)
-    const userMfa = await findMfaByUserId(userRecord.id);
 
     return res.status(200).json({
       id: updatedUser.id,
@@ -357,7 +383,7 @@ exports.updateUserController = async (req, res, next) => {
       addresses: updatedUser.addresses,
       roles: updatedUser.roles,
       status: updatedUser.status,
-      mfaEnabled: userMfa.enabled,
+      mfaEnabled: updatedUser.userMfa?.enabled ?? false,
       createdAt: updatedUser.createdAt,
       updatedAt: updatedUser.updatedAt
     })

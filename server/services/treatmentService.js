@@ -17,21 +17,22 @@ const treatmentInclude = {
 
 exports.findAllTreatments = async () => {
   return await prisma.treatment.findMany({
+    where: { deletedAt: null },  
     include: treatmentInclude,
     orderBy: { createdAt: 'desc' }
   })
 }
 
 exports.findTreatmentById = async (id) => {
-  return await prisma.treatment.findUnique({
-    where: { id },
+  return await prisma.treatment.findFirst({  
+    where: { id, deletedAt: null },
     include: treatmentInclude
   })
 }
 
 exports.findTreatmentByAppointmentId = async (appointmentId) => {
-  return await prisma.treatment.findUnique({
-    where: { appointmentId },
+  return await prisma.treatment.findFirst({  
+    where: { appointmentId, deletedAt: null },
     include: treatmentInclude
   })
 }
@@ -51,8 +52,9 @@ exports.updateTreatment = async (id, data) => {
   })
 }
 
-exports.deleteTreatment = async (id) => {
-  return await prisma.treatment.delete({
-    where: { id }
+exports.softDeleteTreatment = async (id) => {
+  return await prisma.treatment.update({
+    where: { id },
+    data: { deletedAt: new Date() }
   })
 }

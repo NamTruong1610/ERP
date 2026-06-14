@@ -5,7 +5,7 @@ const {
   findAppointmentsByPatient,
   createAppointment,
   updateAppointment,
-  deleteAppointment
+  softDeleteAppointment
 } = require('../services/appointmentService')
 
 const { findUserById } = require('../services/userService')
@@ -141,7 +141,7 @@ exports.deleteAppointmentController = async (req, res, next) => {
       return res.status(404).json({ message: 'Appointment not found' })
     }
 
-    await deleteAppointment(id)
+    await softDeleteAppointment(id)
     return res.status(200).json({ message: 'Appointment deleted successfully' })
   } catch (error) {
     next(error)

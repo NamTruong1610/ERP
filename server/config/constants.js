@@ -9,10 +9,13 @@ module.exports = {
   RECOVERY_TTL_SECONDS: 15 * 60,
   RECOVERY_MAP_TTL_SECONDS: 16 * 60,
   ACTIVATION_TTL_MS: 48 * 60 * 60 * 1000,
+  ACTIVATION_EMAIL_IDEMPOTENCY_MS: 5 * 60 * 1000,
+  RECOVERY_EMAIL_IDEMPOTENCY_MS: 5 * 60 * 1000, 
   COOKIE_OPTIONS: {
     httpOnly: true,
     secure: true,
-    sameSite: "strict"
+    sameSite: "strict",
+    path: '/' 
   }
 }
 

@@ -10,18 +10,20 @@ const userInclude = {
 }
 
 exports.findUserByEmail = async (email) => {
-  return await prisma.user.findUnique({
+  return await prisma.user.findFirst({
     where: { 
-      email
+      email,
+      deletedAt: null
     },
     include: userInclude
   })
 }
 
 exports.findUserById = async (id) => {
-  return await prisma.user.findUnique({
+  return await prisma.user.findFirst({
     where: { 
-      id
+      id,
+      deletedAt: null
     },
     include: userInclude,
   })
@@ -29,6 +31,9 @@ exports.findUserById = async (id) => {
 
 exports.findAllUsers = async () => {
   return await prisma.user.findMany({
+    where: {
+      deletedAt: null
+    },
     select: {
       id: true,
       email: true,
@@ -48,8 +53,31 @@ exports.findAllUsers = async () => {
 
 exports.findAllDentistUsers = async() => {
   return await prisma.user.findMany({
-    where: { status: 'ACTIVE' },
+    where: { status: 'ACTIVE', deletedAt: null },
     select: { id: true, email: true, name: true }
+  })
+}
+
+exports.findAllUsersByString = async(query) => {
+  return await prisma.user.findMany({
+    where: {
+      deletedAt: null,
+      OR: [
+        { email: { contains: query, mode: 'insensitive' } },
+        { name: { is: { fName: { contains: query, mode: 'insensitive' } } } },
+        { name: { is: { lName: { contains: query, mode: 'insensitive' } } } }
+      ]
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      status: true,
+      roles: true,
+      userMfa: { select: { enabled: true } },
+      createdAt: true,
+      updatedAt: true
+    }
   })
 }
 
@@ -62,20 +90,6 @@ exports.createUser = async (newUserData) => {
       }
     },
     include: userInclude
-  })
-}
-
-exports.createUserRole = async (userId, role) => {
-  return await prisma.userRole.create({
-    data: { userId, role }
-  })
-}
-
-exports.deleteUserRole = async (userId, role) => {
-  return await prisma.userRole.delete({
-    where: {
-      userId_role: { userId, role }  // composite unique constraint
-    }
   })
 }
 
@@ -104,12 +118,39 @@ exports.updateUser = async (oldUserData, updatedUserData) => {
   })
 }
 
+exports.hardDeleteUserById = async (id) => {
+  return await prisma.user.delete({
+    where: { id }
+  })
+}
+
+exports.softDeleteUserById = async (id) => {
+  return await prisma.user.update({
+    where: { id },
+    data: { deletedAt: new Date() }
+  })
+}
+
+exports.createUserRole = async (userId, role) => {
+  return await prisma.userRole.create({
+    data: { userId, role }
+  })
+}
+
+exports.deleteUserRole = async (userId, role) => {
+  return await prisma.userRole.delete({
+    where: {
+      userId_role: { userId, role }  // composite unique constraint
+    }
+  })
+}
+
 exports.createUserAddress = async (userData, address) => {
   await prisma.address.create({
     data: { ...address, userId: userData.id }
   })
-  return await prisma.user.findUnique({
-    where: { id: userData.id },
+  return await prisma.user.findFirst({
+    where: { id: userData.id, deletedAt: null },
     include: userInclude
   })
 }
@@ -119,23 +160,16 @@ exports.updateUserAddressByAddressId = async (userData, addressId, newAddress) =
     where: { id: addressId },
     data: newAddress
   })
-  return await prisma.user.findUnique({
-    where: { id: userData.id },
+  return await prisma.user.findFirst({
+    where: { id: userData.id, deletedAt: null },
     include: userInclude
   })
 }
 
 exports.deleteUserAddressByAddressId = async (userData, addressId) => {
   await prisma.address.delete({ where: { id: addressId } })
-  return await prisma.user.findUnique({
-    where: { id: userData.id },
+  return await prisma.user.findFirst({
+    where: { id: userData.id, deletedAt: null },
     include: userInclude
-  })
-}
-
-
-exports.deleteUserById = async (id) => {
-  return await prisma.user.delete({
-    where: { id }
   })
 }

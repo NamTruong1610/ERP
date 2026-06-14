@@ -1,15 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { resetPassword } from '../../api/auth'
+import { useAuth } from '../../context/useAuth'
 import '../../styles/global.css'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
   const [form, setForm] = useState({ password: '', confirmPassword: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/home', { replace: true })
+    }
+  }, [user, authLoading])
 
   const handleChange = (e) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -28,6 +36,8 @@ export default function ResetPassword() {
       setLoading(false)
     }
   }
+
+  if (authLoading) return <div className="loading">Loading...</div>
 
   return (
     <div style={{

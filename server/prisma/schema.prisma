@@ -13,7 +13,7 @@ datasource db {
 
 model User {
   id                String        @id @default(cuid())
-  email             String        @unique
+  email             String        
   password          String?
   status            UserStatus    @default(PENDING_ACTIVATION)
   roles             UserRole[]
@@ -57,6 +57,7 @@ model UserActivation {
   tokenId           String    @unique
   expiresAt         DateTime
   createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId            String    @unique
@@ -94,6 +95,7 @@ model Patient {
   address      String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
   appointments Appointment[]
 }
 
@@ -106,6 +108,7 @@ model Appointment {
   notes       String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
   dentist     User?        @relation(fields: [dentistId], references: [id])
   patient     Patient      @relation(fields: [patientId], references: [id])
   treatment   Treatment?   @relation 
@@ -120,6 +123,7 @@ model Treatment {
   cost          Float
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 }
 

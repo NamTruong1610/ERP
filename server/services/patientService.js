@@ -2,15 +2,17 @@ const { prisma } = require('../config/PrismaConfig')
 
 exports.findAllPatients = async () => {
   return await prisma.patient.findMany({
+    where: { deletedAt: null },
     orderBy: { createdAt: 'desc' }
   })
 }
 
 exports.findPatientById = async (id) => {
-  return await prisma.patient.findUnique({
-    where: { id },
+  return await prisma.patient.findFirst({
+    where: { id, deletedAt: null },
     include: {
       appointments: {
+        where: { deletedAt: null },
         include: {
           dentist: {
             select: {
@@ -38,8 +40,28 @@ exports.updatePatient = async (id, data) => {
   })
 }
 
-exports.deletePatient = async (id) => {
+exports.hardDeletePatient = async (id) => {
   return await prisma.patient.delete({
     where: { id }
+  })
+}
+
+exports.softDeletePatient = async (id) => {
+  await prisma.treatment.updateMany({
+    where: {
+      appointment: { patientId: id },
+      deletedAt: null
+    },
+    data: { deletedAt: new Date() }
+  })
+
+  await prisma.appointment.updateMany({
+    where: { patientId: id, deletedAt: null },
+    data: { deletedAt: now }
+  })
+
+  return await prisma.patient.update({
+    where: { id },
+    data: { deletedAt: now }
   })
 }

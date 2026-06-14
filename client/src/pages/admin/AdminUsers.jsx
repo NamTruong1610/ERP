@@ -83,17 +83,16 @@ export default function AdminUsers() {
   const { user: currentUser } = useAuth()
   const searchRef = useRef(null)
   const [users, setUsers] = useState([])
-  const [filtered, setFiltered] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (query) => {
     try {
-      const data = await getAllUsers()
+      setLoading(true)
+      const data = await getAllUsers(query || undefined)
       setUsers(data.users)
-      setFiltered(data.users)
     } catch {
       setError('Failed to load users')
     } finally {
@@ -101,20 +100,19 @@ export default function AdminUsers() {
     }
   }
 
+  // Initial load
   useEffect(() => {
     fetchUsers()
     searchRef.current?.focus()
   }, [])
 
+  // Debounced search
   useEffect(() => {
-    const q = search.toLowerCase()
-    setFiltered(users.filter(u =>
-      u.email.toLowerCase().includes(q) ||
-      u.name?.fName?.toLowerCase().includes(q) ||
-      u.name?.lName?.toLowerCase().includes(q) ||
-      u.status.toLowerCase().includes(q)
-    ))
-  }, [search, users])
+    const timeout = setTimeout(() => {
+      fetchUsers(search)
+    }, 300)
+    return () => clearTimeout(timeout)
+  }, [search])
 
   const formatName = (name) => {
     if (!name) return '—'
@@ -160,7 +158,7 @@ export default function AdminUsers() {
 
         {loading ? (
           <div className="loading">Loading users...</div>
-        ) : filtered.length === 0 ? (
+        ) : users.length === 0 ? (
           <div className="table-wrap">
             <div className="empty">
               <i className="ti ti-users" aria-hidden="true" />
@@ -179,7 +177,7 @@ export default function AdminUsers() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(u => (
+                {users.map(u => (
                   <tr key={u.id} onClick={() => handleRowClick(u)}>
                     <td>
                       <div className="avatar-cell">
@@ -222,7 +220,7 @@ export default function AdminUsers() {
         )}
 
         {showCreate && (
-          <CreateUserModal onClose={() => setShowCreate(false)} onCreated={fetchUsers} />
+          <CreateUserModal onClose={() => setShowCreate(false)} onCreated={() => fetchUsers(search)} />
         )}
       </main>
     </div>

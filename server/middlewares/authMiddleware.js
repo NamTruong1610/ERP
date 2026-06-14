@@ -3,6 +3,13 @@ const {
 } = require("../utils/activationTokenUtils")
 
 const { redisClient } = require("../config/RedisConfig")
+const {
+  SESSION_TTL_MS,
+  SESSION_TTL_SECONDS,
+  REMEMBER_TTL_SECONDS,
+  REMEMBER_TTL_MS,
+  COOKIE_OPTIONS
+} = require("../config/constants")
 
 exports.requireAuth = async (req, res, next) => {
   try {
@@ -23,19 +30,13 @@ exports.requireAuth = async (req, res, next) => {
         req.user = session;
 
         // Extend the session and the score in user->sessions map
-        await redisClient.expire(`session:${sessionId}`, 30 * 60);
+        await redisClient.expire(`session:${sessionId}`, SESSION_TTL_SECONDS);
         await redisClient.zAdd(`user_sessions:${session.id}`, {
-          score: Date.now() + 30 * 60 * 1000,
+          score: Date.now() + SESSION_TTL_MS,
           value: sessionId
         })
 
-        res.cookie("SESSIONID", sessionId, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "strict",
-          path: "/",
-          maxAge: 30 * 60 * 1000 // 30 mins
-        });
+        res.cookie('SESSIONID', sessionId, { ...COOKIE_OPTIONS, maxAge: SESSION_TTL_MS })
 
         return next();
       }
@@ -60,20 +61,20 @@ exports.requireAuth = async (req, res, next) => {
         await redisClient.set(
           `token:remember:${newRememberToken}`,
           JSON.stringify({ id: rememberData.id }),
-          { EX: 7 * 24 * 60 * 60 } // 7 days
+          { EX: REMEMBER_TTL_SECONDS } // 7 days
         );
 
         // Delete the old remember token if from the user->remember tokens map and update with the new remember token id
         await redisClient.zRem(`user_remember:${rememberData.id}`, rememberTokenId) 
         await redisClient.zAdd(`user_remember:${rememberData.id}`, {
-          score: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          score: Date.now() + REMEMBER_TTL_MS,
           value: newRememberToken
         })
 
         // Create new session
         const newSessionId = await generateActivationToken()
         await redisClient.zAdd(`user_sessions:${rememberData.id}`, {
-          score: Date.now() + 30 * 60 * 1000,
+          score: Date.now() + SESSION_TTL_MS,
           value: newSessionId
         })
 
@@ -86,22 +87,12 @@ exports.requireAuth = async (req, res, next) => {
             createdAt: Date.now()
           }),
 
-          { EX: 30 * 60 }
+          { EX: SESSION_TTL_SECONDS }
         );
 
-        res.cookie("SESSIONID", newSessionId, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "strict",
-          maxAge: 30 * 60 * 1000
-        });
+        res.cookie('SESSIONID', newSessionId, { ...COOKIE_OPTIONS, maxAge: SESSION_TTL_MS })
 
-        res.cookie("REMEMBER", newRememberToken, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "strict",
-          maxAge: 7 * 24 * 60 * 60 * 1000
-        });
+        res.cookie('REMEMBER', newRememberToken, { ...COOKIE_OPTIONS, maxAge: REMEMBER_TTL_MS })
 
         req.user = { 
           id: rememberData.id,

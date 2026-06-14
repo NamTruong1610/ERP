@@ -3,7 +3,7 @@ const {
   findPatientById,
   createPatient,
   updatePatient,
-  deletePatient
+  softDeletePatient
 } = require('../services/patientService')
 
 exports.getAllPatientsController = async (req, res, next) => {
@@ -82,7 +82,7 @@ exports.deletePatientController = async (req, res, next) => {
       return res.status(404).json({ message: 'Patient not found' })
     }
 
-    await deletePatient(id)
+    await softDeletePatient(id)
     return res.status(200).json({ message: 'Patient deleted successfully' })
   } catch (error) {
     next(error)

@@ -1,25 +1,36 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { forgotPassword } from '../../api/auth'
+import { useAuth } from '../../context/useAuth'
 import '../../styles/global.css'
 
 export default function ForgotPassword() {
+  const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/home', { replace: true })
+    }
+  }, [user, authLoading])
+
   const handleSubmit = async (e) => {
-  e.preventDefault()
-  setLoading(true)
-  try {
-    await forgotPassword({ email })
-  } catch {
-    // Always show success to prevent email enumeration
-  } finally {
-    setSubmitted(true)
-    setLoading(false)
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await forgotPassword({ email })
+    } catch {
+      // Always show success to prevent email enumeration
+    } finally {
+      setSubmitted(true)
+      setLoading(false)
+    }
   }
-}
+
+  if (authLoading) return <div className="loading">Loading...</div>
 
   return (
     <div style={{

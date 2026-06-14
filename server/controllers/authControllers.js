@@ -36,7 +36,7 @@ const {
 
 const { UserStatus } = require('@prisma/client')
 const { redisClient } = require("../config/RedisConfig")
-const { SESSION_TTL_MS, REMEMBER_TTL_MS, COOKIE_OPTIONS } = require("../config/constants.js")
+const { SESSION_TTL_MS, REMEMBER_TTL_MS, COOKIE_OPTIONS, RECOVERY_TTL_SECONDS, RECOVERY_EMAIL_IDEMPOTENCY_MS } = require("../config/constants.js")
 
 exports.getMeController = async (req, res, next) => {
   try {
@@ -55,7 +55,6 @@ exports.getMeController = async (req, res, next) => {
   }
 }
 
-
 exports.loginController = async (req, res, next) => {
   const { email, password, rememberMe } = req.body
   try {
@@ -65,7 +64,7 @@ exports.loginController = async (req, res, next) => {
       const existingSession = await redisClient.get(`session:${sessionId}`)
       // Frontend redirects user to the main page since they're logged in
       if (existingSession) {
-        return res.status(401).json({
+        return res.status(409).json({
           message: "User already logged in"
         })
       }
@@ -73,7 +72,7 @@ exports.loginController = async (req, res, next) => {
 
     const userRecord = await findUserByEmail(email)
     if (!userRecord || userRecord.status != UserStatus.ACTIVE) {
-      return res.status(404).json({
+      return res.status(401).json({
         message: "User not found"
       })
     }
@@ -232,16 +231,10 @@ exports.logoutController = async (req, res, next) => {
     await invalidateLocalUserSession(sessionId, rememberTokenId)
 
     // Clear cookies in the browser
-    res.clearCookie("SESSIONID", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-    });
-    res.clearCookie("REMEMBER", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-    });
+
+
+    res.clearCookie('SESSIONID', { ...COOKIE_OPTIONS })
+    res.clearCookie('REMEMBER', { ...COOKIE_OPTIONS })
 
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
@@ -256,18 +249,8 @@ exports.logoutAllController = async (req, res, next) => {
     await invalidateAllUserSessions(userId)
 
     // Clear cookies for the current device (browser)
-    res.clearCookie("SESSIONID", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-      path: "/"
-    });
-    res.clearCookie("REMEMBER", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-      path: "/"
-    });
+    res.clearCookie('SESSIONID', { ...COOKIE_OPTIONS })
+    res.clearCookie('REMEMBER', { ...COOKIE_OPTIONS })
 
     return res.status(200).json({ message: "All sessions logged out successfully" });
   } catch (error) {
@@ -289,7 +272,21 @@ exports.forgotPasswordController = async (req, res, next) => {
     const existingRecoverTokenRaw = await redisClient.get(`user_recover:${userRecord.id}`);
 
     if (existingRecoverTokenRaw) {
-      const { recoveryTokenId } = JSON.parse(existingRecoverTokenRaw);
+      const { recoveryTokenId } = JSON.parse(existingRecoverTokenRaw)
+      const tokenRaw = await redisClient.get(`token:recover:${recoveryTokenId}`)
+
+      if (tokenRaw) {
+        const { createdAt } = JSON.parse(tokenRaw)
+        const tokenAge = Date.now() - createdAt
+
+        if (tokenAge < RECOVERY_EMAIL_IDEMPOTENCY_MS) {
+          const remainingMs = RECOVERY_EMAIL_IDEMPOTENCY_MS - tokenAge
+          const remainingMins = Math.ceil(remainingMs / 1000 / 60)
+          return res.status(429).json({
+            message: `Please wait ${remainingMins} minute${remainingMins === 1 ? '' : 's'} before requesting another reset email`
+          })
+        }
+      }
 
       await redisClient.del(`token:recover:${recoveryTokenId}`);
       await redisClient.del(`user_recover:${userRecord.id}`);
@@ -304,7 +301,7 @@ exports.forgotPasswordController = async (req, res, next) => {
         id: userRecord.id,
         createdAt: Date.now()
       }),
-      { EX: 15 * 60 } // 15 mins
+      { EX: RECOVERY_TTL_SECONDS } // 15 mins
     )
 
     // Map recovery token to user
@@ -313,7 +310,7 @@ exports.forgotPasswordController = async (req, res, next) => {
       JSON.stringify({
         recoveryTokenId: recoveryTokenId
       }),
-      { EX: 16 * 60 } // 16 mins
+      { EX: RECOVERY_MAP_TTL_SECONDS } // 16 mins
     )
 
     await sendAccountRecoveryEmail(email, recoveryTokenId)
@@ -331,7 +328,7 @@ exports.resetPasswordController = async (req, res, next) => {
   const { password, confirmPassword, recoveryToken } = req.body
   try {
     if (password !== confirmPassword) {
-      return res.status(401).json({
+      return res.status(400).json({
         message: "Passwords do not match"
       })
     }

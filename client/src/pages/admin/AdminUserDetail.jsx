@@ -274,7 +274,7 @@ export default function AdminUserDetail() {
                 {actionLoading === 'Resend activation' ? 'Sending...' : 'Resend activation email'}
               </button>
             )}
-            {user.userMfa?.secret && !isSelf && (
+            {user.userMfa?.mfaSecret && !isSelf && (
               <button className="btn" disabled={!!actionLoading}
                 onClick={() => runAction('Reset 2FA', () => reset2fa(id))}>
                 {actionLoading === 'Reset 2FA' ? 'Resetting...' : 'Reset 2FA'}

@@ -2,7 +2,7 @@ const { prisma } = require('../config/PrismaConfig')
 const { hashPassword } = require('../utils/passwordUtils')
 
 exports.seedAdminUser = async () => {
-  const existing = await prisma.user.findUnique({
+  const existing = await prisma.user.findFirst({
     where: { email: 'test1@gmail.com' }
   })
 

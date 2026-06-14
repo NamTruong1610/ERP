@@ -37,13 +37,14 @@ const {
 
 const { redisClient } = require("../config/RedisConfig")
 const { UserStatus } = require('@prisma/client')
+const { COOKIE_OPTIONS } = require("../config/constants")
 
 exports.getProfileController = async (req, res, next) => {
   const { id } = req.user
   try {
     const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
-      return res.status(401).json({
+      return res.status(404).json({
         message: "User not found"
       })
     }
@@ -70,7 +71,7 @@ exports.updateNameController = async (req, res, next) => {
   try {
     const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
-      return res.status(401).json({
+      return res.status(404).json({
         message: "User not found"
       })
     }
@@ -91,7 +92,7 @@ exports.updatePhonesController = async (req, res, next) => {
   try {
     const userRecord = await findUserById(id)
     if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
-      return res.status(401).json({
+      return res.status(404).json({
         message: "User not found"
       })
     }
@@ -200,8 +201,8 @@ exports.changePasswordController = async (req, res, next) => {
     // Invalidate all other sessions so other devices are forced to re-login
     await invalidateAllUserSessions(id)
 
-    res.clearCookie("SESSIONID", { httpOnly: true, secure: true, sameSite: "strict" })
-    res.clearCookie("REMEMBER", { httpOnly: true, secure: true, sameSite: "strict" })
+    res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
+    res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
 
     return res.status(200).json({ message: "Password changed successfully" })
 
@@ -227,7 +228,7 @@ exports.changeEmailController = async (req, res, next) => {
 
     // Check new email isn't already taken
     const existingUser = await findUserByEmail(email)
-    if (existingUser) {
+    if (existingUser || !existingUser.deletedAt) {
       return res.status(400).json({ message: "Email already in use" })
     }
 
@@ -273,7 +274,7 @@ exports.verifyEmailChangeController = async (req, res, next) => {
 
     // Ensure the token belongs to the authenticated user
     if (tokenData.id !== id) {
-      return res.status(401).json({ message: "Unauthorized" })
+      return res.status(403).json({ message: 'Forbidden' })
     }
 
     const userRecord = await findUserById(id)
@@ -320,8 +321,8 @@ exports.disable2faController = async (req, res, next) => {
     // Invalidate all sessions and force re-login
     await invalidateAllUserSessions(userRecord.id)
 
-    res.clearCookie("SESSIONID", { httpOnly: true, secure: true, sameSite: "strict" })
-    res.clearCookie("REMEMBER", { httpOnly: true, secure: true, sameSite: "strict" })
+    res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
+    res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
 
     return res.status(200).json({ message: "2FA disabled successfully" })
   } catch (error) {
@@ -374,4 +375,6 @@ exports.getDentistsController = async (req, res, next) => {
     next(error)
   }
 }
+
+
 

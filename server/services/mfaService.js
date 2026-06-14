@@ -27,3 +27,9 @@ exports.updateMfa = async (userId, data) => {
     data
   })
 }
+
+exports.deleteMfa = async (userId) => {
+  return await prisma.userMfa.delete({
+    where: { userId }
+  })
+}

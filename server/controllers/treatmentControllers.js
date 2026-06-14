@@ -1,13 +1,12 @@
+const { findAppointmentById } = require('../services/appointmentService')
 const {
   findAllTreatments,
   findTreatmentById,
   findTreatmentByAppointmentId,
   createTreatment,
   updateTreatment,
-  deleteTreatment
+  softDeleteTreatment
 } = require('../services/treatmentService')
-
-const { findAppointmentById } = require('../services/appointmentService')
 
 exports.getAllTreatmentsController = async (req, res, next) => {
   try {
@@ -130,7 +129,7 @@ exports.deleteTreatmentController = async (req, res, next) => {
       return res.status(404).json({ message: 'Treatment not found' })
     }
 
-    await deleteTreatment(id)
+    await softDeleteTreatment(id)
     return res.status(200).json({ message: 'Treatment deleted successfully' })
   } catch (error) {
     next(error)

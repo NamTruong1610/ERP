@@ -10,7 +10,7 @@ const {
 const {
   findUserActivationByTokenId,
   deleteUserActivation
-} = require("../services/activationTokenService")
+} = require("../services/activationService")
 
 const {
   findMfaByUserId,
@@ -37,6 +37,7 @@ const {
 } = require("../utils/mfaUtils")
 
 const { UserStatus } = require('@prisma/client')
+const { MFA_SETUP_TTL_SECONDS } = require('../config/constants')
 
 const QRCode = require('qrcode')
 
@@ -45,12 +46,6 @@ exports.setPasswordController = async (req, res, next) => {
   const { activationToken, password, confirmPassword } = req.body
   try {
 
-    // Validate passwords
-    if (password !== confirmPassword) {
-      return res.status(400).json({
-        message: "Passwords do not match"
-      })
-    }
     const hashedActivationToken = await hashToken(activationToken)
     const userActivationToken = await findUserActivationByTokenId(hashedActivationToken);
     
@@ -72,19 +67,27 @@ exports.setPasswordController = async (req, res, next) => {
 
       await redisClient.del(mfaTokenKey)
       await redisClient.set(mfaTokenKey, hashedMfaToken, {
-        EX: 10 * 60 // 10 mins
+        EX: MFA_SETUP_TTL_SECONDS // 10 mins
       });
 
       return res.status(200).json({
         activationToken: activationToken,
-        mfaToken: rawMfaToken
+        mfaToken: rawMfaToken,
+        passwordRequired: false 
       })
     }
 
-    else if (userRecord.status === UserStatus.ACTIVE) {
-      return res.status(404).json({
-        message: "Token expired"
-      })
+    if (userRecord.status === UserStatus.ACTIVE) {
+      return res.status(404).json({ message: 'Token expired' })
+    }
+
+    // Validate passwords before doing any work
+    if (!password || !confirmPassword) {
+      return res.status(400).json({ message: 'Password is required' })
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: 'Passwords do not match' })
     }
 
     // Generate a new token for 2fa verification step (hand-shake)
@@ -95,7 +98,7 @@ exports.setPasswordController = async (req, res, next) => {
 
     const mfaTokenKey = `mfa:${userRecord.id}`;
     await redisClient.set(mfaTokenKey, hashedMfaToken, {
-      EX: 10 * 60 // 10 mins
+      EX: MFA_SETUP_TTL_SECONDS // 10 mins
     });
 
     await updateUser(userRecord, {
@@ -105,7 +108,8 @@ exports.setPasswordController = async (req, res, next) => {
 
     return res.status(200).json({
       activationToken: activationToken,
-      mfaToken: rawMfaToken
+      mfaToken: rawMfaToken,
+      passwordRequired: true
     })
 
   } catch (error) {
@@ -133,15 +137,13 @@ exports.get2faSecretController = async (req, res, next) => {
     const tokensMatched = await compareTokenHash(mfaToken, hashedMfaToken)
     
     if (!hashedMfaToken || !tokensMatched) {
-      return res.status(404).json({
+      return res.status(401).json({
         message: "Invalid token"
       })
     }
 
-    const userMfa = await findMfaByUserId(userRecord.id);
-
     // In case the user doesn't have mfa setup (user reaches this step for the first time)
-    if (!userMfa || !userMfa.mfaSecret) {
+    if (!userRecord.userMfa || !userRecord.userMfa?.mfaSecret) {
       // Generate 2fa secret and store it in the user record (change the user status to PENDING_MFA_VERIFICATION)
       const mfaSecret = await generateMfaSecret(userRecord.email)
 
@@ -163,7 +165,7 @@ exports.get2faSecretController = async (req, res, next) => {
     }
 
     // Pick up from the interrupted step, return the qr uri that the user set up when interrupted
-    const qrDataUrl = await QRCode.toDataURL(userMfa.mfaUri)
+    const qrDataUrl = await QRCode.toDataURL(userRecord.userMfa?.mfaUri)
     return res.status(200).json({
       qrUri: qrDataUrl,
       activationToken: activationToken
@@ -179,6 +181,9 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
   try {
     const hashedActivationToken = await hashToken(activationToken);
     const userActivationToken = await findUserActivationByTokenId(hashedActivationToken);
+    if (!userActivationToken || Date.now() > userActivationToken.expiresAt) {
+      return res.status(404).json({ message: 'Token expired' })
+    }
     const userRecord = await findUserById(userActivationToken.userId)
     if (!userActivationToken || Date.now() > userActivationToken.expiresAt) {
       return res.status(404).json({
@@ -190,13 +195,12 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
     const hashedMfaToken = await redisClient.get(mfaTokenKey)
     const tokensMatched = await compareTokenHash(mfaToken, hashedMfaToken)
     if (!hashedMfaToken || !tokensMatched) {
-      return res.status(404).json({
+      return res.status(401).json({
         message: "Invalid token"
       })
     }
 
     const verified = await verifyMfaOtp(otp, userRecord.userMfa?.mfaSecret)
-
 
     if (!verified) {
       return res.status(401).json({
@@ -204,15 +208,15 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
       })
     }
 
-    await updateUser(userRecord, {
-      status: UserStatus.ACTIVE,
-    })
-
     await updateMfa(userRecord.id, {
-      mfaEnabled: true
+      enabled: true
     })
 
     await deleteUserActivation(userRecord.id)
+
+    await updateUser(userRecord, {
+      status: UserStatus.ACTIVE,
+    })
 
     // Delete mfa setup token and user record ttl from Redis 
     await redisClient.del(mfaTokenKey)
