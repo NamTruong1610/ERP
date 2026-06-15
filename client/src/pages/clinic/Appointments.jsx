@@ -50,7 +50,10 @@ function CreateAppointmentModal({ onClose, onCreated }) {
     e.preventDefault()
     setLoading(true)
     try {
-      await createAppointment(form)
+      await createAppointment({
+        ...form,
+        dentistId: form.dentistId || undefined
+      })
       onCreated()
       onClose()
     } catch (err) {
@@ -80,9 +83,9 @@ function CreateAppointmentModal({ onClose, onCreated }) {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Dentist <span style={{ color: 'var(--danger-text)' }}>*</span></label>
-            <select name="dentistId" className="form-select" value={form.dentistId} onChange={handleChange} required>
-              <option value="">Select dentist</option>
+            <label className="form-label">Dentist <span style={{ color: 'var(--text-hint)', fontSize: '11px' }}>(optional)</span></label>
+            <select name="dentistId" className="form-select" value={form.dentistId} onChange={handleChange}>
+              <option value="">Unassigned</option>
               {dentists.map(d => (
                 <option key={d.id} value={d.id}>
                   {d.name ? `${d.name.fName} ${d.name.lName}` : d.email}
@@ -126,7 +129,7 @@ export default function Appointments() {
 
   const fetchAppointments = async () => {
     try {
-      const data = await getAllAppointments() 
+      const data = await getAllAppointments()
       setAppointments(data.appointments)
       setFiltered(data.appointments)
     } catch {
@@ -221,7 +224,8 @@ export default function Appointments() {
                     <td>
                       {appt.dentist?.name
                         ? `${appt.dentist.name.fName} ${appt.dentist.name.lName}`
-                        : appt.dentist?.email}
+                        : appt.dentist?.email ?? <span style={{ color: 'var(--text-hint)' }}>Unassigned</span>
+                      }
                     </td>
                     <td>
                       <span className={`badge ${STATUS_BADGE[appt.status]}`}>

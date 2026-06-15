@@ -42,9 +42,9 @@ const startServer = async () => {
   await cleanupExpiredUsers()
 
   // Run every hour
-  cron.schedule('0 * * * *', async () => {
-    await cleanupExpiredUsers()
-  })
+  // cron.schedule('0 * * * *', async () => {
+  //   await cleanupExpiredUsers()
+  // })
 
 
 };

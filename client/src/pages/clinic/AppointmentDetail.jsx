@@ -26,7 +26,7 @@ function reducer(state, action) {
 }
 
 const formatDentist = (dentist) => {
-  if (!dentist) return 'Dentist removed'
+  if (!dentist) return 'Dentist unassigned'
   if (dentist.name?.fName) return `${dentist.name.fName} ${dentist.name.lName}`
   return dentist.email
 }

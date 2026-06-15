@@ -65,14 +65,8 @@ exports.getAppointmentsByPatientController = async (req, res, next) => {
 exports.createAppointmentController = async (req, res, next) => {
   const { dentistId, patientId, date, notes } = req.body
   try {
-    if (!dentistId || !patientId || !date) {
-      return res.status(400).json({ message: 'Dentist, patient and date are required' })
-    }
-
-    // Validate dentist exists and is active
-    const dentist = await findUserById(dentistId)
-    if (!dentist || dentist.status !== UserStatus.ACTIVE) {
-      return res.status(404).json({ message: 'Dentist not found' })
+    if (!patientId || !date) {
+      return res.status(400).json({ message: 'Patient and date are required' })
     }
 
     // Validate patient exists
@@ -81,11 +75,19 @@ exports.createAppointmentController = async (req, res, next) => {
       return res.status(404).json({ message: 'Patient not found' })
     }
 
+    // Only validate dentist if one is provided
+    if (dentistId) {
+      const dentist = await findUserById(dentistId)
+      if (!dentist || dentist.status !== UserStatus.ACTIVE) {
+        return res.status(404).json({ message: 'Dentist not found' })
+      }
+    }
+
     const appointment = await createAppointment({
-      dentistId,
       patientId,
       date: new Date(date),
-      notes
+      notes,
+      ...(dentistId && { dentistId })
     })
 
     return res.status(201).json({ appointment })
@@ -107,7 +109,13 @@ exports.updateAppointmentController = async (req, res, next) => {
 
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
-        updates[field] = field === 'date' ? new Date(req.body[field]) : req.body[field]
+        if (field === 'date') {
+          updates[field] = new Date(req.body[field])
+        } else if (field === 'dentistId') {
+          updates[field] = req.body[field] || null  // convert empty string to null
+        } else {
+          updates[field] = req.body[field]
+        }
       }
     }
 
@@ -119,7 +127,7 @@ exports.updateAppointmentController = async (req, res, next) => {
       return res.status(400).json({ message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` })
     }
 
-    if (updates.dentistId) {
+    if (updates.dentistId !== undefined && updates.dentistId !== null) {
       const dentist = await findUserById(updates.dentistId)
       if (!dentist || dentist.status !== UserStatus.ACTIVE) {
         return res.status(404).json({ message: 'Dentist not found' })

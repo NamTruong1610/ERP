@@ -47,12 +47,13 @@ exports.hardDeletePatient = async (id) => {
 }
 
 exports.softDeletePatient = async (id) => {
+  const now = new Date()
   await prisma.treatment.updateMany({
     where: {
       appointment: { patientId: id },
       deletedAt: null
     },
-    data: { deletedAt: new Date() }
+    data: { deletedAt: now }
   })
 
   await prisma.appointment.updateMany({
