@@ -67,8 +67,14 @@ exports.updatePatientController = async (req, res, next) => {
       return res.status(400).json({ message: 'No valid fields provided' })
     }
 
-    const patient = await updatePatient(id, updates)
-    return res.status(200).json({ patient })
+    const patientRecord = await findPatientById(id)
+
+    if (!patientRecord) {
+      return res.status(404).json({ message: 'Patient not found' })
+    }
+    
+    const updatedPatient = await updatePatient(id, updates)
+    return res.status(200).json({ updatedPatient })
   } catch (error) {
     next(error)
   }

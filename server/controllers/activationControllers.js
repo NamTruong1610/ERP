@@ -36,7 +36,7 @@ const {
   verifyMfaOtp,
 } = require("../utils/mfaUtils")
 
-const { UserStatus } = require('@prisma/client')
+const { UserStatus, ActorType, AuditAction, TriggerType, TargetType } = require('@prisma/client')
 const { MFA_SETUP_TTL_SECONDS } = require('../config/constants')
 
 const QRCode = require('qrcode')
@@ -220,6 +220,16 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
 
     // Delete mfa setup token and user record ttl from Redis 
     await redisClient.del(mfaTokenKey)
+
+    await createAuditLog({
+      actorId: userRecord.id,
+      targetId: userRecord.id,
+      targetType: TargetType.USER,
+      action: AuditAction.USER_ACTIVATED,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     return res.status(200).json({
       message: "User 2fa successfully activated"

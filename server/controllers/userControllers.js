@@ -204,6 +204,16 @@ exports.changePasswordController = async (req, res, next) => {
     res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
     res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
 
+    await createAuditLog({
+      actorId: id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.PASSWORD_CHANGED,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(200).json({ message: "Password changed successfully" })
 
   } catch (error) {
@@ -228,7 +238,7 @@ exports.changeEmailController = async (req, res, next) => {
 
     // Check new email isn't already taken
     const existingUser = await findUserByEmail(email)
-    if (existingUser || !existingUser.deletedAt) {
+    if (existingUser) {
       return res.status(400).json({ message: "Email already in use" })
     }
 
@@ -254,6 +264,16 @@ exports.changeEmailController = async (req, res, next) => {
     )
 
     await sendEmailChangeVerificationEmail(email, tokenId)
+
+    await createAuditLog({
+      actorId: id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.EMAIL_CHANGE_REQUESTED,
+      metadata: { newEmail: email },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     return res.status(200).json({ message: "Verification email sent" })
   } catch (error) {
@@ -286,6 +306,16 @@ exports.verifyEmailChangeController = async (req, res, next) => {
 
     await redisClient.del(`token:email_change:${tokenId}`)
     await redisClient.del(`user_email_change:${id}`)
+
+    await createAuditLog({
+      actorId: id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.EMAIL_CHANGED,
+      metadata: { previousEmail, newEmail: tokenData.email },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     return res.status(200).json({ message: "Email changed successfully" })
   } catch (error) {
@@ -324,6 +354,16 @@ exports.disable2faController = async (req, res, next) => {
     res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
     res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
 
+    await createAuditLog({
+      actorId: id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.MFA_DISABLED,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(200).json({ message: "2FA disabled successfully" })
   } catch (error) {
     next(error)
@@ -360,6 +400,16 @@ exports.enable2faController = async (req, res, next) => {
     }
 
     await updateMfa(userRecord.id, { enabled: true })
+
+    await createAuditLog({
+      actorId: id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.MFA_ENABLED,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     return res.status(200).json({ message: "2FA enabled successfully" })
   } catch (error) {

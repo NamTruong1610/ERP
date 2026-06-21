@@ -28,6 +28,10 @@ const {
 } = require("../services/mfaService")
 
 const {
+  createAuditLog
+} = require("../services/auditServices")
+
+const {
   generateActivationToken,
   hashToken
 } = require("../utils/activationTokenUtils")
@@ -40,7 +44,7 @@ const { ACTIVATION_TTL_MS, ACTIVATION_EMAIL_IDEMPOTENCY_MS } = require('../confi
 
 const { redisClient } = require("../config/RedisConfig")
 const { ROLES } = require('../config/RBACConfig')
-const { UserStatus } = require('@prisma/client')
+const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
 const { TIME_SERIES_BUCKET_TIMESTAMP } = require("redis")
 
 exports.createUserController = async (req, res, next) => {
@@ -58,6 +62,16 @@ exports.createUserController = async (req, res, next) => {
     const newUser = await createUser({ email })
     await createUserActivation(newUser.id, hashedActivationTokenId)
     await sendAccountActivationEmail(email, rawActivationTokenId)
+
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: newUser.id,
+      targetType: TargetType.USER,
+      action: AuditAction.USER_CREATED,
+      metadata: { email },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     return res.status(201).json({
       id: newUser.id,
@@ -79,6 +93,17 @@ exports.softDeleteUserController = async (req, res, next) => {
         message: 'No user found'
       })
     }
+
+    // Write-ahead: log before the destructive operation
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: userRecord.id,
+      targetType: TargetType.USER,
+      action: AuditAction.USER_DELETED,
+      metadata: { email: userRecord.email },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
     
     await softDeleteUserById(userRecord.id)
 
@@ -103,6 +128,16 @@ exports.hardDeleteUserController = async (req, res, next) => {
         message: 'No user found'
       })
     }
+
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.USER_DELETED,
+      metadata: { email: userRecord.email, hardDelete: true },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     await deleteUserById(id)
 
@@ -178,6 +213,16 @@ exports.suspendUserController = async (req, res, next) => {
     // Invalidate all sessions and remember tokens
     await invalidateAllUserSessions(id)
 
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.USER_SUSPENDED,
+      metadata: { previousStatus: userRecord.status },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(200).json({ message: "User suspended successfully" })
   } catch (error) {
     next(error)
@@ -235,6 +280,16 @@ exports.reset2faController = async (req, res, next) => {
 
     await sendAccountActivationEmail(userRecord.email, rawActivationTokenId)
 
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.MFA_RESET,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(200).json({ message: "2FA reset successfully" })
   } catch (error) {
     next(error)
@@ -278,6 +333,16 @@ exports.resendActivationEmailController = async (req, res, next) => {
 
     await sendAccountActivationEmail(userRecord.email, rawActivationTokenId)
 
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.ACTIVATION_RESENT,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(200).json({ message: "Activation email resent successfully" })
   } catch (error) {
     next(error)
@@ -303,6 +368,16 @@ exports.assignRoleController = async (req, res, next) => {
 
     const updatedUser = await createUserRole(userRecord.id, role)
 
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.ROLE,
+      action: AuditAction.ROLE_ASSIGNED,
+      metadata: { role },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(200).json({ roles: updatedUser.roles })
   } catch (error) {
     next(error)
@@ -323,6 +398,16 @@ exports.removeRoleController = async (req, res, next) => {
     }
     const updatedUser = await deleteUserRole(userRecord.id, role)
 
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.ROLE,
+      action: AuditAction.ROLE_REMOVED,
+      metadata: { role },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(200).json({ roles: updatedUser.roles })
   } catch (error) {
     next(error)
@@ -338,6 +423,16 @@ exports.forceLogoutUserController = async (req, res, next) => {
     }
 
     await invalidateAllUserSessions(id)
+
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.FORCE_LOGOUT,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     return res.status(200).json({ message: "User forcefully logged out successfully" })
   } catch (error) {
@@ -373,7 +468,20 @@ exports.updateUserController = async (req, res, next) => {
       }
     }
 
+    const previousEmail = userRecord.email
     const updatedUser = await updateUser(userRecord, updates)
+
+    if (updates.email && updates.email !== previousEmail) {
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.EMAIL_CHANGED,
+        metadata: { previousEmail, newEmail: updates.email },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      })
+    }
 
     return res.status(200).json({
       id: updatedUser.id,
@@ -405,6 +513,16 @@ exports.reactivateUserController = async (req, res, next) => {
     }
 
     await updateUser(userRecord, { status: UserStatus.ACTIVE })
+
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.USER,
+      action: AuditAction.USER_REACTIVATED,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     return res.status(200).json({ message: "User reactivated successfully" })
   } catch (error) {
