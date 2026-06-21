@@ -37,23 +37,23 @@ exports.findTreatmentByAppointmentId = async (appointmentId) => {
   })
 }
 
-exports.createTreatment = async (data) => {
-  return await prisma.treatment.create({
+exports.createTreatment = async (data, client = prisma) => {
+  return await client.treatment.create({
     data,
     include: treatmentInclude
   })
 }
 
-exports.updateTreatment = async (id, data) => {
-  return await prisma.treatment.update({
+exports.updateTreatment = async (id, data, client = prisma) => {
+  return await client.treatment.update({
     where: { id },
     data,
     include: treatmentInclude
   })
 }
 
-exports.softDeleteTreatment = async (id) => {
-  return await prisma.treatment.update({
+exports.softDeleteTreatment = async (id, client = prisma) => {
+  return await client.treatment.update({
     where: { id },
     data: { deletedAt: new Date() }
   })

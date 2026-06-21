@@ -43,30 +43,30 @@ exports.findAppointmentsByPatient = async (patientId) => {
   })
 }
 
-exports.createAppointment = async (data) => {
-  return await prisma.appointment.create({
+exports.createAppointment = async (data, client = prisma) => {
+  return await client.appointment.create({
     data,
     include: appointmentInclude
   })
 }
 
-exports.updateAppointment = async (id, data) => {
-  return await prisma.appointment.update({
+exports.updateAppointment = async (id, data, client = prisma) => {
+  return await client.appointment.update({
     where: { id },
     data,
     include: appointmentInclude
   })
 }
 
-exports.softDeleteAppointment = async (id) => {
+exports.softDeleteAppointment = async (id, client = prisma) => {
   const now = new Date()
 
-  await prisma.treatment.updateMany({
+  await client.treatment.updateMany({
     where: { appointmentId: id, deletedAt: null },
     data: { deletedAt: now }
   })
 
-  return await prisma.appointment.update({
+  return await client.appointment.update({
     where: { id },
     data: { deletedAt: now }
   })

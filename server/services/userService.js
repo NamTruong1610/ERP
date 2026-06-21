@@ -81,8 +81,8 @@ exports.findAllUsersByString = async(query) => {
   })
 }
 
-exports.createUser = async (newUserData) => {
-  return await prisma.user.create({
+exports.createUser = async (newUserData, client = prisma) => {
+  return await client.user.create({
     data: {
       ...newUserData,
       roles: {
@@ -93,7 +93,7 @@ exports.createUser = async (newUserData) => {
   })
 }
 
-exports.updateUser = async (oldUserData, updatedUserData) => {
+exports.updateUser = async (oldUserData, updatedUserData, client = prisma) => {
   const { name, addresses, ...rest } = updatedUserData
 
   const nameData = name ? Object.fromEntries(
@@ -101,7 +101,7 @@ exports.updateUser = async (oldUserData, updatedUserData) => {
       .filter(([_, v]) => v !== undefined && v !== '')
   ) : undefined
 
-  return await prisma.user.update({
+  return await client.user.update({
     where: { id: oldUserData.id },
     data: {
       ...rest,
@@ -118,27 +118,27 @@ exports.updateUser = async (oldUserData, updatedUserData) => {
   })
 }
 
-exports.hardDeleteUserById = async (id) => {
-  return await prisma.user.delete({
+exports.hardDeleteUserById = async (id, client = prisma) => {
+  return await client.user.delete({
     where: { id }
   })
 }
 
-exports.softDeleteUserById = async (id) => {
-  return await prisma.user.update({
+exports.softDeleteUserById = async (id, client = prisma) => {
+  return await client.user.update({
     where: { id },
     data: { deletedAt: new Date() }
   })
 }
 
-exports.createUserRole = async (userId, role) => {
-  return await prisma.userRole.create({
+exports.createUserRole = async (userId, role, client = prisma) => {
+  return await client.userRole.create({
     data: { userId, role }
   })
 }
 
-exports.deleteUserRole = async (userId, role) => {
-  return await prisma.userRole.delete({
+exports.deleteUserRole = async (userId, role, client = prisma) => {
+  return await client.userRole.delete({
     where: {
       userId_role: { userId, role }  // composite unique constraint
     }

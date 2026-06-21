@@ -1,5 +1,5 @@
 const { prisma } = require('../config/PrismaConfig')
 
-exports.createAuditLog = async (data) => {
-  return await prisma.auditLog.create({ data })
+exports.createAuditLog = async (data, client = prisma) => {
+  return await client.auditLog.create({ data })
 }

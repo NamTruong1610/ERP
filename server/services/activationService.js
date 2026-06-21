@@ -1,8 +1,8 @@
 const { prisma } = require('../config/PrismaConfig')
 const { ACTIVATION_TTL_MS } = require('../config/constants')
 
-exports.createUserActivation = async (userId, hashedTokenId) => {
-  return await prisma.userActivation.create({
+exports.createUserActivation = async (userId, hashedTokenId, client = prisma) => {
+  return await client.userActivation.create({
     data: {
       userId,
       tokenId: hashedTokenId,
@@ -11,8 +11,8 @@ exports.createUserActivation = async (userId, hashedTokenId) => {
   })
 }
 
-exports.updateUserActivation = async (userId, data) => {
-  return await prisma.userActivation.update({
+exports.updateUserActivation = async (userId, data, client = prisma) => {
+  return await client.userActivation.update({
     where: { userId },
     data
   })
@@ -24,8 +24,8 @@ exports.findUserActivationByTokenId = async (tokenId) => {
   })
 }
 
-exports.deleteUserActivation = async (userId) => {
-  return await prisma.userActivation.delete({
+exports.deleteUserActivation = async (userId, client = prisma) => {
+  return await client.userActivation.delete({
     where: { userId }
   })
 }

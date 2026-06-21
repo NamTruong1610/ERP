@@ -29,12 +29,12 @@ exports.findPatientById = async (id) => {
   })
 }
 
-exports.createPatient = async (data) => {
-  return await prisma.patient.create({ data })
+exports.createPatient = async (data, client = prisma) => {
+  return await client.patient.create({ data })
 }
 
-exports.updatePatient = async (id, data) => {
-  return await prisma.patient.update({
+exports.updatePatient = async (id, data, client = prisma) => {
+  return await client.patient.update({
     where: { id },
     data
   })
@@ -46,9 +46,9 @@ exports.hardDeletePatient = async (id) => {
   })
 }
 
-exports.softDeletePatient = async (id) => {
+exports.softDeletePatient = async (id, client = prisma) => {
   const now = new Date()
-  await prisma.treatment.updateMany({
+  await client.treatment.updateMany({
     where: {
       appointment: { patientId: id },
       deletedAt: null
@@ -56,12 +56,12 @@ exports.softDeletePatient = async (id) => {
     data: { deletedAt: now }
   })
 
-  await prisma.appointment.updateMany({
+  await client.appointment.updateMany({
     where: { patientId: id, deletedAt: null },
     data: { deletedAt: now }
   })
 
-  return await prisma.patient.update({
+  return await client.patient.update({
     where: { id },
     data: { deletedAt: now }
   })

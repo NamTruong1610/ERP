@@ -7,29 +7,29 @@ exports.findMfaByUserId = async (userId) => {
   })
 }
 
-exports.createUserMfa = async (userId, data) => {
-  return await prisma.userMfa.create({
+exports.createUserMfa = async (userId, data, client = prisma) => {
+  return await client.userMfa.create({
     data: { ...data, userId }
   })
 }
 
-exports.upsertUserMfa = async (userId, data) => {
-  return await prisma.userMfa.upsert({
+exports.upsertUserMfa = async (userId, data, client = prisma) => {
+  return await client.userMfa.upsert({
     where: { userId },
     create: { userId, ...data },
     update: data
   })
 }
 
-exports.updateMfa = async (userId, data) => {
-  return await prisma.userMfa.update({
+exports.updateMfa = async (userId, data, client = prisma) => {
+  return await client.userMfa.update({
     where: { userId },
     data
   })
 }
 
-exports.deleteMfa = async (userId) => {
-  return await prisma.userMfa.delete({
+exports.deleteMfa = async (userId, client = prisma) => {
+  return await client.userMfa.delete({
     where: { userId }
   })
 }
