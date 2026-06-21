@@ -131,7 +131,7 @@ model AuditLog {
   id         String   @id @default(cuid())
   
   actorId    String?  // null for system-triggered events
-  actorType  ActorType @default(SYSTEM)
+  actorType  ActorType @default(USER)
 
   targetId   String?
   targetType TargetType?
@@ -177,6 +177,7 @@ enum TriggerType {
 enum AuditAction {
   // Auth
   LOGIN_SUCCESS
+  LOGIN_MFA_PENDING
   LOGIN_FAILED
   LOGIN_MFA_FAILED
   LOGOUT
@@ -195,6 +196,7 @@ enum AuditAction {
 
   // Account changes
   PASSWORD_CHANGED
+  PASSWORD_RESET_REQUESTED
   PASSWORD_RESET
   EMAIL_CHANGED
   EMAIL_CHANGE_REQUESTED

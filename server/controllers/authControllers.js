@@ -17,6 +17,10 @@ const {
 } = require("../services/mfaService")
 
 const {
+  createAuditLog
+} = require("../services/auditServices.js")
+
+const {
   hashPassword,
   comparePasswordHash
 } = require("../utils/passwordUtils")
@@ -34,9 +38,10 @@ const {
   sendAccountRecoveryEmail
 } = require("../utils/emailUtils")
 
-const { UserStatus } = require('@prisma/client')
+const { UserStatus, ActorType, AuditAction, TriggerType, TargetType } = require('@prisma/client')
 const { redisClient } = require("../config/RedisConfig")
 const { SESSION_TTL_MS, REMEMBER_TTL_MS, COOKIE_OPTIONS, RECOVERY_TTL_SECONDS, RECOVERY_EMAIL_IDEMPOTENCY_MS } = require("../config/constants.js")
+const { use } = require("react")
 
 exports.getMeController = async (req, res, next) => {
   try {
@@ -72,13 +77,36 @@ exports.loginController = async (req, res, next) => {
 
     const userRecord = await findUserByEmail(email)
     if (!userRecord || userRecord.status != UserStatus.ACTIVE) {
+      await createAuditLog({
+        actorId: userRecord?.id ?? null,
+        targetId: userRecord?.id ?? null,
+        targetType: userRecord ? TargetType.USER : null,
+        action: AuditAction.LOGIN_FAILED,
+        metadata: {
+          "attemptedEmail": email,
+          "reason": "User not found"
+        },
+        ip: req.ip,
+        userAgent: req.headers["user-agent"]
+      })
       return res.status(401).json({
-        message: "User not found"
+        message: "Invalid credentials"
       })
     }
 
     const passwordsMatched = await comparePasswordHash(password, userRecord.password)
     if (!passwordsMatched) {
+      await createAuditLog({
+        actorId: userRecord.id,
+        targetId: userRecord.id,
+        targetType: TargetType.USER,
+        action: AuditAction.LOGIN_FAILED,
+        metadata: {
+          "reason": "Invalid credentials"
+        },
+        ip: req.ip,
+        userAgent: req.headers["user-agent"]
+      })
       return res.status(401).json({
         message: "Invalid credentials"
       })
@@ -96,6 +124,18 @@ exports.loginController = async (req, res, next) => {
         res.cookie('REMEMBER', rememberTokenId, { ...COOKIE_OPTIONS, maxAge: REMEMBER_TTL_MS })
       }
 
+      // audit
+      await createAuditLog({
+        actorId: userRecord.id,
+        targetId: userRecord.id,
+        targetType: TargetType.USER,
+        action: AuditAction.LOGIN_SUCCESS,
+        metadata: {
+          "rememberMe": rememberMe
+        },
+        ip: req.ip,
+        userAgent: req.headers["user-agent"]
+      })
       return res.status(200).json({
         message: "Login successful"
       })
@@ -130,6 +170,16 @@ exports.loginController = async (req, res, next) => {
         }),
         { EX: 6 * 60 } // 6 mins
       );
+
+      await createAuditLog({
+        actorId: userRecord.id,
+        targetId: userRecord.id,
+        targetType: TargetType.USER,
+        action: AuditAction.LOGIN_MFA_PENDING,
+        metadata: null,
+        ip: req.ip,
+        userAgent: req.headers["user-agent"]
+      })
 
       return res.status(200).json({
         mfaLoginTokenId: mfaLoginTokenId
@@ -173,6 +223,16 @@ exports.verify2faLoginController = async (req, res, next) => {
     const mfaTokenIdMappedByUserId = mfaTokenMappedByUserId.mfaLoginTokenId
 
     if (mfaTokenIdMappedByUserId !== mfaLoginTokenId) {
+      await createAuditLog({
+        actorId: userIdFromMfaLoginToken,
+        targetId: userIdFromMfaLoginToken,
+        targetType: TargetType.USER,
+        action: AuditAction.LOGIN_MFA_FAILED,
+        metadata: { reason: 'Token mismatch' },
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        trigger: TriggerType.USER_ACTION
+      })
       return res.status(401).json({
         message: "Invalid token"
       })
@@ -181,6 +241,16 @@ exports.verify2faLoginController = async (req, res, next) => {
     const userRecord = await findUserById(mfaLoginToken.id);
 
     if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
+      await createAuditLog({
+        actorId: userIdFromMfaLoginToken,
+        targetId: userIdFromMfaLoginToken,
+        targetType: TargetType.USER,
+        action: AuditAction.LOGIN_FAILED,
+        metadata: { reason: 'User not active' },
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        trigger: TriggerType.USER_ACTION
+      })
       return res.status(401).json({
         message: "Invalid token"
       })
@@ -189,6 +259,16 @@ exports.verify2faLoginController = async (req, res, next) => {
     const validOtp = await verifyMfaOtp(otp, userRecord.userMfa?.mfaSecret)
 
     if (!validOtp) {
+      await createAuditLog({
+        actorId: userRecord.id,
+        targetId: userRecord.id,
+        targetType: TargetType.USER,
+        action: AuditAction.LOGIN_MFA_FAILED,
+        metadata: null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        trigger: TriggerType.USER_ACTION
+      })
       return res.status(401).json({
         message: "Invalid credentials"
       })
@@ -212,7 +292,15 @@ exports.verify2faLoginController = async (req, res, next) => {
     await redisClient.del(`user_mfa_login:${userRecord.id}`)
     await redisClient.del(`token:mfa_login:${mfaLoginTokenId}`)
 
-
+    await createAuditLog({
+      actorId: userRecord.id,
+      targetId: userRecord.id,
+      targetType: TargetType.USER,
+      action: AuditAction.LOGIN_SUCCESS,
+      metadata: { rememberMe, mfa: true },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
     return res.status(200).json({
       message: "Login successful"
     })
@@ -225,6 +313,8 @@ exports.verify2faLoginController = async (req, res, next) => {
 exports.logoutController = async (req, res, next) => {
   try {
     // Delete sessions and tokens: login session, login session in the user->sessions map; remember token, remember token in the user->tokens map
+    const userId = req.user.id;
+    
     const sessionId = req.cookies.SESSIONID;
     const rememberTokenId = req.cookies.REMEMBER;
 
@@ -232,9 +322,17 @@ exports.logoutController = async (req, res, next) => {
 
     // Clear cookies in the browser
 
-
     res.clearCookie('SESSIONID', { ...COOKIE_OPTIONS })
     res.clearCookie('REMEMBER', { ...COOKIE_OPTIONS })
+
+    await createAuditLog({
+      actorId: userId,
+      targetId: userId,
+      targetType: userId ? TargetType.USER : null,
+      action: AuditAction.LOGOUT,
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]
+    })
 
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
@@ -244,13 +342,22 @@ exports.logoutController = async (req, res, next) => {
 
 exports.logoutAllController = async (req, res, next) => {
   try {
-    const userId = req.user.id; // Assuming this is set by requireAuth middleware
+    const userId = req.user.id; 
 
     await invalidateAllUserSessions(userId)
 
     // Clear cookies for the current device (browser)
     res.clearCookie('SESSIONID', { ...COOKIE_OPTIONS })
     res.clearCookie('REMEMBER', { ...COOKIE_OPTIONS })
+
+    await createAuditLog({
+      actorId: userId,
+      targetId: userId,
+      targetType: TargetType.USER,
+      action: AuditAction.LOGOUT_ALL,
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]
+    })
 
     return res.status(200).json({ message: "All sessions logged out successfully" });
   } catch (error) {
@@ -263,6 +370,15 @@ exports.forgotPasswordController = async (req, res, next) => {
   try {
     const userRecord = await findUserByEmail(email)
     if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
+      await createAuditLog({
+        actorId: null,
+        targetId: userRecord?.id ?? null,
+        targetType: userRecord ? TargetType.USER : null,
+        action: AuditAction.PASSWORD_RESET_REQUESTED,
+        metadata: { attemptedEmail: email, reason: 'User not found or inactive' },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      })
       return res.status(200).json({
         message: "Recovery email has been sent"
       })
@@ -315,6 +431,16 @@ exports.forgotPasswordController = async (req, res, next) => {
 
     await sendAccountRecoveryEmail(email, recoveryTokenId)
 
+    await createAuditLog({
+      actorId: userRecord.id,
+      targetId: userRecord.id,
+      targetType: TargetType.USER,
+      action: AuditAction.PASSWORD_RESET_REQUESTED,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(200).json({
       message: "Recovery token generated"
     })
@@ -346,6 +472,15 @@ exports.resetPasswordController = async (req, res, next) => {
     const recoveryTokenMappedByUserRaw = await redisClient.get(`user_recover:${recoveryTokenData.id}`)
 
     if (!recoveryTokenMappedByUserRaw) {
+      await createAuditLog({
+        actorId: recoveryTokenData.id,
+        targetId: recoveryTokenData.id,
+        targetType: TargetType.USER,
+        action: AuditAction.PASSWORD_RESET,
+        metadata: { reason: 'Token map missing', success: false },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      })
       return res.status(401).json({
         message: "Invalid token"
       })
@@ -354,6 +489,15 @@ exports.resetPasswordController = async (req, res, next) => {
     const recoveryTokenMappedByUser = JSON.parse(recoveryTokenMappedByUserRaw)
 
     if (recoveryTokenMappedByUser.recoveryTokenId !== recoveryToken) {
+      await createAuditLog({
+        actorId: recoveryTokenData.id,
+        targetId: recoveryTokenData.id,
+        targetType: TargetType.USER,
+        action: AuditAction.PASSWORD_RESET,
+        metadata: { reason: 'Token mismatch', success: false },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      })
       return res.status(401).json({
         message: "Invalid token"
       })
@@ -362,6 +506,15 @@ exports.resetPasswordController = async (req, res, next) => {
     const userRecord = await findUserById(recoveryTokenData.id)
 
     if (!userRecord || userRecord.status !== UserStatus.ACTIVE) {
+      await createAuditLog({
+        actorId: recoveryTokenData.id,
+        targetId: recoveryTokenData.id,
+        targetType: TargetType.USER,
+        action: AuditAction.PASSWORD_RESET,
+        metadata: { reason: 'User not active', success: false },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      })
       return res.status(401).json({
         message: "User not found"
       })
@@ -380,6 +533,16 @@ exports.resetPasswordController = async (req, res, next) => {
     // Delete user->recovery tokens map and recovery token
     await redisClient.del(`user_recover:${userRecord.id}`)
     await redisClient.del(`token:recover:${recoveryToken}`)
+
+    await createAuditLog({
+      actorId: userRecord.id,
+      targetId: userRecord.id,
+      targetType: TargetType.USER,
+      action: AuditAction.PASSWORD_RESET,
+      metadata: null,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     return res.status(200).json({
       message: "Password reset successfully"
