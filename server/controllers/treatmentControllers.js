@@ -85,6 +85,16 @@ exports.createTreatmentController = async (req, res, next) => {
     const { updateAppointment } = require('../services/appointmentService')
     await updateAppointment(appointmentId, { status: 'COMPLETED' })
 
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: treatment.id,
+      targetType: TargetType.TREATMENT,
+      action: AuditAction.TREATMENT_CREATED,
+      metadata: { appointmentId, procedure, toothNumber: treatment.toothNumber, cost: treatment.cost },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(201).json({ treatment })
   } catch (error) {
     next(error)
@@ -115,6 +125,17 @@ exports.updateTreatmentController = async (req, res, next) => {
     }
 
     const updated = await updateTreatment(id, updates)
+
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.TREATMENT,
+      action: AuditAction.TREATMENT_UPDATED,
+      metadata: { fields: Object.keys(updates) },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(200).json({ treatment: updated })
   } catch (error) {
     next(error)
@@ -128,6 +149,16 @@ exports.deleteTreatmentController = async (req, res, next) => {
     if (!treatment) {
       return res.status(404).json({ message: 'Treatment not found' })
     }
+
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.TREATMENT,
+      action: AuditAction.TREATMENT_DELETED,
+      metadata: { procedure: treatment.procedure },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     await softDeleteTreatment(id)
     return res.status(200).json({ message: 'Treatment deleted successfully' })

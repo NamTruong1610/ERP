@@ -11,7 +11,7 @@ const {
 const { findUserById } = require('../services/userService')
 const { findPatientById } = require('../services/patientService')
 
-const { UserStatus } = require('@prisma/client')
+const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
 
 const VALID_STATUSES = ['SCHEDULED', 'COMPLETED', 'CANCELLED']
 
@@ -90,6 +90,16 @@ exports.createAppointmentController = async (req, res, next) => {
       ...(dentistId && { dentistId })
     })
 
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: appointment.id,
+      targetType: TargetType.APPOINTMENT,
+      action: AuditAction.APPOINTMENT_CREATED,
+      metadata: { patientId, dentistId: dentistId ?? null, date: appointment.date },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
     return res.status(201).json({ appointment })
   } catch (error) {
     next(error)
@@ -135,6 +145,19 @@ exports.updateAppointmentController = async (req, res, next) => {
     }
 
     const updated = await updateAppointment(id, updates)
+    const isCancellation = updates.status === 'CANCELLED' && appointment.status !== 'CANCELLED'
+
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.APPOINTMENT,
+      action: isCancellation ? AuditAction.APPOINTMENT_CANCELLED : AuditAction.APPOINTMENT_UPDATED,
+      metadata: isCancellation
+        ? { previousStatus: appointment.status }
+        : { fields: Object.keys(updates) },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
     return res.status(200).json({ appointment: updated })
   } catch (error) {
     next(error)
@@ -148,6 +171,16 @@ exports.deleteAppointmentController = async (req, res, next) => {
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found' })
     }
+
+    await createAuditLog({
+      actorId: req.user.id,
+      targetId: id,
+      targetType: TargetType.APPOINTMENT,
+      action: AuditAction.APPOINTMENT_DELETED,
+      metadata: { patientId: appointment.patientId },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     await softDeleteAppointment(id)
     return res.status(200).json({ message: 'Appointment deleted successfully' })
