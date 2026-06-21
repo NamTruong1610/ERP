@@ -1,4 +1,4 @@
-const { findAppointmentById } = require('../services/appointmentService')
+const { findAppointmentById, updateAppointment } = require('../services/appointmentService')
 const {
   findAllTreatments,
   findTreatmentById,
@@ -7,6 +7,10 @@ const {
   updateTreatment,
   softDeleteTreatment
 } = require('../services/treatmentService')
+
+const { createAuditLog } = require('../services/auditServices')
+const { prisma } = require('../config/PrismaConfig')
+const { AuditAction, TargetType } = require('@prisma/client')
 
 exports.getAllTreatmentsController = async (req, res, next) => {
   try {
@@ -73,26 +77,28 @@ exports.createTreatmentController = async (req, res, next) => {
       return res.status(400).json({ message: 'Treatment already exists for this appointment' })
     }
 
-    const treatment = await createTreatment({
-      appointmentId,
-      procedure,
-      toothNumber: toothNumber ? parseInt(toothNumber) : null,
-      notes,
-      cost: parseFloat(cost)
-    })
+    const treatment = await prisma.$transaction(async (tx) => {
+      const created = await createTreatment({
+        appointmentId,
+        procedure,
+        toothNumber: toothNumber ? parseInt(toothNumber) : null,
+        notes,
+        cost: parseFloat(cost)
+      }, tx)
 
-    // Mark appointment as completed
-    const { updateAppointment } = require('../services/appointmentService')
-    await updateAppointment(appointmentId, { status: 'COMPLETED' })
+      await updateAppointment(appointmentId, { status: 'COMPLETED' }, tx)
 
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: treatment.id,
-      targetType: TargetType.TREATMENT,
-      action: AuditAction.TREATMENT_CREATED,
-      metadata: { appointmentId, procedure, toothNumber: treatment.toothNumber, cost: treatment.cost },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: created.id,
+        targetType: TargetType.TREATMENT,
+        action: AuditAction.TREATMENT_CREATED,
+        metadata: { appointmentId, procedure, toothNumber: created.toothNumber, cost: created.cost },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+
+      return created
     })
 
     return res.status(201).json({ treatment })
@@ -124,16 +130,18 @@ exports.updateTreatmentController = async (req, res, next) => {
       return res.status(400).json({ message: 'No valid fields provided' })
     }
 
-    const updated = await updateTreatment(id, updates)
-
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.TREATMENT,
-      action: AuditAction.TREATMENT_UPDATED,
-      metadata: { fields: Object.keys(updates) },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await updateTreatment(id, updates, tx)
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.TREATMENT,
+        action: AuditAction.TREATMENT_UPDATED,
+        metadata: { fields: Object.keys(updates) },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+      return result
     })
 
     return res.status(200).json({ treatment: updated })
@@ -150,17 +158,19 @@ exports.deleteTreatmentController = async (req, res, next) => {
       return res.status(404).json({ message: 'Treatment not found' })
     }
 
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.TREATMENT,
-      action: AuditAction.TREATMENT_DELETED,
-      metadata: { procedure: treatment.procedure },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    await prisma.$transaction(async (tx) => {
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.TREATMENT,
+        action: AuditAction.TREATMENT_DELETED,
+        metadata: { procedure: treatment.procedure },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+      await softDeleteTreatment(id, tx)
     })
 
-    await softDeleteTreatment(id)
     return res.status(200).json({ message: 'Treatment deleted successfully' })
   } catch (error) {
     next(error)

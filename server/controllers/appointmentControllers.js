@@ -10,7 +10,8 @@ const {
 
 const { findUserById } = require('../services/userService')
 const { findPatientById } = require('../services/patientService')
-
+const { createAuditLog } = require('../services/auditServices')
+const { prisma } = require('../config/PrismaConfig')
 const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
 
 const VALID_STATUSES = ['SCHEDULED', 'COMPLETED', 'CANCELLED']
@@ -83,21 +84,25 @@ exports.createAppointmentController = async (req, res, next) => {
       }
     }
 
-    const appointment = await createAppointment({
-      patientId,
-      date: new Date(date),
-      notes,
-      ...(dentistId && { dentistId })
-    })
+    const appointment = await prisma.$transaction(async (tx) => {
+      const created = await createAppointment({
+        patientId,
+        date: new Date(date),
+        notes,
+        ...(dentistId && { dentistId })
+      }, tx)
 
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: appointment.id,
-      targetType: TargetType.APPOINTMENT,
-      action: AuditAction.APPOINTMENT_CREATED,
-      metadata: { patientId, dentistId: dentistId ?? null, date: appointment.date },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: created.id,
+        targetType: TargetType.APPOINTMENT,
+        action: AuditAction.APPOINTMENT_CREATED,
+        metadata: { patientId, dentistId: dentistId ?? null, date: created.date },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+
+      return created
     })
 
     return res.status(201).json({ appointment })
@@ -144,20 +149,24 @@ exports.updateAppointmentController = async (req, res, next) => {
       }
     }
 
-    const updated = await updateAppointment(id, updates)
     const isCancellation = updates.status === 'CANCELLED' && appointment.status !== 'CANCELLED'
 
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.APPOINTMENT,
-      action: isCancellation ? AuditAction.APPOINTMENT_CANCELLED : AuditAction.APPOINTMENT_UPDATED,
-      metadata: isCancellation
-        ? { previousStatus: appointment.status }
-        : { fields: Object.keys(updates) },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await updateAppointment(id, updates, tx)
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.APPOINTMENT,
+        action: isCancellation ? AuditAction.APPOINTMENT_CANCELLED : AuditAction.APPOINTMENT_UPDATED,
+        metadata: isCancellation
+          ? { previousStatus: appointment.status }
+          : { fields: Object.keys(updates) },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+      return result
     })
+
     return res.status(200).json({ appointment: updated })
   } catch (error) {
     next(error)
@@ -172,17 +181,19 @@ exports.deleteAppointmentController = async (req, res, next) => {
       return res.status(404).json({ message: 'Appointment not found' })
     }
 
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.APPOINTMENT,
-      action: AuditAction.APPOINTMENT_DELETED,
-      metadata: { patientId: appointment.patientId },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    await prisma.$transaction(async (tx) => {
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.APPOINTMENT,
+        action: AuditAction.APPOINTMENT_DELETED,
+        metadata: { patientId: appointment.patientId },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+      await softDeleteAppointment(id, tx)
     })
 
-    await softDeleteAppointment(id)
     return res.status(200).json({ message: 'Appointment deleted successfully' })
   } catch (error) {
     next(error)

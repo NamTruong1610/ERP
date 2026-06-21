@@ -18,6 +18,8 @@ const {
   createUserMfa
 } = require("../services/mfaService")
 
+const { createAuditLog } = require("../services/auditService")
+
 const {
   comparePasswordHash,
   hashPassword
@@ -36,7 +38,8 @@ const {
 } = require("../utils/mfaUtils")
 
 const { redisClient } = require("../config/RedisConfig")
-const { UserStatus } = require('@prisma/client')
+const { prisma } = require("../config/PrismaConfig")
+const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
 const { COOKIE_OPTIONS } = require("../config/constants")
 
 exports.getProfileController = async (req, res, next) => {
@@ -196,23 +199,24 @@ exports.changePasswordController = async (req, res, next) => {
     }
 
     const hashedPassword = await hashPassword(newPassword)
-    await updateUser(userRecord, { password: hashedPassword })
+    await prisma.$transaction(async (tx) => {
+      await updateUser(userRecord, { password: hashedPassword }, tx)
+      await createAuditLog({
+        actorId: id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.PASSWORD_CHANGED,
+        metadata: null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+    })
 
     // Invalidate all other sessions so other devices are forced to re-login
     await invalidateAllUserSessions(id)
 
     res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
     res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
-
-    await createAuditLog({
-      actorId: id,
-      targetId: id,
-      targetType: TargetType.USER,
-      action: AuditAction.PASSWORD_CHANGED,
-      metadata: null,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
 
     return res.status(200).json({ message: "Password changed successfully" })
 
@@ -302,20 +306,23 @@ exports.verifyEmailChangeController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    await updateUser(userRecord, { email: tokenData.email })
+    const previousEmail = userRecord.email
+
+    await prisma.$transaction(async (tx) => {
+      await updateUser(userRecord, { email: tokenData.email }, tx)
+      await createAuditLog({
+        actorId: id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.EMAIL_CHANGED,
+        metadata: { previousEmail, newEmail: tokenData.email },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+    })
 
     await redisClient.del(`token:email_change:${tokenId}`)
     await redisClient.del(`user_email_change:${id}`)
-
-    await createAuditLog({
-      actorId: id,
-      targetId: id,
-      targetType: TargetType.USER,
-      action: AuditAction.EMAIL_CHANGED,
-      metadata: { previousEmail, newEmail: tokenData.email },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
 
     return res.status(200).json({ message: "Email changed successfully" })
   } catch (error) {
@@ -346,23 +353,24 @@ exports.disable2faController = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid OTP" })
     }
 
-    await updateMfa(userRecord.id, { enabled: false })
+    await prisma.$transaction(async (tx) => {
+      await updateMfa(userRecord.id, { enabled: false }, tx)
+      await createAuditLog({
+        actorId: id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.MFA_DISABLED,
+        metadata: null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+    })
 
     // Invalidate all sessions and force re-login
     await invalidateAllUserSessions(userRecord.id)
 
     res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
     res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
-
-    await createAuditLog({
-      actorId: id,
-      targetId: id,
-      targetType: TargetType.USER,
-      action: AuditAction.MFA_DISABLED,
-      metadata: null,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
 
     return res.status(200).json({ message: "2FA disabled successfully" })
   } catch (error) {
@@ -399,16 +407,17 @@ exports.enable2faController = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid OTP" })
     }
 
-    await updateMfa(userRecord.id, { enabled: true })
-
-    await createAuditLog({
-      actorId: id,
-      targetId: id,
-      targetType: TargetType.USER,
-      action: AuditAction.MFA_ENABLED,
-      metadata: null,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    await prisma.$transaction(async (tx) => {
+      await updateMfa(userRecord.id, { enabled: true }, tx)
+      await createAuditLog({
+        actorId: id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.MFA_ENABLED,
+        metadata: null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
     })
 
     return res.status(200).json({ message: "2FA enabled successfully" })

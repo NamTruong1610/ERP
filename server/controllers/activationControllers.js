@@ -20,6 +20,10 @@ const {
 } = require("../services/mfaService")
 
 const {
+  createAuditLog
+} = require("../services/auditServices")
+
+const {
   hashPassword,
   comparePasswordHash
 } = require("../utils/passwordUtils")
@@ -38,6 +42,7 @@ const {
 
 const { UserStatus, ActorType, AuditAction, TriggerType, TargetType } = require('@prisma/client')
 const { MFA_SETUP_TTL_SECONDS } = require('../config/constants')
+const { prisma } = require("../config/PrismaConfig")
 
 const QRCode = require('qrcode')
 
@@ -147,13 +152,12 @@ exports.get2faSecretController = async (req, res, next) => {
       // Generate 2fa secret and store it in the user record (change the user status to PENDING_MFA_VERIFICATION)
       const mfaSecret = await generateMfaSecret(userRecord.email)
 
-      await updateUser(userRecord, {
-        status: UserStatus.PENDING_MFA_VERIFICATION
-      })
-
-      await upsertUserMfa(userRecord.id, {
-        mfaSecret: mfaSecret.base32,
-        mfaUri: mfaSecret.otpauth_url,
+      await prisma.$transaction(async (tx) => {
+        await updateUser(userRecord, { status: UserStatus.PENDING_MFA_VERIFICATION }, tx)
+        await upsertUserMfa(userRecord.id, {
+          mfaSecret: mfaSecret.base32,
+          mfaUri: mfaSecret.otpauth_url,
+        }, tx)
       })
 
       const qrDataUrl = await QRCode.toDataURL(mfaSecret.otpauth_url)
@@ -208,28 +212,23 @@ exports.verify2faSecretSetupController = async (req, res, next) => {
       })
     }
 
-    await updateMfa(userRecord.id, {
-      enabled: true
-    })
-
-    await deleteUserActivation(userRecord.id)
-
-    await updateUser(userRecord, {
-      status: UserStatus.ACTIVE,
+    await prisma.$transaction(async (tx) => {
+      await updateMfa(userRecord.id, { enabled: true }, tx)
+      await deleteUserActivation(userRecord.id, tx)
+      await updateUser(userRecord, { status: UserStatus.ACTIVE }, tx)
+      await createAuditLog({
+        actorId: userRecord.id,
+        targetId: userRecord.id,
+        targetType: TargetType.USER,
+        action: AuditAction.USER_ACTIVATED,
+        metadata: null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
     })
 
     // Delete mfa setup token and user record ttl from Redis 
     await redisClient.del(mfaTokenKey)
-
-    await createAuditLog({
-      actorId: userRecord.id,
-      targetId: userRecord.id,
-      targetType: TargetType.USER,
-      action: AuditAction.USER_ACTIVATED,
-      metadata: null,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
 
     return res.status(200).json({
       message: "User 2fa successfully activated"

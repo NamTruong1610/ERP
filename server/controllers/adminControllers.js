@@ -44,8 +44,8 @@ const { ACTIVATION_TTL_MS, ACTIVATION_EMAIL_IDEMPOTENCY_MS } = require('../confi
 
 const { redisClient } = require("../config/RedisConfig")
 const { ROLES } = require('../config/RBACConfig')
+const { prisma } = require("../config/PrismaConfig")
 const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
-const { TIME_SERIES_BUCKET_TIMESTAMP } = require("redis")
 
 exports.createUserController = async (req, res, next) => {
   const { email } = req.body
@@ -61,7 +61,6 @@ exports.createUserController = async (req, res, next) => {
 
     const newUser = await createUser({ email })
     await createUserActivation(newUser.id, hashedActivationTokenId)
-    await sendAccountActivationEmail(email, rawActivationTokenId)
 
     await createAuditLog({
       actorId: req.user.id,
@@ -72,6 +71,23 @@ exports.createUserController = async (req, res, next) => {
       ip: req.ip,
       userAgent: req.headers['user-agent']
     })
+
+    const newUser = await prisma.$transaction(async (tx) => {
+      const user = await createUser({ email }, tx)
+      await createUserActivation(user.id, hashedActivationTokenId, tx)
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: user.id,
+        targetType: TargetType.USER,
+        action: AuditAction.USER_CREATED,
+        metadata: { email },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+      return user
+    })
+
+    await sendAccountActivationEmail(email, rawActivationTokenId)
 
     return res.status(201).json({
       id: newUser.id,
@@ -95,19 +111,20 @@ exports.softDeleteUserController = async (req, res, next) => {
     }
 
     // Write-ahead: log before the destructive operation
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: userRecord.id,
-      targetType: TargetType.USER,
-      action: AuditAction.USER_DELETED,
-      metadata: { email: userRecord.email },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    await prisma.$transaction(async (tx) => {
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: userRecord.id,
+        targetType: TargetType.USER,
+        action: AuditAction.USER_DELETED,
+        metadata: { email: userRecord.email },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+      await softDeleteUserById(userRecord.id, tx)
     })
-    
-    await softDeleteUserById(userRecord.id)
 
-    // Invalidate all sessions and remember tokens
+    // Invalidate all sessions and remember tokens (standalone due to Redis being a different service from Prisma)
     await invalidateAllUserSessions(id)
 
     return res.status(200).json({
@@ -129,17 +146,18 @@ exports.hardDeleteUserController = async (req, res, next) => {
       })
     }
 
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.USER,
-      action: AuditAction.USER_DELETED,
-      metadata: { email: userRecord.email, hardDelete: true },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    await prisma.$transaction(async (tx) => {
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.USER_DELETED,
+        metadata: { email: userRecord.email, hardDelete: true },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+      await deleteUserById(id, tx)
     })
-
-    await deleteUserById(id)
 
     // Invalidate all sessions and remember tokens
     await invalidateAllUserSessions(id)
@@ -208,20 +226,21 @@ exports.suspendUserController = async (req, res, next) => {
       return res.status(400).json({ message: "User is already suspended" })
     }
 
-    await updateUser(userRecord, { status: UserStatus.SUSPENDED })
+    await prisma.$transaction(async (tx) => {
+      await updateUser(userRecord, { status: UserStatus.SUSPENDED }, tx)
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.USER_SUSPENDED,
+        metadata: { previousStatus: userRecord.status },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+    })
 
     // Invalidate all sessions and remember tokens
     await invalidateAllUserSessions(id)
-
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.USER,
-      action: AuditAction.USER_SUSPENDED,
-      metadata: { previousStatus: userRecord.status },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
 
     return res.status(200).json({ message: "User suspended successfully" })
   } catch (error) {
@@ -256,39 +275,40 @@ exports.reset2faController = async (req, res, next) => {
     const rawActivationTokenId = await generateActivationToken()
     const hashedActivationTokenId = await hashToken(rawActivationTokenId)
 
-    if (userRecord.userActivation) {
-      await updateUserActivation(userRecord.id, {
-        tokenId: hashedActivationTokenId,
-        expiresAt: new Date(Date.now() + ACTIVATION_TTL_MS)
-      })
-    } else {
-      await createUserActivation(userRecord.id, hashedActivationTokenId)
-    }
-    
-    await updateMfa(userRecord.id, {
-      mfaSecret: null,
-      mfaUri: null,
-      enabled: false,
-    })
+    await prisma.$transaction(async (tx) => {
+      if (userRecord.userActivation) {
+        await updateUserActivation(userRecord.id, {
+          tokenId: hashedActivationTokenId,
+          expiresAt: new Date(Date.now() + ACTIVATION_TTL_MS)
+        }, tx)
+      } else {
+        await createUserActivation(userRecord.id, hashedActivationTokenId, tx)
+      }
 
-    await updateUser(userRecord, {
-      status: UserStatus.PENDING_MFA_SETUP
+      await updateMfa(userRecord.id, {
+        mfaSecret: null,
+        mfaUri: null,
+        enabled: false,
+      }, tx)
+
+      await updateUser(userRecord, {
+        status: UserStatus.PENDING_MFA_SETUP
+      }, tx)
+
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.MFA_RESET,
+        metadata: null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
     })
 
     // Invalidate all sessions so the user is forced to log in and set up 2FA again
     await invalidateAllUserSessions(id)
-
     await sendAccountActivationEmail(userRecord.email, rawActivationTokenId)
-
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.USER,
-      action: AuditAction.MFA_RESET,
-      metadata: null,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
 
     return res.status(200).json({ message: "2FA reset successfully" })
   } catch (error) {
@@ -321,27 +341,30 @@ exports.resendActivationEmailController = async (req, res, next) => {
           message: `Please wait ${remainingMins} minute${remainingMins === 1 ? '' : 's'} before resending`
         })
       }
-      await updateUserActivation(userRecord.id, {
-        tokenId: hashedActivationTokenId,
-        expiresAt: new Date(Date.now() + ACTIVATION_TTL_MS)
-      })
     }
 
-    else if (!userRecord.userActivation) {
-      await createUserActivation(userRecord.id, hashedActivationTokenId)
-    }
+    await prisma.$transaction(async (tx) => {
+      if (userRecord.userActivation) {
+        await updateUserActivation(userRecord.id, {
+          tokenId: hashedActivationTokenId,
+          expiresAt: new Date(Date.now() + ACTIVATION_TTL_MS)
+        }, tx)
+      } else {
+        await createUserActivation(userRecord.id, hashedActivationTokenId, tx)
+      }
+
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.ACTIVATION_RESENT,
+        metadata: null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+    })
 
     await sendAccountActivationEmail(userRecord.email, rawActivationTokenId)
-
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.USER,
-      action: AuditAction.ACTIVATION_RESENT,
-      metadata: null,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
 
     return res.status(200).json({ message: "Activation email resent successfully" })
   } catch (error) {
@@ -366,16 +389,18 @@ exports.assignRoleController = async (req, res, next) => {
       return res.status(400).json({ message: "User already has this role" })
     }
 
-    const updatedUser = await createUserRole(userRecord.id, role)
-
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.ROLE,
-      action: AuditAction.ROLE_ASSIGNED,
-      metadata: { role },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const result = await createUserRole(userRecord.id, role, tx)
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.ROLE,
+        action: AuditAction.ROLE_ASSIGNED,
+        metadata: { role },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+      return result
     })
 
     return res.status(200).json({ roles: updatedUser.roles })
@@ -396,16 +421,19 @@ exports.removeRoleController = async (req, res, next) => {
     if (!userRecord.roles.some(ur => ur.role === role)) {
       return res.status(400).json({ message: "User does not have this role" })
     }
-    const updatedUser = await deleteUserRole(userRecord.id, role)
 
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.ROLE,
-      action: AuditAction.ROLE_REMOVED,
-      metadata: { role },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const result = await deleteUserRole(userRecord.id, role, tx)
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.ROLE,
+        action: AuditAction.ROLE_REMOVED,
+        metadata: { role },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
+      return result
     })
 
     return res.status(200).json({ roles: updatedUser.roles })
@@ -422,8 +450,6 @@ exports.forceLogoutUserController = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" })
     }
 
-    await invalidateAllUserSessions(id)
-
     await createAuditLog({
       actorId: req.user.id,
       targetId: id,
@@ -433,6 +459,8 @@ exports.forceLogoutUserController = async (req, res, next) => {
       ip: req.ip,
       userAgent: req.headers['user-agent']
     })
+
+    await invalidateAllUserSessions(id)
 
     return res.status(200).json({ message: "User forcefully logged out successfully" })
   } catch (error) {
@@ -469,19 +497,21 @@ exports.updateUserController = async (req, res, next) => {
     }
 
     const previousEmail = userRecord.email
-    const updatedUser = await updateUser(userRecord, updates)
-
-    if (updates.email && updates.email !== previousEmail) {
-      await createAuditLog({
-        actorId: req.user.id,
-        targetId: id,
-        targetType: TargetType.USER,
-        action: AuditAction.EMAIL_CHANGED,
-        metadata: { previousEmail, newEmail: updates.email },
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
-      })
-    }
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const result = await updateUser(userRecord, updates, tx)
+      if (updates.email && updates.email !== previousEmail) {
+        await createAuditLog({
+          actorId: req.user.id,
+          targetId: id,
+          targetType: TargetType.USER,
+          action: AuditAction.EMAIL_CHANGED,
+          metadata: { previousEmail, newEmail: updates.email },
+          ip: req.ip,
+          userAgent: req.headers['user-agent']
+        }, tx)
+      }
+      return result
+    })
 
     return res.status(200).json({
       id: updatedUser.id,
@@ -512,16 +542,17 @@ exports.reactivateUserController = async (req, res, next) => {
       return res.status(400).json({ message: "User is not suspended" })
     }
 
-    await updateUser(userRecord, { status: UserStatus.ACTIVE })
-
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: id,
-      targetType: TargetType.USER,
-      action: AuditAction.USER_REACTIVATED,
-      metadata: null,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+    await prisma.$transaction(async (tx) => {
+      await updateUser(userRecord, { status: UserStatus.ACTIVE }, tx)
+      await createAuditLog({
+        actorId: req.user.id,
+        targetId: id,
+        targetType: TargetType.USER,
+        action: AuditAction.USER_REACTIVATED,
+        metadata: null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tx)
     })
 
     return res.status(200).json({ message: "User reactivated successfully" })
