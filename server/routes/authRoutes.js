@@ -16,10 +16,17 @@ const {
   requireAuth
 } = require("../middlewares/authMiddleware")
 
-router.post("/login", loginController)
-router.post("/login/mfa/verify", verify2faLoginController)
-router.post("/forgot-password", forgotPasswordController)
-router.post("/reset-password", resetPasswordController)
+const {
+  loginLimiter,
+  mfaVerifyLimiter,
+  forgotPasswordLimiter,
+  resetPasswordLimiter
+} = require('../middleware/rateLimitMiddleware')
+
+router.post("/login", loginLimiter, loginController)
+router.post("/login/mfa/verify", mfaVerifyLimiter, verify2faLoginController)
+router.post("/forgot-password", forgotPasswordLimiter, forgotPasswordController)
+router.post("/reset-password", resetPasswordLimiter, resetPasswordController)
 router.post("/logout", requireAuth, logoutController)
 router.post("/logout/all", requireAuth, logoutAllController)
 router.get('/me', requireAuth, getMeController)

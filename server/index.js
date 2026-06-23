@@ -16,6 +16,11 @@ const startServer = async () => {
   // Redis Sessions Database Connection
   const app = express();
 
+  // Trust exactly one reverse proxy hop so req.ip is the real client IP
+  // rather than the proxy's IP — required for rate limiting and audit
+  // logging to work correctly in production
+  app.set('trust proxy', 1)
+
   // CORS configuration (example using Express)
   const corsOptions = {
     origin: 'http://localhost:5173', // Your frontend URL
