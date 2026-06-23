@@ -10,11 +10,16 @@ const {
   updatePatientController,
   deletePatientController
 } = require('../controllers/patientControllers')
- 
+const {
+  validateCreatePatient,
+  validateUpdatePatient
+} = require('../middlewares/validators/patientValidators')
+const { handleValidationErrors } = require('../middlewares/validators/handleValidationErrors')
+
 router.get('/', requireAuth, requirePermission(PERMISSIONS.PATIENTS_READ), getAllPatientsController)
 router.get('/:id', requireAuth, requirePermission(PERMISSIONS.PATIENTS_READ), getPatientController)
-router.post('/', requireAuth, requirePermission(PERMISSIONS.PATIENTS_CREATE), createPatientController)
-router.patch('/:id', requireAuth, requirePermission(PERMISSIONS.PATIENTS_UPDATE), updatePatientController)
+router.post('/', requireAuth, requirePermission(PERMISSIONS.PATIENTS_CREATE), validateCreatePatient, handleValidationErrors, createPatientController)
+router.patch('/:id', requireAuth, requirePermission(PERMISSIONS.PATIENTS_UPDATE), validateUpdatePatient, handleValidationErrors, updatePatientController)
 router.delete('/:id', requireAuth, requirePermission(PERMISSIONS.PATIENTS_DELETE), deletePatientController)
- 
+
 module.exports = router

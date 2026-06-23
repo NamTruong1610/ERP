@@ -6,8 +6,15 @@ const {
   verify2faSecretSetupController
 } = require("../controllers/activationControllers")
 
-router.post("/password", setPasswordController)
-router.post("/mfa/secret", get2faSecretController)
-router.post("/mfa/verify", verify2faSecretSetupController)
+const {
+  validateSetPassword,
+  validateGet2faSecret,
+  validateVerify2faSetup
+} = require('../middlewares/validators/activationValidators')
+const { handleValidationErrors } = require('../middlewares/validators/handleValidationErrors')
+
+router.post('/password', validateSetPassword, handleValidationErrors, setPasswordController)
+router.post('/2fa', validateGet2faSecret, handleValidationErrors, get2faSecretController)
+router.post('/2fa/verify', validateVerify2faSetup, handleValidationErrors, verify2faSecretSetupController)
 
 module.exports = router;

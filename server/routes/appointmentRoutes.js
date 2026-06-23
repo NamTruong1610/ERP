@@ -12,26 +12,18 @@ const {
   updateAppointmentController,
   deleteAppointmentController
 } = require('../controllers/appointmentControllers')
+const {
+  validateCreateAppointment,
+  validateUpdateAppointment
+} = require('../middlewares/validators/appointmentValidators')
+const { handleValidationErrors } = require('../middlewares/validators/handleValidationErrors')
 
-// Get all appointments — admin only
 router.get('/', requireAuth, requirePermission(PERMISSIONS.APPOINTMENTS_READ_ALL), getAllAppointmentsController)
-
-// Get own appointments — dentist views their own schedule
 router.get('/me', requireAuth, requirePermission(PERMISSIONS.APPOINTMENTS_READ), getMyAppointmentsController)
-
-// Get appointments by patient
 router.get('/patient/:patientId', requireAuth, requirePermission(PERMISSIONS.APPOINTMENTS_READ), getAppointmentsByPatientController)
-
-// Get single appointment
 router.get('/:id', requireAuth, requirePermission(PERMISSIONS.APPOINTMENTS_READ), getAppointmentController)
-
-// Create appointment
-router.post('/', requireAuth, requirePermission(PERMISSIONS.APPOINTMENTS_CREATE), createAppointmentController)
-
-// Update appointment
-router.patch('/:id', requireAuth, requirePermission(PERMISSIONS.APPOINTMENTS_UPDATE), updateAppointmentController)
-
-// Delete appointment
+router.post('/', requireAuth, requirePermission(PERMISSIONS.APPOINTMENTS_CREATE), validateCreateAppointment, handleValidationErrors, createAppointmentController)
+router.patch('/:id', requireAuth, requirePermission(PERMISSIONS.APPOINTMENTS_UPDATE), validateUpdateAppointment, handleValidationErrors, updateAppointmentController)
 router.delete('/:id', requireAuth, requirePermission(PERMISSIONS.APPOINTMENTS_DELETE), deleteAppointmentController)
 
 module.exports = router

@@ -21,14 +21,22 @@ const {
   mfaVerifyLimiter,
   forgotPasswordLimiter,
   resetPasswordLimiter
-} = require('../middleware/rateLimitMiddleware')
+} = require('../middlewares/rateLimitMiddleware')
 
-router.post("/login", loginLimiter, loginController)
-router.post("/login/mfa/verify", mfaVerifyLimiter, verify2faLoginController)
-router.post("/forgot-password", forgotPasswordLimiter, forgotPasswordController)
-router.post("/reset-password", resetPasswordLimiter, resetPasswordController)
-router.post("/logout", requireAuth, logoutController)
-router.post("/logout/all", requireAuth, logoutAllController)
+const {
+  validateLogin,
+  validateMfaLogin,
+  validateForgotPassword,
+  validateResetPassword
+} = require('../middlewares/validators/authValidators')
+const { handleValidationErrors } = require('../middlewares/validators/handleValidationErrors')
+
 router.get('/me', requireAuth, getMeController)
+router.post('/login', loginLimiter, validateLogin, handleValidationErrors, loginController)
+router.post('/login/mfa', mfaVerifyLimiter, validateMfaLogin, handleValidationErrors, verify2faLoginController)
+router.post('/logout', requireAuth, logoutController)
+router.post('/logout/all', requireAuth, logoutAllController)
+router.post('/forgot-password', forgotPasswordLimiter, validateForgotPassword, handleValidationErrors, forgotPasswordController)
+router.post('/reset-password', resetPasswordLimiter, validateResetPassword, handleValidationErrors, resetPasswordController)
 
 module.exports = router;

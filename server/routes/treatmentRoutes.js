@@ -11,23 +11,17 @@ const {
   updateTreatmentController,
   deleteTreatmentController
 } = require('../controllers/treatmentControllers')
+const {
+  validateCreateTreatment,
+  validateUpdateTreatment
+} = require('../middlewares/validators/treatmentValidators')
+const { handleValidationErrors } = require('../middlewares/validators/handleValidationErrors')
 
-// Get all treatments — admin only
 router.get('/', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_READ_ALL), getAllTreatmentsController)
-
-// Get treatment by appointment
 router.get('/appointment/:appointmentId', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_READ), getTreatmentByAppointmentController)
-
-// Get single treatment
 router.get('/:id', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_READ), getTreatmentController)
-
-// Create treatment
-router.post('/', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_CREATE), createTreatmentController)
-
-// Update treatment
-router.patch('/:id', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_UPDATE), updateTreatmentController)
-
-// Delete treatment
+router.post('/', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_CREATE), validateCreateTreatment, handleValidationErrors, createTreatmentController)
+router.patch('/:id', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_UPDATE), validateUpdateTreatment, handleValidationErrors, updateTreatmentController)
 router.delete('/:id', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_DELETE), deleteTreatmentController)
 
 module.exports = router

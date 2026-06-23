@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const { requireAuth } = require("../middlewares/authMiddleware")
-
 const { requirePermission } = require('../middlewares/rbacMiddleware')
 const { PERMISSIONS } = require('../config/RBACConfig')
 const {
@@ -19,30 +18,35 @@ const {
   enable2faController,
   getDentistsController
 } = require("../controllers/userControllers")
+const {
+  validateUpdateName,
+  validateUpdatePhone,
+  validateAddAddress,
+  validateChangePassword,
+  validateChangeEmail,
+  validateVerifyEmailChange,
+  validateMfaAction
+} = require('../middlewares/validators/userValidators')
+const { handleValidationErrors } = require('../middlewares/validators/handleValidationErrors')
 
 router.get("/profile", requireAuth, requirePermission(PERMISSIONS.PROFILE_READ), getProfileController)
-router.post("/name", requireAuth, requirePermission(PERMISSIONS.PROFILE_UPDATE), updateNameController)
+router.get('/dentists', requireAuth, getDentistsController)
 
-// Phones
-router.post('/phones', requireAuth, requirePermission(PERMISSIONS.PROFILE_PHONES_MANAGE), updatePhonesController)
+router.post("/name", requireAuth, requirePermission(PERMISSIONS.PROFILE_UPDATE), validateUpdateName, handleValidationErrors, updateNameController)
+
+router.post('/phones', requireAuth, requirePermission(PERMISSIONS.PROFILE_PHONES_MANAGE), validateUpdatePhone, handleValidationErrors, updatePhonesController)
 router.delete('/phones/:phone', requireAuth, requirePermission(PERMISSIONS.PROFILE_PHONES_MANAGE), removePhoneController)
 
-// Addresses
-router.post('/addresses', requireAuth, requirePermission(PERMISSIONS.PROFILE_ADDRESSES_MANAGE), addAddressController)
-router.patch('/addresses/:addressId', requireAuth, requirePermission(PERMISSIONS.PROFILE_ADDRESSES_MANAGE), updateAddressController)
+router.post('/addresses', requireAuth, requirePermission(PERMISSIONS.PROFILE_ADDRESSES_MANAGE), validateAddAddress, handleValidationErrors, addAddressController)
+router.patch('/addresses/:addressId', requireAuth, requirePermission(PERMISSIONS.PROFILE_ADDRESSES_MANAGE), validateAddAddress, handleValidationErrors, updateAddressController)
 router.delete('/addresses/:addressId', requireAuth, requirePermission(PERMISSIONS.PROFILE_ADDRESSES_MANAGE), removeAddressController)
 
-// Password
-router.post('/password', requireAuth, requirePermission(PERMISSIONS.PROFILE_PASSWORD_CHANGE), changePasswordController)
+router.post('/password', requireAuth, requirePermission(PERMISSIONS.PROFILE_PASSWORD_CHANGE), validateChangePassword, handleValidationErrors, changePasswordController)
 
-// Email
-router.post('/email', requireAuth, requirePermission(PERMISSIONS.PROFILE_EMAIL_CHANGE), changeEmailController)
-router.post('/email/verify', requireAuth, requirePermission(PERMISSIONS.PROFILE_EMAIL_CHANGE), verifyEmailChangeController)
+router.post('/email', requireAuth, requirePermission(PERMISSIONS.PROFILE_EMAIL_CHANGE), validateChangeEmail, handleValidationErrors, changeEmailController)
+router.post('/email/verify', requireAuth, requirePermission(PERMISSIONS.PROFILE_EMAIL_CHANGE), validateVerifyEmailChange, handleValidationErrors, verifyEmailChangeController)
 
-// 2FA
-router.post('/2fa/disable', requireAuth, disable2faController)
-router.post('/2fa/enable', requireAuth, enable2faController)
-
-router.get('/dentists', requireAuth, getDentistsController)
+router.post('/2fa/disable', requireAuth, validateMfaAction, handleValidationErrors, disable2faController)
+router.post('/2fa/enable', requireAuth, validateMfaAction, handleValidationErrors, enable2faController)
 
 module.exports = router;
