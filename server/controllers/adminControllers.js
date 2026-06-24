@@ -59,19 +59,6 @@ exports.createUserController = async (req, res, next) => {
     const rawActivationTokenId = await generateActivationToken()
     const hashedActivationTokenId = await hashToken(rawActivationTokenId)
 
-    const newUser = await createUser({ email })
-    await createUserActivation(newUser.id, hashedActivationTokenId)
-
-    await createAuditLog({
-      actorId: req.user.id,
-      targetId: newUser.id,
-      targetType: TargetType.USER,
-      action: AuditAction.USER_CREATED,
-      metadata: { email },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
-
     const newUser = await prisma.$transaction(async (tx) => {
       const user = await createUser({ email }, tx)
       await createUserActivation(user.id, hashedActivationTokenId, tx)

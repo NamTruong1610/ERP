@@ -1,4 +1,5 @@
 const PERMISSIONS = {
+  // Profile (self-service)
   PROFILE_READ:             'profile:read',
   PROFILE_UPDATE:           'profile:update',
   PROFILE_PASSWORD_CHANGE:  'profile:password:change',
@@ -6,61 +7,110 @@ const PERMISSIONS = {
   PROFILE_PHONES_MANAGE:    'profile:phones:manage',
   PROFILE_ADDRESSES_MANAGE: 'profile:addresses:manage',
 
+  // User management (admin)
   USERS_READ:               'users:read',
   USERS_CREATE:             'users:create',
   USERS_UPDATE:             'users:update',
   USERS_DELETE:             'users:delete',
   USERS_SUSPEND:            'users:suspend',
   USERS_REACTIVATE:         'users:reactivate',
-  USERS_FORCE_LOGOUT:       'users:force:logout',
-  USERS_RESEND_ACTIVATION:  'users:resend:activation',
-  USERS_RESET_2FA:          'users:2fa:reset',
+  USERS_FORCE_LOGOUT:       'users:force_logout',
+  USERS_RESEND_ACTIVATION:  'users:resend_activation',
+  USERS_RESET_2FA:          'users:reset_2fa',
   USERS_ROLES_MANAGE:       'users:roles:manage',
 
-  PATIENTS_READ:   'patients:read',
-  PATIENTS_CREATE: 'patients:create',
-  PATIENTS_UPDATE: 'patients:update',
-  PATIENTS_DELETE: 'patients:delete',
+  // Patients
+  PATIENTS_READ:            'patients:read',
+  PATIENTS_CREATE:          'patients:create',
+  PATIENTS_UPDATE:          'patients:update',
+  PATIENTS_DELETE:          'patients:delete',
 
-  APPOINTMENTS_READ:      'appointments:read',
-  APPOINTMENTS_READ_ALL:  'appointments:read:all',
-  APPOINTMENTS_CREATE:    'appointments:create',
-  APPOINTMENTS_UPDATE:    'appointments:update',
-  APPOINTMENTS_DELETE:    'appointments:delete',
+  // Appointments
+  APPOINTMENTS_READ:        'appointments:read',
+  APPOINTMENTS_READ_ALL:    'appointments:read_all',
+  APPOINTMENTS_CREATE:      'appointments:create',
+  APPOINTMENTS_UPDATE:      'appointments:update',
+  APPOINTMENTS_DELETE:      'appointments:delete',
 
-  TREATMENTS_READ:      'treatments:read',
-  TREATMENTS_READ_ALL:  'treatments:read:all',
-  TREATMENTS_CREATE:    'treatments:create',
-  TREATMENTS_UPDATE:    'treatments:update',
-  TREATMENTS_DELETE:    'treatments:delete'
+  // Treatments
+  TREATMENTS_READ:          'treatments:read',
+  TREATMENTS_READ_ALL:      'treatments:read_all',
+  TREATMENTS_CREATE:        'treatments:create',
+  TREATMENTS_UPDATE:        'treatments:update',
+  TREATMENTS_DELETE:        'treatments:delete',
+
+  // Super admin — audit
+  AUDIT_READ:               'audit:read',
+  AUDIT_EXPORT:             'audit:export',
+
+  // Super admin — sessions
+  SESSIONS_READ_ALL:        'sessions:read_all',
+  SESSIONS_REVOKE_ALL:      'sessions:revoke_all',
+
+  // Super admin — deleted records
+  DELETED_USERS_READ:       'deleted_users:read',
+  DELETED_USERS_RESTORE:    'deleted_users:restore',
+  DELETED_USERS_PURGE:      'deleted_users:purge',
+
+  // Super admin — system config
+  SYSTEM_CONFIG_READ:       'system:config:read',
+  SYSTEM_CONFIG_UPDATE:     'system:config:update',
 }
 
+const STAFF_PERMISSIONS = [
+  PERMISSIONS.PROFILE_READ,
+  PERMISSIONS.PROFILE_UPDATE,
+  PERMISSIONS.PROFILE_PASSWORD_CHANGE,
+  PERMISSIONS.PROFILE_EMAIL_CHANGE,
+  PERMISSIONS.PROFILE_PHONES_MANAGE,
+  PERMISSIONS.PROFILE_ADDRESSES_MANAGE,
+  PERMISSIONS.PATIENTS_READ,
+  PERMISSIONS.PATIENTS_CREATE,
+  PERMISSIONS.PATIENTS_UPDATE,
+  PERMISSIONS.PATIENTS_DELETE,
+  PERMISSIONS.APPOINTMENTS_READ,
+  PERMISSIONS.APPOINTMENTS_READ_ALL,
+  PERMISSIONS.APPOINTMENTS_CREATE,
+  PERMISSIONS.APPOINTMENTS_UPDATE,
+  PERMISSIONS.APPOINTMENTS_DELETE,
+  PERMISSIONS.TREATMENTS_READ,
+  PERMISSIONS.TREATMENTS_READ_ALL,
+  PERMISSIONS.TREATMENTS_CREATE,
+  PERMISSIONS.TREATMENTS_UPDATE,
+  PERMISSIONS.TREATMENTS_DELETE,
+]
+
+const ADMIN_PERMISSIONS = [
+  ...STAFF_PERMISSIONS,
+  PERMISSIONS.USERS_READ,
+  PERMISSIONS.USERS_CREATE,
+  PERMISSIONS.USERS_UPDATE,
+  PERMISSIONS.USERS_DELETE,
+  PERMISSIONS.USERS_SUSPEND,
+  PERMISSIONS.USERS_REACTIVATE,
+  PERMISSIONS.USERS_FORCE_LOGOUT,
+  PERMISSIONS.USERS_RESEND_ACTIVATION,
+  PERMISSIONS.USERS_RESET_2FA,
+  PERMISSIONS.USERS_ROLES_MANAGE,
+]
+
+const SUPER_ADMIN_PERMISSIONS = [
+  ...ADMIN_PERMISSIONS,
+  PERMISSIONS.AUDIT_READ,
+  PERMISSIONS.AUDIT_EXPORT,
+  PERMISSIONS.SESSIONS_READ_ALL,
+  PERMISSIONS.SESSIONS_REVOKE_ALL,
+  PERMISSIONS.DELETED_USERS_READ,
+  PERMISSIONS.DELETED_USERS_RESTORE,
+  PERMISSIONS.DELETED_USERS_PURGE,
+  PERMISSIONS.SYSTEM_CONFIG_READ,
+  PERMISSIONS.SYSTEM_CONFIG_UPDATE,
+]
+
 const ROLES = {
-  STAFF: [
-    PERMISSIONS.PROFILE_READ,
-    PERMISSIONS.PROFILE_UPDATE,
-    PERMISSIONS.PROFILE_PASSWORD_CHANGE,
-    PERMISSIONS.PROFILE_EMAIL_CHANGE,
-    PERMISSIONS.PROFILE_PHONES_MANAGE,
-    PERMISSIONS.PROFILE_ADDRESSES_MANAGE,
-
-    PERMISSIONS.PATIENTS_READ,
-    PERMISSIONS.PATIENTS_CREATE,
-    PERMISSIONS.PATIENTS_UPDATE,
-    PERMISSIONS.PATIENTS_DELETE,
-
-    PERMISSIONS.APPOINTMENTS_READ,
-    PERMISSIONS.APPOINTMENTS_READ_ALL,
-    PERMISSIONS.APPOINTMENTS_CREATE,
-    PERMISSIONS.APPOINTMENTS_UPDATE,
-
-    PERMISSIONS.TREATMENTS_READ,
-    PERMISSIONS.TREATMENTS_CREATE,
-    PERMISSIONS.TREATMENTS_UPDATE,
-  ],
-  ADMIN: [
-    ...Object.values(PERMISSIONS)
-  ]
+  STAFF:       STAFF_PERMISSIONS,
+  ADMIN:       ADMIN_PERMISSIONS,
+  SUPER_ADMIN: SUPER_ADMIN_PERMISSIONS,
 }
 
 module.exports = { PERMISSIONS, ROLES }

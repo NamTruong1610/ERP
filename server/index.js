@@ -5,6 +5,7 @@ var cors = require('cors');
 const { prismaConnect, prisma } = require('./config/PrismaConfig')
 const { redisConnect } = require('./config/RedisConfig');
 const { appConfig } = require('./config/AppConfig')
+const { validateEnv } = require('./config/validateEnv')
 const cron = require('node-cron')
 const { cleanupExpiredUsers } = require('./utils/cleanupUtils')
 const { seedAdminUser } = require('./utils/seedUtils')
@@ -53,4 +54,5 @@ const startServer = async () => {
 
 
 };
+validateEnv();
 startServer();

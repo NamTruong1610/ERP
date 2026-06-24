@@ -18,7 +18,7 @@ const {
   createUserMfa
 } = require("../services/mfaService")
 
-const { createAuditLog } = require("../services/auditService")
+const { createAuditLog } = require("../services/auditServices")
 
 const {
   comparePasswordHash,
