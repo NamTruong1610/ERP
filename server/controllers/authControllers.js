@@ -40,7 +40,7 @@ const {
 
 const { UserStatus, ActorType, AuditAction, TriggerType, TargetType } = require('@prisma/client')
 const { redisClient } = require("../config/RedisConfig")
-const { SESSION_TTL_MS, REMEMBER_TTL_MS, COOKIE_OPTIONS, RECOVERY_TTL_SECONDS, RECOVERY_MAP_TTL_SECONDS,RECOVERY_EMAIL_IDEMPOTENCY_MS } = require("../config/constants.js")
+const { SESSION_TTL_MS, REMEMBER_TTL_MS, COOKIE_OPTIONS, RECOVERY_TTL_SECONDS, RECOVERY_MAP_TTL_SECONDS,RECOVERY_EMAIL_IDEMPOTENCY_MS, MFA_LOGIN_TTL_SECONDS, MFA_LOGIN_MAP_TTL_SECONDS } = require("../config/constants.js")
 
 exports.getMeController = async (req, res, next) => {
   try {
@@ -150,25 +150,26 @@ exports.loginController = async (req, res, next) => {
       }
       const mfaLoginTokenId = await generateActivationToken();
 
-      // Set mfa login token
-      await redisClient.set(
-        `token:mfa_login:${mfaLoginTokenId}`,
-        JSON.stringify({
-          id: userRecord.id,
-          rememberMe: rememberMe
-        }),
-        { EX: 5 * 60 } // 5 mins
-      );
+      await Promise.all([
+        // Set mfa login token
+        redisClient.set(
+          `token:mfa_login:${mfaLoginTokenId}`,
+          JSON.stringify({
+            id: userRecord.id,
+            rememberMe: rememberMe
+          }),
+          { EX: MFA_LOGIN_TTL_SECONDS } // 5 mins
+        ),
 
-      // Set user->mfa login token map
-
-      await redisClient.set(
-        `user_mfa_login:${userRecord.id}`,
-        JSON.stringify({
-          mfaLoginTokenId: mfaLoginTokenId
-        }),
-        { EX: 6 * 60 } // 6 mins
-      );
+        // Set user->mfa login token map
+        redisClient.set(
+          `user_mfa_login:${userRecord.id}`,
+          JSON.stringify({
+            mfaLoginTokenId: mfaLoginTokenId
+          }),
+          { EX: MFA_LOGIN_MAP_TTL_SECONDS } // 6 mins
+        )
+      ])
 
       await createAuditLog({
         actorId: userRecord.id,
@@ -288,8 +289,10 @@ exports.verify2faLoginController = async (req, res, next) => {
     }
 
     // Delete 2fa login token and user->2fa login token map
-    await redisClient.del(`user_mfa_login:${userRecord.id}`)
-    await redisClient.del(`token:mfa_login:${mfaLoginTokenId}`)
+    await Promise.all([
+      redisClient.del(`user_mfa_login:${userRecord.id}`),
+      redisClient.del(`token:mfa_login:${mfaLoginTokenId}`)
+    ])
 
     await createAuditLog({
       actorId: userRecord.id,
@@ -403,31 +406,35 @@ exports.forgotPasswordController = async (req, res, next) => {
         }
       }
 
-      await redisClient.del(`token:recover:${recoveryTokenId}`);
-      await redisClient.del(`user_recover:${userRecord.id}`);
+      await Promise.all([
+        redisClient.del(`token:recover:${recoveryTokenId}`),
+        redisClient.del(`user_recover:${userRecord.id}`)
+      ])
     }
 
 
     // Generate new recovery token
     const recoveryTokenId = await generateActivationToken();
-    await redisClient.set(
-      `token:recover:${recoveryTokenId}`,
-      JSON.stringify({
-        id: userRecord.id,
-        createdAt: Date.now()
-      }),
-      { EX: RECOVERY_TTL_SECONDS } // 15 mins
-    )
 
-    // Map recovery token to user
-    await redisClient.set(
-      `user_recover:${userRecord.id}`,
-      JSON.stringify({
-        recoveryTokenId: recoveryTokenId
-      }),
-      { EX: RECOVERY_MAP_TTL_SECONDS } // 16 mins
-    )
-
+    await Promise.all([
+      redisClient.set(
+        `token:recover:${recoveryTokenId}`,
+        JSON.stringify({
+          id: userRecord.id,
+          createdAt: Date.now()
+        }),
+        { EX: RECOVERY_TTL_SECONDS } // 15 mins
+      ),
+      // Map recovery token to user
+      redisClient.set(
+        `user_recover:${userRecord.id}`,
+        JSON.stringify({
+          recoveryTokenId: recoveryTokenId
+        }),
+        { EX: RECOVERY_MAP_TTL_SECONDS } // 16 mins
+      )
+    ])
+    
     await sendAccountRecoveryEmail(email, recoveryTokenId)
 
     await createAuditLog({

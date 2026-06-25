@@ -26,6 +26,31 @@ exports.createAuditLog = async ({
   })
 }
 
-exports.findAuditLogs = async () => {
-  
+exports.findAuditLogs = async ({ actorType, targetType, actorId, action, trigger, take = 50, from, to } = {}, client = prisma) => {
+  const returnPage = await client.auditLog.findMany({
+    where: {
+      ...{ actorType },
+      ...{ targetType },
+      ...{ actorId },
+      ...{ action },
+      ...{ trigger },
+      ...{
+        createdAt: {
+          ...(to && { lte: new Date(to) }),
+          ...(from && { gte: new Date(from) })
+        }
+      }
+    },
+    take: take + 1,
+    orderBy: {
+      createdAt: "desc",
+    },
+  })
+
+  const nextFrom = returnPage.length > take ? returnPage.pop().createdAt : null 
+
+  return {
+    returnPage,
+    nextFrom
+  }
 }

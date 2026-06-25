@@ -40,7 +40,7 @@ const {
 const { redisClient } = require("../config/RedisConfig")
 const { prisma } = require("../config/PrismaConfig")
 const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
-const { COOKIE_OPTIONS } = require("../config/constants")
+const { RECOVERY_TTL_SECONDS, RECOVERY_MAP_TTL_SECONDS, COOKIE_OPTIONS } = require("../config/constants")
 
 exports.getProfileController = async (req, res, next) => {
   const { id } = req.user
@@ -250,22 +250,26 @@ exports.changeEmailController = async (req, res, next) => {
     const existingTokenRaw = await redisClient.get(`user_email_change:${id}`)
     if (existingTokenRaw) {
       const { tokenId } = JSON.parse(existingTokenRaw)
-      await redisClient.del(`token:email_change:${tokenId}`)
-      await redisClient.del(`user_email_change:${id}`)
+      await Promise.all([
+        redisClient.del(`token:email_change:${tokenId}`),
+        redisClient.del(`user_email_change:${id}`)
+      ])
     }
 
     const tokenId = await generateActivationToken()
-    await redisClient.set(
-      `token:email_change:${tokenId}`,
-      JSON.stringify({ id, email }),
-      { EX: 15 * 60 } // 15 mins
-    )
 
-    await redisClient.set(
-      `user_email_change:${id}`,
-      JSON.stringify({ tokenId }),
-      { EX: 16 * 60 } // 16 mins
-    )
+    await Promise.all([
+      redisClient.set(
+        `token:email_change:${tokenId}`,
+        JSON.stringify({ id, email }),
+        { EX: RECOVERY_TTL_SECONDS } // 15 mins
+      ),
+      redisClient.set(
+        `user_email_change:${id}`,
+        JSON.stringify({ tokenId }),
+        { EX: RECOVERY_MAP_TTL_SECONDS } // 16 mins
+      )
+    ])
 
     await sendEmailChangeVerificationEmail(email, tokenId)
 
@@ -321,8 +325,10 @@ exports.verifyEmailChangeController = async (req, res, next) => {
       }, tx)
     })
 
-    await redisClient.del(`token:email_change:${tokenId}`)
-    await redisClient.del(`user_email_change:${id}`)
+    await Promise.all([
+      redisClient.del(`token:email_change:${tokenId}`),
+      redisClient.del(`user_email_change:${id}`)
+    ])
 
     return res.status(200).json({ message: "Email changed successfully" })
   } catch (error) {
