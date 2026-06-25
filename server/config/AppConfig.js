@@ -8,6 +8,7 @@ const userRoutes = require('../routes/userRoutes')
 const patientRoutes = require('../routes/patientRoutes')
 const appointmentRoutes = require('../routes/appointmentRoutes')
 const treatmentRoutes = require('../routes/treatmentRoutes')
+const systemRoutes = require('../routes/systemRoutes')
 
 exports.appConfig = async (app) => {
   const port = process.env.PORT || 5500;
@@ -21,6 +22,7 @@ exports.appConfig = async (app) => {
   app.use('/api/v2/patients', patientRoutes);
   app.use('/api/v2/appointments', appointmentRoutes);
   app.use('/api/v2/treatments', treatmentRoutes)
+  app.use('/api/v2/system', systemRoutes)
   app.use((err, req, res, next) => {
     console.error(err)
     res.status(500).json({ message: 'Internal server error' })

@@ -11,7 +11,7 @@ const userInclude = {
 
 exports.findUserByEmail = async (email) => {
   return await prisma.user.findFirst({
-    where: { 
+    where: {
       email,
       deletedAt: null
     },
@@ -21,7 +21,7 @@ exports.findUserByEmail = async (email) => {
 
 exports.findUserById = async (id) => {
   return await prisma.user.findFirst({
-    where: { 
+    where: {
       id,
       deletedAt: null
     },
@@ -51,14 +51,14 @@ exports.findAllUsers = async () => {
   })
 }
 
-exports.findAllDentistUsers = async() => {
+exports.findAllDentistUsers = async () => {
   return await prisma.user.findMany({
     where: { status: 'ACTIVE', deletedAt: null },
     select: { id: true, email: true, name: true }
   })
 }
 
-exports.findAllUsersByString = async(query) => {
+exports.findAllUsersByString = async (query) => {
   return await prisma.user.findMany({
     where: {
       deletedAt: null,
@@ -78,6 +78,35 @@ exports.findAllUsersByString = async(query) => {
       createdAt: true,
       updatedAt: true
     }
+  })
+}
+
+// Find all soft-deleted users — super admin deleted users viewer
+exports.findAllDeletedUsers = async (client = prisma) => {
+  return await client.user.findMany({
+    where: { deletedAt: { not: null } },
+    include: userInclude,
+    orderBy: { deletedAt: 'desc' }
+  })
+}
+
+exports.findDeletedUserById = async (id, client = prisma) => {
+  return await prisma.user.findFirst({
+    where: { id, deletedAt: { not: null } },
+    include: { userActivation: true }
+  })
+}
+
+// Restore a soft-deleted user — resets to PENDING_ACTIVATION so they
+// go through the full activation flow again with a fresh password and MFA
+exports.restoreUser = async (id, client = prisma) => {
+  return await client.user.update({
+    where: { id },
+    data: {
+      deletedAt: null,
+      status: UserStatus.PENDING_ACTIVATION
+    },
+    include: userInclude
   })
 }
 

@@ -86,3 +86,71 @@ exports.invalidateLocalUserSession = async(sessionId, rememberTokenId) => {
     }
   }
 }
+
+// Get all active sessions across all users — super admin session viewer
+exports.getAllActiveSessions = async () => {
+  const sessionKeys = await redisClient.keys('session:*')
+  if (sessionKeys.length === 0) return []
+
+  const sessions = await Promise.all(
+    sessionKeys.map(async (key) => {
+      const [raw, ttl] = await Promise.all([
+        redisClient.get(key),
+        redisClient.ttl(key)
+      ])
+      if (!raw) return null
+      const data = JSON.parse(raw)
+      return {
+        sessionId: key.replace('session:', ''),
+        userId: data.id,
+        userAgent: data.userAgent,
+        ip: data.ip,
+        createdAt: data.createdAt,
+        expiresInSeconds: ttl
+      }
+    })
+  )
+
+  return sessions.filter(Boolean)
+}
+
+// Revoke one specific session — super admin revoking a single session
+exports.revokeSessionById = async (sessionId) => {
+  const raw = await redisClient.get(`session:${sessionId}`)
+  if (!raw) return false
+
+  const { id: userId } = JSON.parse(raw)
+
+  await Promise.all([
+    redisClient.del(`session:${sessionId}`),
+    redisClient.zRem(`user_sessions:${userId}`, sessionId)
+  ])
+
+  return true
+}
+
+// Revoke every active session system-wide — emergency lockdown
+exports.revokeAllSessions = async () => {
+  const [sessionKeys, rememberKeys, userSessionMaps, userRememberMaps] = await Promise.all([
+    redisClient.keys('session:*'),
+    redisClient.keys('token:remember:*'),
+    redisClient.keys('user_sessions:*'),
+    redisClient.keys('user_remember:*')
+  ])
+
+  const allKeys = [
+    ...sessionKeys,
+    ...rememberKeys,
+    ...userSessionMaps,
+    ...userRememberMaps
+  ]
+
+  if (allKeys.length > 0) {
+    await redisClient.del(allKeys)
+  }
+
+  return {
+    sessionsRevoked: sessionKeys.length,
+    rememberTokensRevoked: rememberKeys.length
+  }
+}
