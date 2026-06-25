@@ -17,7 +17,7 @@ const {
 
 const {
   createUserActivation,
-  updateUserActivation 
+  updateUserActivation
 } = require("../services/activationService")
 
 const {
@@ -159,12 +159,18 @@ exports.hardDeleteUserController = async (req, res, next) => {
 }
 
 exports.getAllUsersController = async (req, res, next) => {
-  const { search } = req.query
+  const { search, take = 20, skip = 0 } = req.query
   try {
-    const users = search
-      ? await findAllUsersByString(search)
-      : await findAllUsers()
-    return res.status(200).json({ users })
+    const pagination = {
+      take: Math.min(parseInt(take), 100),
+      skip: parseInt(skip)
+    }
+
+    const result = search
+      ? await findAllUsersByString(search, pagination)
+      : await findAllUsers(pagination)
+
+    return res.status(200).json(result)
   } catch (error) {
     next(error)
   }

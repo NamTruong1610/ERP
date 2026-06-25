@@ -12,12 +12,19 @@ const appointmentInclude = {
   treatment: true
 }
 
-exports.findAllAppointments = async () => {
-  return await prisma.appointment.findMany({
-    where: { deletedAt: null },  // ← add
-    include: appointmentInclude,
-    orderBy: { date: 'desc' }
-  })
+exports.findAllAppointments = async ({ take = 20, skip = 0 } = {}, client = prisma) => {
+  const [appointments, total] = await Promise.all([
+    client.appointment.findMany({
+      where: { deletedAt: null },  
+      include: appointmentInclude,
+      orderBy: { date: 'desc' },
+      take,
+      skip
+    }),
+    client.appointment.count({ where: { deletedAt: null } })
+  ]) 
+
+  return { appointments, total, take, skip }
 }
 
 exports.findAppointmentById = async (id) => {

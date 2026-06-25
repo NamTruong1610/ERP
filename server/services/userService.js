@@ -29,26 +29,33 @@ exports.findUserById = async (id) => {
   })
 }
 
-exports.findAllUsers = async () => {
-  return await prisma.user.findMany({
-    where: {
-      deletedAt: null
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      status: true,
-      roles: true,
-      userMfa: {
-        select: {
-          enabled: true
-        }
+exports.findAllUsers = async ({ take = 20, skip = 0 } = {}, client = prisma) => {
+  const [users, total] = await Promise.all([
+    client.user.findMany({
+      where: {
+        deletedAt: null
       },
-      createdAt: true,
-      updatedAt: true
-    }
-  })
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        status: true,
+        roles: true,
+        userMfa: {
+          select: {
+            enabled: true
+          }
+        },
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip
+    }),
+    client.user.count({ where: { deletedAt: null } })
+  ])
+  return { users, total, take, skip }
 }
 
 exports.findAllDentistUsers = async () => {
@@ -58,27 +65,35 @@ exports.findAllDentistUsers = async () => {
   })
 }
 
-exports.findAllUsersByString = async (query) => {
-  return await prisma.user.findMany({
-    where: {
-      deletedAt: null,
-      OR: [
-        { email: { contains: query, mode: 'insensitive' } },
-        { name: { is: { fName: { contains: query, mode: 'insensitive' } } } },
-        { name: { is: { lName: { contains: query, mode: 'insensitive' } } } }
-      ]
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      status: true,
-      roles: true,
-      userMfa: { select: { enabled: true } },
-      createdAt: true,
-      updatedAt: true
-    }
-  })
+exports.findAllUsersByString = async (query, { take = 20, skip = 0 } = {}, client = prisma) => {
+  const where = {
+    deletedAt: null,
+    OR: [
+      { email: { contains: search, mode: 'insensitive' } },
+      { name: { fName: { contains: query, mode: 'insensitive' } } },
+      { name: { lName: { contains: query, mode: 'insensitive' } } }
+    ]
+  }
+  const [users, total] = await Promise.all([
+    client.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        status: true,
+        roles: true,
+        userMfa: { select: { enabled: true } },
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip
+    }),
+    client.user.count({ where })
+  ])
+  return { users, total, take, skip }
 }
 
 // Find all soft-deleted users — super admin deleted users viewer

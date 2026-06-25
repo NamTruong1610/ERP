@@ -17,9 +17,13 @@ const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
 const VALID_STATUSES = ['SCHEDULED', 'COMPLETED', 'CANCELLED']
 
 exports.getAllAppointmentsController = async (req, res, next) => {
+  const { take = 20, skip = 0 } = req.query
   try {
-    const appointments = await findAllAppointments()
-    return res.status(200).json({ appointments })
+    const result = await findAllAppointments({
+      take: Math.min(parseInt(take), 100),
+      skip: parseInt(skip)
+    })
+    return res.status(200).json(result)
   } catch (error) {
     next(error)
   }

@@ -15,23 +15,29 @@ const treatmentInclude = {
   }
 }
 
-exports.findAllTreatments = async () => {
-  return await prisma.treatment.findMany({
-    where: { deletedAt: null },  
-    include: treatmentInclude,
-    orderBy: { createdAt: 'desc' }
-  })
+exports.findAllTreatments = async ({ take = 20, skip = 0 } = {}, client = prisma) => {
+  const [treatments, total] = await Promise.all([
+    client.treatment.findMany({
+      where: { deletedAt: null },
+      include: treatmentInclude,
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip
+    }),
+    client.treatment.count({ where: { deletedAt: null } })
+  ])
+  return { treatments, total, take, skip }
 }
 
 exports.findTreatmentById = async (id) => {
-  return await prisma.treatment.findFirst({  
+  return await prisma.treatment.findFirst({
     where: { id, deletedAt: null },
     include: treatmentInclude
   })
 }
 
 exports.findTreatmentByAppointmentId = async (appointmentId) => {
-  return await prisma.treatment.findFirst({  
+  return await prisma.treatment.findFirst({
     where: { appointmentId, deletedAt: null },
     include: treatmentInclude
   })

@@ -1,10 +1,17 @@
 const { prisma } = require('../config/PrismaConfig')
 
-exports.findAllPatients = async () => {
-  return await prisma.patient.findMany({
-    where: { deletedAt: null },
-    orderBy: { createdAt: 'desc' }
-  })
+exports.findAllPatients = async ({ take = 20, skip = 0 } = {}, client = prisma) => {
+  const [patients, total] = await Promise.all([
+    client.patient.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip
+    }),
+    client.patient.count({ where: { deletedAt: null } })
+  ])
+
+  return { patients, total, take, skip }
 }
 
 exports.findPatientById = async (id) => {
