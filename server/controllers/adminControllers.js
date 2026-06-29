@@ -31,6 +31,8 @@ const {
   createAuditLog
 } = require("../services/auditServices")
 
+const { invalidateClinicStats } = require('../services/statsServices')
+
 const {
   generateActivationToken,
   hashToken
@@ -73,6 +75,8 @@ exports.createUserController = async (req, res, next) => {
       }, tx)
       return user
     })
+
+    await invalidateClinicStats()
 
     await sendAccountActivationEmail(email, rawActivationTokenId)
 

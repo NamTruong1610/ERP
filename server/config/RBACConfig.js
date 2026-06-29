@@ -39,6 +39,12 @@ const PERMISSIONS = {
   TREATMENTS_UPDATE:        'treatments:update',
   TREATMENTS_DELETE:        'treatments:delete',
 
+  // Files
+  FILES_READ:               'files:read',
+  FILES_UPLOAD:             'files:upload',
+  FILES_DELETE:             'files:delete',
+  FILES_PURGE:              'files:purge',
+
   // Super admin — audit
   AUDIT_READ:               'audit:read',
   AUDIT_EXPORT:             'audit:export',
@@ -78,6 +84,9 @@ const STAFF_PERMISSIONS = [
   PERMISSIONS.TREATMENTS_CREATE,
   PERMISSIONS.TREATMENTS_UPDATE,
   PERMISSIONS.TREATMENTS_DELETE,
+  PERMISSIONS.FILES_READ,
+  PERMISSIONS.FILES_UPLOAD,
+  PERMISSIONS.FILES_DELETE,
 ]
 
 const ADMIN_PERMISSIONS = [
@@ -96,6 +105,7 @@ const ADMIN_PERMISSIONS = [
 
 const SUPER_ADMIN_PERMISSIONS = [
   ...ADMIN_PERMISSIONS,
+  PERMISSIONS.FILES_PURGE,
   PERMISSIONS.AUDIT_READ,
   PERMISSIONS.AUDIT_EXPORT,
   PERMISSIONS.SESSIONS_READ_ALL,

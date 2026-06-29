@@ -8,6 +8,7 @@ const { appConfig } = require('./config/AppConfig')
 const { validateEnv } = require('./config/validateEnv')
 const cron = require('node-cron')
 const { cleanupExpiredUsers } = require('./utils/cleanupUtils')
+const { cleanupPendingUploads } = require('./services/fileServices')
 const { seedAdminUser } = require('./utils/seedUtils')
 
 const { hashPassword } = require('./utils/passwordUtils')
@@ -46,6 +47,7 @@ const startServer = async () => {
 
   // Run immediately on startup
   await cleanupExpiredUsers()
+  await cleanupPendingUploads()
 
   // Run every hour
   // cron.schedule('0 * * * *', async () => {

@@ -6,6 +6,7 @@ const {
   softDeletePatient
 } = require('../services/patientService')
 
+const { invalidateClinicStats } = require('../services/statsServices')
 const { createAuditLog } = require('../services/auditServices')
 const { prisma } = require('../config/PrismaConfig')
 const { AuditAction, TargetType } = require('@prisma/client')
@@ -66,6 +67,9 @@ exports.createPatientController = async (req, res, next) => {
 
       return created
     })
+
+    await invalidateClinicStats()
+
 
     return res.status(201).json({ patient })
   } catch (error) {

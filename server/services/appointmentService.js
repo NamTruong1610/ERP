@@ -70,11 +70,11 @@ exports.softDeleteAppointment = async (id, client = prisma) => {
 
   await client.treatment.updateMany({
     where: { appointmentId: id, deletedAt: null },
-    data: { deletedAt: now }
+    data: { deletedAt: new Date() }
   })
 
   return await client.appointment.update({
     where: { id },
-    data: { deletedAt: now }
+    data: { deletedAt: new Date() }
   })
 }

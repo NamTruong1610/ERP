@@ -11,6 +11,8 @@ const {
 const { findUserById } = require('../services/userService')
 const { findPatientById } = require('../services/patientService')
 const { createAuditLog } = require('../services/auditServices')
+const { invalidateClinicStats, invalidateMyStats } = require('../services/statsServices')
+
 const { prisma } = require('../config/PrismaConfig')
 const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
 
@@ -108,6 +110,11 @@ exports.createAppointmentController = async (req, res, next) => {
 
       return created
     })
+
+    await Promise.all([
+      invalidateClinicStats(),
+      invalidateMyStats(req.user.id)
+    ])
 
     return res.status(201).json({ appointment })
   } catch (error) {

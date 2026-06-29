@@ -9,7 +9,7 @@ const {
 const {
   findAuditLogs,
   createAuditLog
-} = require('../services/auditService')
+} = require('../services/auditServices')
 
 const {
   getAllActiveSessions,

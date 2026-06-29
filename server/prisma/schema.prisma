@@ -12,19 +12,20 @@ datasource db {
 }
 
 model User {
-  id                String        @id @default(cuid())
+  id                String            @id @default(cuid())
   email             String        
   password          String?
-  status            UserStatus    @default(PENDING_ACTIVATION)
+  status            UserStatus        @default(PENDING_ACTIVATION)
   roles             UserRole[]
-  phones            String[]      @default([])
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  phones            String[]          @default([])
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   deletedAt         DateTime?     
 
   name              UserName?
   addresses         Address[]
   appointments      Appointment[]
+  uploadedFiles     File[]            @relation(name: "uploadedFiles")
   userActivation    UserActivation?
   userMfa           UserMfa?
 }
@@ -96,7 +97,9 @@ model Patient {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
+
   appointments Appointment[]
+  files        File[]
 }
 
 model Appointment {
@@ -144,6 +147,34 @@ model AuditLog {
   trigger    TriggerType @default(USER_ACTION)
   
   createdAt  DateTime @default(now())
+}
+
+model File {
+  id          String      @id @default(cuid())
+  patientId   String
+  uploadedBy  String
+  fileName    String      // original name shown in UI
+  storageKey  String      @unique  // R2 object key — never exposed to client
+  mimeType    String
+  fileType    FileType
+  sizeBytes   Int
+  status      FileStatus  @default(PENDING)
+  createdAt   DateTime    @default(now())
+  deletedAt   DateTime?
+
+  patient     Patient     @relation(fields: [patientId], references: [id])
+  uploader    User        @relation(fields: [uploadedBy], references: [id], name: "uploadedFiles")
+}
+
+enum FileType {
+  IMAGE
+  PDF
+  DICOM
+}
+
+enum FileStatus {
+  PENDING    // upload URL issued, file not yet in R2
+  CONFIRMED  // client confirmed, server verified in R2
 }
 
 enum Role {
@@ -229,10 +260,11 @@ enum AuditAction {
   TREATMENT_UPDATED
   TREATMENT_DELETED
 
-  // Files (future)
+  // Files 
   FILE_UPLOADED
   FILE_DOWNLOADED
   FILE_DELETED
+  FILE_PURGED
 
   // Audit
   AUDIT_CORRECTION      // append-only correction reference
