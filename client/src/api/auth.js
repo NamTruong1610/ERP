@@ -11,7 +11,7 @@ export const login = async ({ email, password, rememberMe }) => {
 }
  
 export const verifyMfaLogin = async ({ otp, mfaLoginTokenId }) => {
-  const { data } = await axiosInstance.post('/auth/login/mfa/verify', { otp, mfaLoginTokenId })
+  const { data } = await axiosInstance.post('/auth/login/mfa', { otp, mfaLoginTokenId })
   return data // { message }
 }
  

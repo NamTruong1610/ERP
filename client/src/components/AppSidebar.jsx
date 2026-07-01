@@ -1,96 +1,187 @@
-import { Link, useNavigate } from 'react-router-dom'
+// components/AppSidebar.jsx
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
-import { logout } from '../api/auth'
-import '../styles/global.css'
+
+const NavItem = ({ icon, label, path, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`nav-item ${active ? 'nav-item-active' : ''}`}
+    style={{
+      display: 'flex', alignItems: 'center', gap: '10px',
+      width: '100%', padding: '8px 12px', borderRadius: '8px',
+      border: 'none', cursor: 'pointer', fontSize: '14px',
+      background: active ? 'var(--primary-muted)' : 'transparent',
+      color: active ? 'var(--primary)' : 'var(--text-secondary)',
+      fontWeight: active ? 600 : 400,
+      textAlign: 'left', transition: 'background 0.15s, color 0.15s'
+    }}
+  >
+    <i className={`ti ${icon}`} style={{ fontSize: '18px', flexShrink: 0 }} aria-hidden="true" />
+    {label}
+  </button>
+)
+
+const SectionLabel = ({ label }) => (
+  <div style={{
+    fontSize: '11px', fontWeight: 600, color: 'var(--text-hint)',
+    textTransform: 'uppercase', letterSpacing: '.08em',
+    padding: '0 12px', marginBottom: '4px', marginTop: '16px'
+  }}>
+    {label}
+  </div>
+)
 
 export default function AppSidebar({ active }) {
-  const { user, logoutUser, isAdmin } = useAuth()
-  const navigate = useNavigate()
+  const navigate   = useNavigate()
+  const { user, logoutUser, isAdmin, isSuperAdmin } = useAuth()
+
+  const firstName = user?.name?.fName ?? user?.email?.split('@')[0] ?? 'User'
+  const lastName  = user?.name?.lName ?? ''
+  const initials  = `${firstName[0]}${lastName ? lastName[0] : ''}`.toUpperCase()
+
+  const go = (path) => navigate(path)
 
   const handleLogout = async () => {
-    await logout()
+    try {
+      await fetch('/api/v2/auth/logout', { method: 'POST', credentials: 'include' })
+    } catch {
+      // silently fail — clear local state regardless
+    }
     logoutUser()
     navigate('/login')
   }
 
-  const initials = user?.name
-    ? `${user.name.fName?.[0] ?? ''}${user.name.lName?.[0] ?? ''}`.toUpperCase()
-    : user?.email?.[0]?.toUpperCase() ?? '?'
-
-  const displayName = user?.name
-    ? `${user.name.fName} ${user.name.lName}`
-    : user?.email ?? ''
-
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <Link to="/home" className="sidebar-logo">
-          <i className="ti ti-tooth" aria-hidden="true" />
-          DentaCore
-        </Link>
+    <aside style={{
+      width: '220px', minHeight: '100vh', flexShrink: 0,
+      background: 'var(--bg-sidebar)',
+      borderRight: '1px solid var(--border)',
+      display: 'flex', flexDirection: 'column',
+      padding: '16px 12px'
+    }}>
+
+      {/* Brand */}
+      <div
+        onClick={() => go('/home')}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          padding: '4px 12px', marginBottom: '20px',
+          cursor: 'pointer', color: 'var(--primary)'
+        }}
+      >
+        <i className="ti ti-tooth" style={{ fontSize: '22px' }} aria-hidden="true" />
+        <span style={{ fontSize: '16px', fontWeight: 700 }}>DentaCore</span>
       </div>
 
-      <nav className="sidebar-nav">
-        <span className="sidebar-section">Main</span>
-        <Link
-          to="/home"
-          className={`sidebar-item ${active === 'home' ? 'active' : ''}`}
-        >
-          <i className="ti ti-home" aria-hidden="true" />
-          Home
-        </Link>
-        <Link
-          to="/profile"
-          className={`sidebar-item ${active === 'profile' ? 'active' : ''}`}
-        >
-          <i className="ti ti-user" aria-hidden="true" />
-          Profile
-        </Link>
+      {/* Main nav */}
+      <nav style={{ flex: 1 }}>
+        <NavItem
+          icon="ti-home"
+          label="Home"
+          active={active === 'home'}
+          onClick={() => go('/home')}
+        />
+        <NavItem
+          icon="ti-user-heart"
+          label="Patients"
+          active={active === 'patients'}
+          onClick={() => go('/clinic/patients')}
+        />
+        <NavItem
+          icon="ti-calendar"
+          label="Appointments"
+          active={active === 'appointments'}
+          onClick={() => go('/clinic/appointments')}
+        />
 
-        <span className="sidebar-section">Clinic</span>
-        <Link
-          to="/clinic/patients"
-          className={`sidebar-item ${active === 'patients' ? 'active' : ''}`}
-        >
-          <i className="ti ti-users" aria-hidden="true" />
-          Patients
-        </Link>
-        <Link
-          to="/clinic/appointments"
-          className={`sidebar-item ${active === 'appointments' ? 'active' : ''}`}
-        >
-          <i className="ti ti-calendar" aria-hidden="true" />
-          Appointments
-        </Link>
-
+        {/* Admin section — admin and super admin */}
         {isAdmin() && (
           <>
-            <span className="sidebar-section">Admin</span>
-            <Link
-              to="/admin/users"
-              className={`sidebar-item ${active === 'admin' ? 'active' : ''}`}
-            >
-              <i className="ti ti-settings" aria-hidden="true" />
-              User management
-            </Link>
+            <SectionLabel label="Admin" />
+            <NavItem
+              icon="ti-users"
+              label="User management"
+              active={active === 'admin'}
+              onClick={() => go('/admin/users')}
+            />
+          </>
+        )}
+
+        {/* System section — super admin only */}
+        {isSuperAdmin() && (
+          <>
+            <SectionLabel label="System" />
+            <NavItem
+              icon="ti-list-details"
+              label="Audit log"
+              active={active === 'system-audit'}
+              onClick={() => go('/system/audit')}
+            />
+            <NavItem
+              icon="ti-device-desktop"
+              label="Sessions"
+              active={active === 'system-sessions'}
+              onClick={() => go('/system/sessions')}
+            />
+            <NavItem
+              icon="ti-user-x"
+              label="Deleted users"
+              active={active === 'system-deleted'}
+              onClick={() => go('/system/users/deleted')}
+            />
           </>
         )}
       </nav>
 
-      <div className="sidebar-footer">
-        <div className="user-info" style={{ marginBottom: '8px' }}>
-          <div className="avatar" style={{ width: '28px', height: '28px', fontSize: '11px' }}>
+      {/* User footer */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '8px' }}>
+
+        {/* Profile link */}
+        <button
+          onClick={() => go('/profile')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            width: '100%', padding: '8px 12px', borderRadius: '8px',
+            border: 'none', cursor: 'pointer', background: 'transparent',
+            textAlign: 'left', marginBottom: '4px'
+          }}
+        >
+          <div style={{
+            width: '30px', height: '30px', borderRadius: '50%',
+            background: 'var(--primary-muted)', color: 'var(--primary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '12px', fontWeight: 700, flexShrink: 0
+          }}>
             {initials}
           </div>
-          <div>
-            <div className="user-info-name" style={{ fontSize: '12px' }}>{displayName}</div>
-            <div className="user-info-role">
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontSize: '13px', fontWeight: 500,
+              color: 'var(--text-primary)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
+              {firstName} {lastName}
+            </div>
+            <div style={{
+              fontSize: '11px', color: 'var(--text-hint)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
               {user?.roles?.map(r => r.role.toLowerCase()).join(', ')}
             </div>
           </div>
-        </div>
-        <button className="sidebar-item danger" onClick={handleLogout} style={{ width: '100%' }}>
-          <i className="ti ti-logout" aria-hidden="true" />
+        </button>
+
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            width: '100%', padding: '8px 12px', borderRadius: '8px',
+            border: 'none', cursor: 'pointer', background: 'transparent',
+            color: 'var(--text-hint)', fontSize: '14px', textAlign: 'left'
+          }}
+        >
+          <i className="ti ti-logout" style={{ fontSize: '18px' }} aria-hidden="true" />
           Sign out
         </button>
       </div>

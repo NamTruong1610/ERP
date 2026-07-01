@@ -1,9 +1,9 @@
 import axiosInstance from './axiosInstance'
  
-export const getAllUsers = async (search) => {
-  const params = search ? { search } : {}
+export const getAllUsers = async (search, { take = 20, skip = 0 } = {}) => {
+  const params = { take, skip, ...(search ? { search } : {}) }
   const { data } = await axiosInstance.get('/admin/users', { params })
-  return data
+  return data  // { users, total, take, skip }
 }
  
 export const getUser = async (id) => {

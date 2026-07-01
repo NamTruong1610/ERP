@@ -1,4 +1,5 @@
 const { prisma } = require('../config/PrismaConfig')
+const { AuditAction, TargetType, TriggerType, ActorType, UserStatus } = require('@prisma/client')
 
 exports.createAuditLog = async ({
   actorId = null,
@@ -27,30 +28,27 @@ exports.createAuditLog = async ({
 }
 
 exports.findAuditLogs = async ({ actorType, targetType, actorId, action, trigger, take = 50, from, to } = {}, client = prisma) => {
-  const returnPage = await client.auditLog.findMany({
+  const records = await client.auditLog.findMany({
     where: {
-      ...{ actorType },
-      ...{ targetType },
-      ...{ actorId },
-      ...{ action },
-      ...{ trigger },
-      ...{
+      ...(actorType && { actorType }),
+      ...(targetType && { targetType }),
+      ...(actorId && { actorId }),
+      ...(action && { action }),
+      ...(trigger && { trigger }),
+      ...((to || from) && {
         createdAt: {
           ...(to && { lte: new Date(to) }),
           ...(from && { gte: new Date(from) })
         }
-      }
+      })
     },
     take: take + 1,
-    orderBy: {
-      createdAt: "desc",
-    },
+    orderBy: { createdAt: "desc" },
   })
 
-  const nextFrom = returnPage.length > take ? returnPage.pop().createdAt : null 
+  const hasMore = records.length > take
+  const logs = hasMore ? records.slice(0, take) : records
+  const nextCursor = hasMore ? logs[logs.length - 1].createdAt : null
 
-  return {
-    returnPage,
-    nextFrom
-  }
+  return { logs, nextCursor, hasMore }
 }

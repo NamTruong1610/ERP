@@ -38,3 +38,13 @@ export const AdminRoute = ({ children }) => {
  
   return children
 }
+
+export const SuperAdminRoute = ({ children }) => {
+  const { user, loading, isSuperAdmin } = useAuth()
+
+  if (loading) return <LoadingScreen />
+  if (!user) return <Navigate to="/login" replace />
+  if (!isSuperAdmin()) return <Navigate to="/home" replace />
+
+  return children
+}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getAllAppointments, createAppointment, getAllPatients } from '../../api/clinic'
 import { getDentists } from '../../api/user'
 import AppSidebar from '../../components/AppSidebar'
+import Pagination from '../../components/Pagination'
 import '../../styles/global.css'
 
 const STATUS_BADGE = {
@@ -31,7 +32,11 @@ function CreateAppointmentModal({ onClose, onCreated }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const [pData, dData] = await Promise.all([getAllPatients(), getDentists()])
+        // Fetch all patients for the dropdown — large take to avoid pagination
+        const [pData, dData] = await Promise.all([
+          getAllPatients({ take: 1000, skip: 0 }),
+          getDentists()
+        ])
         setPatients(pData.patients)
         setDentists(dData.dentists)
       } catch {
@@ -117,21 +122,29 @@ function CreateAppointmentModal({ onClose, onCreated }) {
   )
 }
 
+const PAGE_SIZE = 20
+
 export default function Appointments() {
   const navigate = useNavigate()
   const searchRef = useRef(null)
-  const [appointments, setAppointments] = useState([])
-  const [filtered, setFiltered] = useState([])
-  const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [showCreate, setShowCreate] = useState(false)
 
-  const fetchAppointments = async () => {
+  const [appointments, setAppointments] = useState([])
+  const [filtered,     setFiltered]     = useState([])
+  const [total,        setTotal]        = useState(0)
+  const [skip,         setSkip]         = useState(0)
+  const [take,         setTake]         = useState(PAGE_SIZE)
+  const [search,       setSearch]       = useState('')
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState('')
+  const [showCreate,   setShowCreate]   = useState(false)
+
+  const fetchAppointments = async (newSkip = skip, newTake = take) => {
     try {
-      const data = await getAllAppointments()
+      setLoading(true)
+      const data = await getAllAppointments({ take: newTake, skip: newSkip })
       setAppointments(data.appointments)
       setFiltered(data.appointments)
+      setTotal(data.total)
     } catch {
       setError('Failed to load appointments')
     } finally {
@@ -144,6 +157,7 @@ export default function Appointments() {
     searchRef.current?.focus()
   }, [])
 
+  // Client-side search filters the current page only
   useEffect(() => {
     const q = search.toLowerCase()
     setFiltered(appointments.filter(a =>
@@ -154,6 +168,13 @@ export default function Appointments() {
     ))
   }, [search, appointments])
 
+  const handlePageChange = (newSkip, newTake = take) => {
+    setSkip(newSkip)
+    if (newTake !== take) setTake(newTake)
+    setSearch('')
+    fetchAppointments(newSkip, newTake)
+  }
+
   const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
 
   return (
@@ -163,7 +184,7 @@ export default function Appointments() {
         <div className="page-header">
           <div>
             <div className="page-title">Appointments</div>
-            <div className="page-subtitle">{appointments.length} total appointments</div>
+            <div className="page-subtitle">{total} total appointments</div>
           </div>
           <div className="page-actions">
             <div className="search-wrap">
@@ -171,7 +192,7 @@ export default function Appointments() {
               <input
                 ref={searchRef}
                 className="search-input"
-                placeholder="Search appointments..."
+                placeholder="Search this page..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -237,13 +258,19 @@ export default function Appointments() {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              skip={skip}
+              take={take}
+              total={total}
+              onPageChange={handlePageChange}
+            />
           </div>
         )}
 
         {showCreate && (
           <CreateAppointmentModal
             onClose={() => setShowCreate(false)}
-            onCreated={fetchAppointments}
+            onCreated={() => fetchAppointments(0, take)}
           />
         )}
       </main>

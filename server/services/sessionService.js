@@ -1,6 +1,7 @@
 const { redisClient } = require('../config/RedisConfig')
 const { generateActivationToken } = require('../utils/activationTokenUtils')
 const { SESSION_TTL_SECONDS, SESSION_TTL_MS, REMEMBER_TTL_SECONDS, REMEMBER_TTL_MS, COOKIE_OPTIONS } = require('../config/constants')
+const { prisma } = require('../config/PrismaConfig')
 
 exports.invalidateAllUserSessions = async (userId) => {
   // Read both registries in parallel
@@ -57,7 +58,7 @@ exports.createUserSession = async (userId, userAgent, ip, rememberMe) => {
   return { sessionId, rememberTokenId }
 }
 
-exports.invalidateLocalUserSession = async(sessionId, rememberTokenId) => {
+exports.invalidateLocalUserSession = async (sessionId, rememberTokenId) => {
   if (sessionId) {
     const sessionRaw = await redisClient.get(`session:${sessionId}`);
     if (sessionRaw) {
@@ -92,7 +93,7 @@ exports.getAllActiveSessions = async () => {
   const sessionKeys = await redisClient.keys('session:*')
   if (sessionKeys.length === 0) return []
 
-  const sessions = await Promise.all(
+  const rawSessions = await Promise.all(
     sessionKeys.map(async (key) => {
       const [raw, ttl] = await Promise.all([
         redisClient.get(key),
@@ -111,7 +112,21 @@ exports.getAllActiveSessions = async () => {
     })
   )
 
-  return sessions.filter(Boolean)
+  const sessions = rawSessions.filter(Boolean)
+  if (sessions.length === 0) return []
+
+  // Batch-fetch user details for all sessions in one query
+  const userIds = [...new Set(sessions.map(s => s.userId))]
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, email: true, name: true }
+  })
+  const userMap = new Map(users.map(u => [u.id, u]))
+
+  return sessions.map(s => ({
+    ...s,
+    user: userMap.get(s.userId) ?? null
+  }))
 }
 
 // Revoke one specific session — super admin revoking a single session

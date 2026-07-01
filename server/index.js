@@ -9,7 +9,7 @@ const { validateEnv } = require('./config/validateEnv')
 const cron = require('node-cron')
 const { cleanupExpiredUsers } = require('./utils/cleanupUtils')
 const { cleanupPendingUploads } = require('./services/fileServices')
-const { seedAdminUser } = require('./utils/seedUtils')
+const { seedAdminUser, seedSuperAdminUser } = require('./utils/seedUtils')
 
 const { hashPassword } = require('./utils/passwordUtils')
 
@@ -38,6 +38,8 @@ const startServer = async () => {
   await redisConnect();
   // Seed testing admin user
   await seedAdminUser()
+
+  await seedSuperAdminUser()
 
   // App Default Config
   await appConfig(app);

@@ -37,7 +37,7 @@ const { ACTIVATION_TTL_MS } = require('../config/constants')
 
 
 exports.getAuditLogsController = async (req, res, next) => {
-  const { actorType, targetType, actorId, action, trigger, from, to, take = 50 } = req.query
+  const { actorType, targetType, actorId, action, trigger, from, to, take = 50, cursor } = req.query
 
   try {
     const result = await findAuditLogs({
@@ -46,7 +46,7 @@ exports.getAuditLogsController = async (req, res, next) => {
       actorId,
       action,
       trigger,
-      from,
+      from: cursor,
       to,
       take: Math.min(parseInt(take), 100)  // cap at 100 per page
     })

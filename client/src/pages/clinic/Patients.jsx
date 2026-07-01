@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useReducer } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllPatients, createPatient } from '../../api/clinic'
 import AppSidebar from '../../components/AppSidebar'
+import Pagination from '../../components/Pagination'
 import '../../styles/global.css'
 
 const initialForm = {
@@ -112,21 +113,29 @@ function CreatePatientModal({ onClose, onCreated }) {
   )
 }
 
+const PAGE_SIZE = 20
+
 export default function Patients() {
   const navigate = useNavigate()
   const searchRef = useRef(null)
+
   const [patients, setPatients] = useState([])
   const [filtered, setFiltered] = useState([])
-  const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [total,    setTotal]    = useState(0)
+  const [skip,     setSkip]     = useState(0)
+  const [take,     setTake]     = useState(PAGE_SIZE)
+  const [search,   setSearch]   = useState('')
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState('')
   const [showCreate, setShowCreate] = useState(false)
 
-  const fetchPatients = async () => {
+  const fetchPatients = async (newSkip = skip, newTake = take) => {
     try {
-      const data = await getAllPatients()
+      setLoading(true)
+      const data = await getAllPatients({ take: newTake, skip: newSkip })
       setPatients(data.patients)
       setFiltered(data.patients)
+      setTotal(data.total)
     } catch {
       setError('Failed to load patients')
     } finally {
@@ -139,6 +148,7 @@ export default function Patients() {
     searchRef.current?.focus()
   }, [])
 
+  // Client-side search filters the current page only
   useEffect(() => {
     const q = search.toLowerCase()
     setFiltered(patients.filter(p =>
@@ -149,9 +159,14 @@ export default function Patients() {
     ))
   }, [search, patients])
 
-  const initials = (p) =>
-    `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
+  const handlePageChange = (newSkip, newTake = take) => {
+    setSkip(newSkip)
+    if (newTake !== take) setTake(newTake)
+    setSearch('')
+    fetchPatients(newSkip, newTake)
+  }
 
+  const initials  = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
   const formatDate = (d) => new Date(d).toLocaleDateString('en-AU')
 
   return (
@@ -161,7 +176,7 @@ export default function Patients() {
         <div className="page-header">
           <div>
             <div className="page-title">Patients</div>
-            <div className="page-subtitle">{patients.length} total patients</div>
+            <div className="page-subtitle">{total} total patients</div>
           </div>
           <div className="page-actions">
             <div className="search-wrap">
@@ -169,7 +184,7 @@ export default function Patients() {
               <input
                 ref={searchRef}
                 className="search-input"
-                placeholder="Search patients..."
+                placeholder="Search this page..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -224,13 +239,19 @@ export default function Patients() {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              skip={skip}
+              take={take}
+              total={total}
+              onPageChange={handlePageChange}
+            />
           </div>
         )}
 
         {showCreate && (
           <CreatePatientModal
             onClose={() => setShowCreate(false)}
-            onCreated={fetchPatients}
+            onCreated={() => fetchPatients(0, take)}
           />
         )}
       </main>

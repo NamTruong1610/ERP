@@ -1,6 +1,8 @@
 import { useState, useEffect, useReducer } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient } from '../../api/clinic'
+import { getPatientFiles, getDownloadUrl, softDeleteFile } from '../../api/files'
+import FileUpload from '../../components/FileUpload'
 import AppSidebar from '../../components/AppSidebar'
 import '../../styles/global.css'
 
@@ -8,6 +10,12 @@ const STATUS_BADGE = {
   SCHEDULED: 'badge-scheduled',
   COMPLETED: 'badge-completed',
   CANCELLED: 'badge-cancelled'
+}
+
+const FILE_ICON = {
+  IMAGE: 'ti-photo',
+  PDF:   'ti-file-type-pdf',
+  DICOM: 'ti-scan',
 }
 
 function editReducer(state, action) {
@@ -24,18 +32,32 @@ const formatDentist = (dentist) => {
   return dentist.email
 }
 
+const formatBytes = (n) => {
+  if (n < 1024)         return `${n} B`
+  if (n < 1024 * 1024)  return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
 export default function PatientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const [patient, setPatient] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [feedback, setFeedback] = useState('')
-  const [showEdit, setShowEdit] = useState(false)
-  const [editForm, dispatchEdit] = useReducer(editReducer, {})
-  const [editError, setEditError] = useState('')
+  // ── Patient ────────────────────────────────────────────────────────────────
+  const [patient,     setPatient]     = useState(null)
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState('')
+  const [feedback,    setFeedback]    = useState('')
+  const [showEdit,    setShowEdit]    = useState(false)
+  const [editForm,    dispatchEdit]   = useReducer(editReducer, {})
+  const [editError,   setEditError]   = useState('')
   const [editLoading, setEditLoading] = useState(false)
+
+  // ── Files ──────────────────────────────────────────────────────────────────
+  const [files,         setFiles]         = useState([])
+  const [loadingFiles,  setLoadingFiles]  = useState(true)
+  const [downloading,   setDownloading]   = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [deleting,      setDeleting]      = useState(null)
 
   const fetchPatient = async () => {
     try {
@@ -48,19 +70,34 @@ export default function PatientDetail() {
     }
   }
 
-  useEffect(() => { fetchPatient() }, [id])
+  const fetchFiles = async () => {
+    try {
+      setLoadingFiles(true)
+      const data = await getPatientFiles(id)
+      setFiles(data.files)
+    } catch {
+      setError('Failed to load files')
+    } finally {
+      setLoadingFiles(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchPatient()
+    fetchFiles()
+  }, [id])
 
   const startEdit = () => {
     dispatchEdit({
       type: 'init',
       payload: {
         firstName: patient.firstName,
-        lastName: patient.lastName,
-        dob: patient.dob.split('T')[0],
-        gender: patient.gender,
-        phone: patient.phone || '',
-        email: patient.email || '',
-        address: patient.address || ''
+        lastName:  patient.lastName,
+        dob:       patient.dob.split('T')[0],
+        gender:    patient.gender,
+        phone:     patient.phone   || '',
+        email:     patient.email   || '',
+        address:   patient.address || ''
       }
     })
     setShowEdit(true)
@@ -92,9 +129,34 @@ export default function PatientDetail() {
     }
   }
 
-  const formatDate = (d) => new Date(d).toLocaleDateString('en-AU')
+  const handleDownload = async (file) => {
+    setDownloading(file.id)
+    try {
+      const { downloadUrl } = await getDownloadUrl(file.id)
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer')
+    } catch {
+      setError('Failed to generate download link')
+    } finally {
+      setDownloading(null)
+    }
+  }
+
+  const handleDeleteFile = async (fileId) => {
+    setConfirmDelete(null)
+    setDeleting(fileId)
+    try {
+      await softDeleteFile(fileId)
+      setFiles(prev => prev.filter(f => f.id !== fileId))
+    } catch {
+      setError('Failed to delete file')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const formatDate     = (d) => new Date(d).toLocaleDateString('en-AU')
   const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
-  const initials = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
+  const initials       = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
 
   if (loading) return <div className="loading">Loading patient...</div>
   if (!patient) return <div className="loading">{error || 'Patient not found'}</div>
@@ -129,7 +191,7 @@ export default function PatientDetail() {
           </div>
         </div>
 
-        {error && <div className="feedback-error" style={{ marginBottom: '16px' }}>{error}</div>}
+        {error    && <div className="feedback-error"   style={{ marginBottom: '16px' }}>{error}</div>}
         {feedback && <div className="feedback-success" style={{ marginBottom: '16px' }}>{feedback}</div>}
 
         <div className="detail-grid">
@@ -151,6 +213,7 @@ export default function PatientDetail() {
           </div>
         </div>
 
+        {/* ── Edit form ── */}
         {showEdit && (
           <div className="card" style={{ marginBottom: '20px' }}>
             <div className="card-title">Edit patient</div>
@@ -211,6 +274,7 @@ export default function PatientDetail() {
           </div>
         )}
 
+        {/* ── Appointment history ── */}
         <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--text-primary)' }}>
           Appointment history
         </div>
@@ -224,7 +288,7 @@ export default function PatientDetail() {
             </div>
           </div>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" style={{ marginBottom: '32px' }}>
             <table className="table">
               <thead>
                 <tr>
@@ -255,6 +319,116 @@ export default function PatientDetail() {
             </table>
           </div>
         )}
+
+        {/* ── Files ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+            Files
+            {files.length > 0 && (
+              <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-hint)', marginLeft: '8px' }}>
+                {files.length} file{files.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <FileUpload patientId={id} onUploaded={fetchFiles} />
+        </div>
+
+        {confirmDelete && (
+          <div className="card" style={{
+            marginBottom: '12px', padding: '14px 16px',
+            border: '1px solid var(--danger-border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px'
+          }}>
+            <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+              Delete <strong>{files.find(f => f.id === confirmDelete)?.fileName}</strong>? This cannot be undone.
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+              <button className="btn btn-sm btn-danger" onClick={() => handleDeleteFile(confirmDelete)}>
+                Delete
+              </button>
+              <button className="btn btn-sm" onClick={() => setConfirmDelete(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {loadingFiles ? (
+          <div className="loading" style={{ padding: '24px 0' }}>Loading files...</div>
+        ) : files.length === 0 ? (
+          <div className="table-wrap">
+            <div className="empty">
+              <i className="ti ti-files" aria-hidden="true" />
+              <div className="empty-title">No files</div>
+              <div className="empty-subtitle">Upload X-rays, consent forms, or referral letters</div>
+            </div>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Uploaded</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {files.map(file => (
+                  <tr key={file.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <i
+                          className={`ti ${FILE_ICON[file.fileType] ?? 'ti-file'}`}
+                          style={{ fontSize: '18px', color: 'var(--text-secondary)', flexShrink: 0 }}
+                          aria-hidden="true"
+                        />
+                        <span style={{ fontSize: '13px', fontWeight: 500, wordBreak: 'break-all' }}>
+                          {file.fileName}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge badge-pending" style={{ fontSize: '11px' }}>
+                        {file.fileType}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      {formatBytes(file.sizeBytes)}
+                    </td>
+                    <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      {formatDate(file.createdAt)}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => handleDownload(file)}
+                          disabled={downloading === file.id}
+                          aria-label="Download file"
+                        >
+                          <i className="ti ti-download" />
+                          {downloading === file.id ? ' …' : ''}
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => setConfirmDelete(file.id)}
+                          disabled={deleting === file.id || !!confirmDelete}
+                          aria-label="Delete file"
+                        >
+                          <i className="ti ti-trash" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
       </main>
     </div>
   )

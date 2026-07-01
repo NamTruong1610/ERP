@@ -3,7 +3,7 @@ import { AuthContext } from './AuthContext'
 import { getMe } from '../api/auth'
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
+  const [user, setUser]       = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,9 +22,15 @@ export const AuthProvider = ({ children }) => {
     checkSession()
   }, [])
 
-  const login = (userData) => setUser(userData)
+  const login     = (userData) => setUser(userData)
   const logoutUser = () => setUser(null)
-  const isAdmin = () => user?.roles?.some(r => r.role === 'ADMIN') ?? false
+
+  const isAdmin = () =>
+    user?.roles?.some(r => r.role === 'ADMIN' || r.role === 'SUPER_ADMIN') ?? false
+
+  const isSuperAdmin = () =>
+    user?.roles?.some(r => r.role === 'SUPER_ADMIN') ?? false
+
   const refreshUser = async () => {
     try {
       const data = await getMe()
@@ -35,7 +41,15 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logoutUser, isAdmin, refreshUser }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      login,
+      logoutUser,
+      isAdmin,
+      isSuperAdmin,
+      refreshUser
+    }}>
       {children}
     </AuthContext.Provider>
   )

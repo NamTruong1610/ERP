@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getAllUsers, createUser } from '../../api/admin'
 import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/AppSidebar'
+import Pagination from '../../components/Pagination'
 import '../../styles/global.css'
 
 const STATUS_BADGE = {
@@ -78,21 +79,28 @@ function CreateUserModal({ onClose, onCreated }) {
   )
 }
 
+const PAGE_SIZE = 20
+
 export default function AdminUsers() {
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
   const searchRef = useRef(null)
-  const [users, setUsers] = useState([])
-  const [search, setSearch] = useState('')
+
+  const [users,   setUsers]   = useState([])
+  const [total,   setTotal]   = useState(0)
+  const [skip,    setSkip]    = useState(0)
+  const [take,    setTake]    = useState(PAGE_SIZE)
+  const [search,  setSearch]  = useState('')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [error,   setError]   = useState('')
   const [showCreate, setShowCreate] = useState(false)
 
-  const fetchUsers = async (query) => {
+  const fetchUsers = async (query = search, newSkip = skip, newTake = take) => {
     try {
       setLoading(true)
-      const data = await getAllUsers(query || undefined)
+      const data = await getAllUsers(query || undefined, { take: newTake, skip: newSkip })
       setUsers(data.users)
+      setTotal(data.total)
     } catch {
       setError('Failed to load users')
     } finally {
@@ -106,13 +114,20 @@ export default function AdminUsers() {
     searchRef.current?.focus()
   }, [])
 
-  // Debounced search
+  // Debounced search — resets to page 1
   useEffect(() => {
     const timeout = setTimeout(() => {
-      fetchUsers(search)
+      setSkip(0)
+      fetchUsers(search, 0, take)
     }, 300)
     return () => clearTimeout(timeout)
   }, [search])
+
+  const handlePageChange = (newSkip, newTake = take) => {
+    setSkip(newSkip)
+    if (newTake !== take) setTake(newTake)
+    fetchUsers(search, newSkip, newTake)
+  }
 
   const formatName = (name) => {
     if (!name) return '—'
@@ -139,7 +154,7 @@ export default function AdminUsers() {
         <div className="page-header">
           <div>
             <div className="page-title">User management</div>
-            <div className="page-subtitle">{users.length} total users</div>
+            <div className="page-subtitle">{total} total users</div>
           </div>
           <div className="page-actions">
             <div className="search-wrap">
@@ -216,11 +231,20 @@ export default function AdminUsers() {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              skip={skip}
+              take={take}
+              total={total}
+              onPageChange={handlePageChange}
+            />
           </div>
         )}
 
         {showCreate && (
-          <CreateUserModal onClose={() => setShowCreate(false)} onCreated={() => fetchUsers(search)} />
+          <CreateUserModal
+            onClose={() => setShowCreate(false)}
+            onCreated={() => fetchUsers(search, 0, take)}
+          />
         )}
       </main>
     </div>
