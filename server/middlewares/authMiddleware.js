@@ -22,19 +22,20 @@ exports.requireAuth = async (req, res, next) => {
 
       if (sessionRaw) {
         const session = JSON.parse(sessionRaw);
-
-        // Clean up zombie session ids and tokens in the map
-        await redisClient.zRemRangeByScore(`user_sessions:${session.id}`, 0, Date.now())
-        await redisClient.zRemRangeByScore(`user_remember:${session.id}`, 0, Date.now())
-
         req.user = session;
 
-        // Extend the session and the score in user->sessions map
-        await redisClient.expire(`session:${sessionId}`, SESSION_TTL_SECONDS);
-        await redisClient.zAdd(`user_sessions:${session.id}`, {
-          score: Date.now() + SESSION_TTL_MS,
-          value: sessionId
-        })
+        await Promise.all([
+          // Clean up zombie session ids and tokens in the map
+          redisClient.zRemRangeByScore(`user_sessions:${session.id}`, 0, Date.now()),
+          redisClient.zRemRangeByScore(`user_remember:${session.id}`, 0, Date.now()),
+
+          // Extend the session and the score in user->sessions map
+          redisClient.expire(`session:${sessionId}`, SESSION_TTL_SECONDS),
+          redisClient.zAdd(`user_sessions:${session.id}`, {
+            score: Date.now() + SESSION_TTL_MS,
+            value: sessionId
+          })
+        ])
 
         res.cookie('SESSIONID', sessionId, { ...COOKIE_OPTIONS, maxAge: SESSION_TTL_MS })
 
@@ -50,51 +51,60 @@ exports.requireAuth = async (req, res, next) => {
       if (rememberRaw) {
         const rememberData = JSON.parse(rememberRaw);
 
-        // Clean up zombie session ids and tokens in the map
-        await redisClient.zRemRangeByScore(`user_sessions:${rememberData.id}`, 0, Date.now())
-        await redisClient.zRemRangeByScore(`user_remember:${rememberData.id}`, 0, Date.now())
+        await Promise.all([
 
-        // Generate new token
-        await redisClient.del(`token:remember:${rememberTokenId}`);
-        const newRememberToken = await generateActivationToken()
+        ])
 
-        await redisClient.set(
-          `token:remember:${newRememberToken}`,
-          JSON.stringify({ id: rememberData.id }),
-          { EX: REMEMBER_TTL_SECONDS } // 7 days
-        );
+        const [[newRememberTokenId, newSessionId]] = await Promise.all([
+          // Generate new token
+          Promise.all([generateActivationToken(), generateActivationToken()]),
+          
+          // Clean up zombie session ids and tokens in the map
+          Promise.all([
+            redisClient.zRemRangeByScore(`user_sessions:${rememberData.id}`, 0, Date.now()),
+            redisClient.zRemRangeByScore(`user_remember:${rememberData.id}`, 0, Date.now()),
+          ])
+        ])
 
-        // Delete the old remember token if from the user->remember tokens map and update with the new remember token id
-        await redisClient.zRem(`user_remember:${rememberData.id}`, rememberTokenId) 
-        await redisClient.zAdd(`user_remember:${rememberData.id}`, {
-          score: Date.now() + REMEMBER_TTL_MS,
-          value: newRememberToken
-        })
-
-        // Create new session
-        const newSessionId = await generateActivationToken()
-        await redisClient.zAdd(`user_sessions:${rememberData.id}`, {
-          score: Date.now() + SESSION_TTL_MS,
-          value: newSessionId
-        })
-
-        await redisClient.set(
-          `session:${newSessionId}`,
-          JSON.stringify({
-            id: rememberData.id,
-            userAgent: req.headers["user-agent"],
-            ip: req.ip,
-            createdAt: Date.now()
+        await Promise.all([
+          // New remember token stores the new sessionId
+          redisClient.set(
+            `token:remember:${newRememberTokenId}`,
+            JSON.stringify({ id: rememberData.id, createdAt: Date.now(), sessionId: newSessionId }),
+            { EX: REMEMBER_TTL_SECONDS }
+          ),
+          redisClient.zRem(`user_remember:${rememberData.id}`, rememberTokenId),
+          redisClient.zAdd(`user_remember:${rememberData.id}`, {
+            score: Date.now() + REMEMBER_TTL_MS,
+            value: newRememberTokenId
           }),
 
-          { EX: SESSION_TTL_SECONDS }
-        );
+          // New session stores the new rememberTokenId
+          redisClient.set(
+            `session:${newSessionId}`,
+            JSON.stringify({
+              id: rememberData.id,
+              userAgent: req.headers['user-agent'],
+              ip: req.ip,
+              createdAt: Date.now(),
+              rememberTokenId: newRememberTokenId
+            }),
+            { EX: SESSION_TTL_SECONDS }
+          ),
+          redisClient.zAdd(`user_sessions:${rememberData.id}`, {
+            score: Date.now() + SESSION_TTL_MS,
+            value: newSessionId
+          }),
+
+          // Delete old remember token and old session (if it exists)
+          redisClient.del(`token:remember:${rememberTokenId}`),
+        ])
 
         res.cookie('SESSIONID', newSessionId, { ...COOKIE_OPTIONS, maxAge: SESSION_TTL_MS })
 
         res.cookie('REMEMBER', newRememberToken, { ...COOKIE_OPTIONS, maxAge: REMEMBER_TTL_MS })
 
-        req.user = { 
+        req.user = {
           id: rememberData.id,
           userAgent: req.headers["user-agent"],
           ip: req.ip,

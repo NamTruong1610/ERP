@@ -26,34 +26,36 @@ exports.invalidateAllUserSessions = async (userId) => {
 exports.createUserSession = async (userId, userAgent, ip, rememberMe) => {
   const sessionId = await generateActivationToken()
 
+  let rememberTokenId = null
+  if (rememberMe) {
+    rememberTokenId = await generateActivationToken()
+  }
+
   await Promise.all([
+    // Session now stores rememberTokenId (null if no remember me)
     redisClient.set(
       `session:${sessionId}`,
-      JSON.stringify({ id: userId, userAgent, ip, createdAt: Date.now() }),
+      JSON.stringify({ id: userId, userAgent, ip, createdAt: Date.now(), rememberTokenId }),
       { EX: SESSION_TTL_SECONDS }
     ),
     redisClient.zAdd(`user_sessions:${userId}`, {
       score: Date.now() + SESSION_TTL_MS,
       value: sessionId
-    })
-  ])
+    }),
 
-  let rememberTokenId = null
-  if (rememberMe) {
-    rememberTokenId = await generateActivationToken()
-
-    await Promise.all([
+    // Remember token now stores sessionId
+    ...(rememberTokenId ? [
       redisClient.set(
         `token:remember:${rememberTokenId}`,
-        JSON.stringify({ id: userId, createdAt: Date.now() }),
+        JSON.stringify({ id: userId, createdAt: Date.now(), sessionId }),
         { EX: REMEMBER_TTL_SECONDS }
       ),
       redisClient.zAdd(`user_remember:${userId}`, {
         score: Date.now() + REMEMBER_TTL_MS,
         value: rememberTokenId
       })
-    ])
-  }
+    ] : [])
+  ])
 
   return { sessionId, rememberTokenId }
 }
@@ -134,11 +136,16 @@ exports.revokeSessionById = async (sessionId) => {
   const raw = await redisClient.get(`session:${sessionId}`)
   if (!raw) return false
 
-  const { id: userId } = JSON.parse(raw)
+  const { id: userId, rememberTokenId } = JSON.parse(raw)
 
   await Promise.all([
     redisClient.del(`session:${sessionId}`),
-    redisClient.zRem(`user_sessions:${userId}`, sessionId)
+    redisClient.zRem(`user_sessions:${userId}`, sessionId),
+
+    ...(rememberTokenId ? [
+      redisClient.del(`token:remember:${rememberTokenId}`),
+      redisClient.zRem(`user_remember:${userId}`, rememberTokenId)
+    ] : [])
   ])
 
   return true

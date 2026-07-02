@@ -1,0 +1,3 @@
+CREATE SEQUENCE IF NOT EXISTS invoice_number_seq 
+MINVALUE 0
+START 1;
