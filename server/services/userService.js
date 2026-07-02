@@ -65,13 +65,13 @@ exports.findAllDentistUsers = async () => {
   })
 }
 
-exports.findAllUsersByString = async (query, { take = 20, skip = 0 } = {}, client = prisma) => {
+exports.findAllUsersByString = async (search, { take = 20, skip = 0 } = {}, client = prisma) => {
   const where = {
     deletedAt: null,
     OR: [
       { email: { contains: search, mode: 'insensitive' } },
-      { name: { fName: { contains: query, mode: 'insensitive' } } },
-      { name: { lName: { contains: query, mode: 'insensitive' } } }
+      { name: { fName: { contains: search, mode: 'insensitive' } } },
+      { name: { lName: { contains: search, mode: 'insensitive' } } }
     ]
   }
   const [users, total] = await Promise.all([

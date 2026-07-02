@@ -1,14 +1,41 @@
 const { prisma } = require('../config/PrismaConfig')
 
-exports.findAllPatients = async ({ take = 20, skip = 0 } = {}, client = prisma) => {
+exports.findAllPatients = async ({ take = 20, skip = 0, search } = {}, client = prisma) => {
+  let parts = search && search.trim().split(/\s+/)
+
+  let where = {
+    deletedAt: null
+  }
+
+  if (parts && parts.length == 2) {
+    where = {
+      ...(search && {
+        AND: [
+          { firstName: { contains: parts[0], mode: 'insensitive' } },
+          { lastName: { contains: parts[1], mode: 'insensitive' } }
+        ]
+      })
+    }
+  }
+
+  else if (parts) {
+    where = {
+      ...(search && {
+        OR: [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+          { address: { contains: search, mode: 'insensitive' } },
+        ]
+      })
+    }
+  }
+
+
   const [patients, total] = await Promise.all([
-    client.patient.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-      take,
-      skip
-    }),
-    client.patient.count({ where: { deletedAt: null } })
+    client.patient.findMany({ where, orderBy: { createdAt: 'desc' }, take, skip }),
+    client.patient.count({ where })
   ])
 
   return { patients, total, take, skip }

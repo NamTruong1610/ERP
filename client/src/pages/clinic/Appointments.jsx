@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useReducer } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getAllAppointments, createAppointment, getAllPatients } from '../../api/clinic'
 import { getDentists } from '../../api/user'
 import AppSidebar from '../../components/AppSidebar'
@@ -32,7 +32,6 @@ function CreateAppointmentModal({ onClose, onCreated }) {
   useEffect(() => {
     const load = async () => {
       try {
-        // Fetch all patients for the dropdown — large take to avoid pagination
         const [pData, dData] = await Promise.all([
           getAllPatients({ take: 1000, skip: 0 }),
           getDentists()
@@ -126,24 +125,28 @@ const PAGE_SIZE = 20
 
 export default function Appointments() {
   const navigate = useNavigate()
-  const searchRef = useRef(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
+  const search = searchParams.get('search') || ''
+  const skip   = parseInt(searchParams.get('skip') || '0')
+  const take   = parseInt(searchParams.get('take') || String(PAGE_SIZE))
+
+  const [inputValue,   setInputValue]   = useState(search)
   const [appointments, setAppointments] = useState([])
-  const [filtered,     setFiltered]     = useState([])
   const [total,        setTotal]        = useState(0)
-  const [skip,         setSkip]         = useState(0)
-  const [take,         setTake]         = useState(PAGE_SIZE)
-  const [search,       setSearch]       = useState('')
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState('')
   const [showCreate,   setShowCreate]   = useState(false)
 
-  const fetchAppointments = async (newSkip = skip, newTake = take) => {
+  const fetchAppointments = async () => {
     try {
       setLoading(true)
-      const data = await getAllAppointments({ take: newTake, skip: newSkip })
+      const data = await getAllAppointments({
+        take,
+        skip,
+        search: search || undefined
+      })
       setAppointments(data.appointments)
-      setFiltered(data.appointments)
       setTotal(data.total)
     } catch {
       setError('Failed to load appointments')
@@ -154,25 +157,29 @@ export default function Appointments() {
 
   useEffect(() => {
     fetchAppointments()
-    searchRef.current?.focus()
-  }, [])
+  }, [searchParams])
 
-  // Client-side search filters the current page only
-  useEffect(() => {
-    const q = search.toLowerCase()
-    setFiltered(appointments.filter(a =>
-      a.patient?.firstName.toLowerCase().includes(q) ||
-      a.patient?.lastName.toLowerCase().includes(q) ||
-      a.status.toLowerCase().includes(q) ||
-      a.treatment?.procedure?.toLowerCase().includes(q)
-    ))
-  }, [search, appointments])
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (inputValue.trim()) {
+        next.set('search', inputValue.trim())
+      } else {
+        next.delete('search')
+      }
+      next.set('skip', '0')
+      return next
+    })
+  }
 
   const handlePageChange = (newSkip, newTake = take) => {
-    setSkip(newSkip)
-    if (newTake !== take) setTake(newTake)
-    setSearch('')
-    fetchAppointments(newSkip, newTake)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('skip', String(newSkip))
+      next.set('take', String(newTake))
+      return next
+    })
   }
 
   const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
@@ -187,16 +194,18 @@ export default function Appointments() {
             <div className="page-subtitle">{total} total appointments</div>
           </div>
           <div className="page-actions">
-            <div className="search-wrap">
-              <i className="ti ti-search" aria-hidden="true" />
-              <input
-                ref={searchRef}
-                className="search-input"
-                placeholder="Search this page..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
+              <div className="search-wrap">
+                <i className="ti ti-search" aria-hidden="true" />
+                <input
+                  className="search-input"
+                  placeholder="Search appointments..."
+                  value={inputValue}
+                  onChange={e => setInputValue(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="btn">Search</button>
+            </form>
             <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
               <i className="ti ti-plus" aria-hidden="true" />
               New appointment
@@ -208,7 +217,7 @@ export default function Appointments() {
 
         {loading ? (
           <div className="loading">Loading appointments...</div>
-        ) : filtered.length === 0 ? (
+        ) : appointments.length === 0 ? (
           <div className="table-wrap">
             <div className="empty">
               <i className="ti ti-calendar" aria-hidden="true" />
@@ -231,7 +240,7 @@ export default function Appointments() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(appt => (
+                {appointments.map(appt => (
                   <tr key={appt.id} onClick={() => navigate(`/clinic/appointments/${appt.id}`)}>
                     <td>
                       <div className="avatar-cell">
@@ -270,7 +279,7 @@ export default function Appointments() {
         {showCreate && (
           <CreateAppointmentModal
             onClose={() => setShowCreate(false)}
-            onCreated={() => fetchAppointments(0, take)}
+            onCreated={() => fetchAppointments()}
           />
         )}
       </main>

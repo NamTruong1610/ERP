@@ -102,7 +102,7 @@ exports.requireAuth = async (req, res, next) => {
 
         res.cookie('SESSIONID', newSessionId, { ...COOKIE_OPTIONS, maxAge: SESSION_TTL_MS })
 
-        res.cookie('REMEMBER', newRememberToken, { ...COOKIE_OPTIONS, maxAge: REMEMBER_TTL_MS })
+        res.cookie('REMEMBER', newRememberTokenId, { ...COOKIE_OPTIONS, maxAge: REMEMBER_TTL_MS })
 
         req.user = {
           id: rememberData.id,

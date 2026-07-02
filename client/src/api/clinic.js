@@ -2,8 +2,8 @@ import axiosInstance from './axiosInstance'
 
 // ─── Patients ─────────────────────────────────────────────────────────────────
 
-export const getAllPatients = async ({ take = 20, skip = 0 } = {}) => {
-  const { data } = await axiosInstance.get('/patients', { params: { take, skip } })
+export const getAllPatients = async ({ take = 20, skip = 0, search } = {}) => {
+  const { data } = await axiosInstance.get('/patients', { params: { take, skip, ...(search && { search }) } })
   return data  // { patients, total, take, skip }
 }
 
@@ -29,8 +29,8 @@ export const deletePatient = async (id) => {
 
 // ─── Appointments ──────────────────────────────────────────────────────────────
 
-export const getAllAppointments = async ({ take = 20, skip = 0 } = {}) => {
-  const { data } = await axiosInstance.get('/appointments', { params: { take, skip } })
+export const getAllAppointments = async ({ take = 20, skip = 0, search } = {}) => {
+  const { data } = await axiosInstance.get('/appointments', { params: { take, skip, ...(search && { search }) } })
   return data  // { appointments, total, take, skip }
 }
 

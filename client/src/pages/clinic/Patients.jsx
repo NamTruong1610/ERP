@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useReducer } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getAllPatients, createPatient } from '../../api/clinic'
 import AppSidebar from '../../components/AppSidebar'
 import Pagination from '../../components/Pagination'
@@ -117,24 +117,28 @@ const PAGE_SIZE = 20
 
 export default function Patients() {
   const navigate = useNavigate()
-  const searchRef = useRef(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [patients, setPatients] = useState([])
-  const [filtered, setFiltered] = useState([])
-  const [total,    setTotal]    = useState(0)
-  const [skip,     setSkip]     = useState(0)
-  const [take,     setTake]     = useState(PAGE_SIZE)
-  const [search,   setSearch]   = useState('')
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState('')
+  const search = searchParams.get('search') || ''
+  const skip   = parseInt(searchParams.get('skip') || '0')
+  const take   = parseInt(searchParams.get('take') || String(PAGE_SIZE))
+
+  // Local input state — separate from the URL search param.
+  // The user can type freely without triggering any fetches.
+  // Only synced to the URL when the form is submitted.
+  const [inputValue, setInputValue] = useState(search)
+
+  const [patients,   setPatients]   = useState([])
+  const [total,      setTotal]      = useState(0)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState('')
   const [showCreate, setShowCreate] = useState(false)
 
-  const fetchPatients = async (newSkip = skip, newTake = take) => {
+  const fetchPatients = async () => {
     try {
       setLoading(true)
-      const data = await getAllPatients({ take: newTake, skip: newSkip })
+      const data = await getAllPatients({ take, skip, search: search || undefined })
       setPatients(data.patients)
-      setFiltered(data.patients)
       setTotal(data.total)
     } catch {
       setError('Failed to load patients')
@@ -145,28 +149,35 @@ export default function Patients() {
 
   useEffect(() => {
     fetchPatients()
-    searchRef.current?.focus()
-  }, [])
+  }, [searchParams])
 
-  // Client-side search filters the current page only
-  useEffect(() => {
-    const q = search.toLowerCase()
-    setFiltered(patients.filter(p =>
-      p.firstName.toLowerCase().includes(q) ||
-      p.lastName.toLowerCase().includes(q) ||
-      p.email?.toLowerCase().includes(q) ||
-      p.phone?.includes(q)
-    ))
-  }, [search, patients])
-
-  const handlePageChange = (newSkip, newTake = take) => {
-    setSkip(newSkip)
-    if (newTake !== take) setTake(newTake)
-    setSearch('')
-    fetchPatients(newSkip, newTake)
+  // Only called on form submit (button click or Enter key).
+  // Writes the current input value to the URL, which triggers
+  // the useEffect above, which re-fetches with the new search term.
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (inputValue.trim()) {
+        next.set('search', inputValue.trim())
+      } else {
+        next.delete('search')
+      }
+      next.set('skip', '0')
+      return next
+    })
   }
 
-  const initials  = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
+  const handlePageChange = (newSkip, newTake = take) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('skip', String(newSkip))
+      next.set('take', String(newTake))
+      return next
+    })
+  }
+
+  const initials   = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
   const formatDate = (d) => new Date(d).toLocaleDateString('en-AU')
 
   return (
@@ -179,16 +190,25 @@ export default function Patients() {
             <div className="page-subtitle">{total} total patients</div>
           </div>
           <div className="page-actions">
-            <div className="search-wrap">
-              <i className="ti ti-search" aria-hidden="true" />
-              <input
-                ref={searchRef}
-                className="search-input"
-                placeholder="Search this page..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
+            {/*
+              Wrapping the input and button in a form means pressing
+              Enter in the input triggers handleSubmit automatically —
+              no need to wire up a keydown handler separately.
+            */}
+            <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
+              <div className="search-wrap">
+                <i className="ti ti-search" aria-hidden="true" />
+                <input
+                  className="search-input"
+                  placeholder="Search patients..."
+                  value={inputValue}
+                  onChange={e => setInputValue(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="btn">
+                Search
+              </button>
+            </form>
             <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
               <i className="ti ti-plus" aria-hidden="true" />
               New patient
@@ -200,7 +220,7 @@ export default function Patients() {
 
         {loading ? (
           <div className="loading">Loading patients...</div>
-        ) : filtered.length === 0 ? (
+        ) : patients.length === 0 ? (
           <div className="table-wrap">
             <div className="empty">
               <i className="ti ti-users" aria-hidden="true" />
@@ -223,7 +243,7 @@ export default function Patients() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(p => (
+                {patients.map(p => (
                   <tr key={p.id} onClick={() => navigate(`/clinic/patients/${p.id}`)}>
                     <td>
                       <div className="avatar-cell">
@@ -251,7 +271,7 @@ export default function Patients() {
         {showCreate && (
           <CreatePatientModal
             onClose={() => setShowCreate(false)}
-            onCreated={() => fetchPatients(0, take)}
+            onCreated={() => fetchPatients()}
           />
         )}
       </main>

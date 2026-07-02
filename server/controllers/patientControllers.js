@@ -12,11 +12,12 @@ const { prisma } = require('../config/PrismaConfig')
 const { AuditAction, TargetType } = require('@prisma/client')
 
 exports.getAllPatientsController = async (req, res, next) => {
-  const { take = 20, skip = 0 } = req.query
+  const { take = 20, skip = 0, search } = req.query
   try {
     const result = await findAllPatients({
       take: Math.min(parseInt(take), 100),
-      skip: parseInt(skip)
+      skip: parseInt(skip),
+      search: search?.trim() || undefined
     })
     return res.status(200).json(result)
   } catch (error) {

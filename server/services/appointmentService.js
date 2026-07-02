@@ -12,23 +12,54 @@ const appointmentInclude = {
   treatment: true
 }
 
-exports.findAllAppointments = async ({ take = 20, skip = 0 } = {}, client = prisma) => {
+exports.findAllAppointments = async ({ take = 20, skip = 0, search } = {}, client = prisma) => {
+  const parts = search && search.trim().split(/\s+/)
+  let where = {
+    deletedAt: null
+  }
+
+  if (parts && parts.length === 1) {
+    where = {
+      ...(search && {
+        patient: {
+          OR: [
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+          ]
+        }
+      })
+    }
+  }
+
+  else if (parts && parts.length > 1) {
+    where = {
+      ...(search && {
+        patient: {
+          AND: [
+            { firstName: { contains: parts[0], mode: 'insensitive' } },
+            { lastName: { contains: parts[1], mode: 'insensitive' } },
+          ]
+        }
+      })
+    }
+  }
+
   const [appointments, total] = await Promise.all([
     client.appointment.findMany({
-      where: { deletedAt: null },  
-      include: appointmentInclude,
-      orderBy: { date: 'desc' },
+      where,
+      include: appointmentInclude,   // ← was missing
+      orderBy: { createdAt: 'desc' },
       take,
       skip
     }),
-    client.appointment.count({ where: { deletedAt: null } })
-  ]) 
+    client.appointment.count({ where })
+  ])
 
   return { appointments, total, take, skip }
 }
 
 exports.findAppointmentById = async (id) => {
-  return await prisma.appointment.findFirst({ 
+  return await prisma.appointment.findFirst({
     where: { id, deletedAt: null },
     include: appointmentInclude
   })
@@ -36,7 +67,7 @@ exports.findAppointmentById = async (id) => {
 
 exports.findAppointmentsByDentist = async (dentistId) => {
   return await prisma.appointment.findMany({
-    where: { dentistId, deletedAt: null }, 
+    where: { dentistId, deletedAt: null },
     include: appointmentInclude,
     orderBy: { date: 'desc' }
   })
@@ -44,7 +75,7 @@ exports.findAppointmentsByDentist = async (dentistId) => {
 
 exports.findAppointmentsByPatient = async (patientId) => {
   return await prisma.appointment.findMany({
-    where: { patientId, deletedAt: null }, 
+    where: { patientId, deletedAt: null },
     include: appointmentInclude,
     orderBy: { date: 'desc' }
   })
