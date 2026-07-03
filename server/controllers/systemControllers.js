@@ -37,18 +37,36 @@ const { ACTIVATION_TTL_MS } = require('../config/constants')
 
 
 exports.getAuditLogsController = async (req, res, next) => {
-  const { actorType, targetType, actorId, action, trigger, from, to, take = 50, cursor } = req.query
+  const {
+    actorType,
+    targetType,
+    actorId,
+    action,
+    trigger,
+    from,
+    to,
+    cursor,
+    take = 50
+  } = req.query
+
+  const VALID_ACTOR_TYPES = ['USER', 'SYSTEM']
+  const VALID_TARGET_TYPES = ['USER', 'PATIENT', 'APPOINTMENT', 'TREATMENT', 'FILE', 'SESSION', 'ROLE']
+  const VALID_TRIGGERS = ['USER_ACTION', 'ADMIN_ACTION', 'SYSTEM', 'CASCADE']
+
+  // Validate dates — reject values that can't be parsed
+  const isValidDate = (val) => val && !isNaN(new Date(val).getTime())
 
   try {
     const result = await findAuditLogs({
-      actorType,
-      targetType,
-      actorId,
-      action,
-      trigger,
-      from: cursor,
-      to,
-      take: Math.min(parseInt(take), 100)  // cap at 100 per page
+      actorType: VALID_ACTOR_TYPES.includes(actorType) ? actorType : undefined,
+      targetType: VALID_TARGET_TYPES.includes(targetType) ? targetType : undefined,
+      actorId: actorId || undefined,
+      action: action || undefined,
+      trigger: VALID_TRIGGERS.includes(trigger) ? trigger : undefined,
+      from: isValidDate(from) ? from : undefined,
+      to: isValidDate(to) ? to : undefined,
+      cursor: isValidDate(cursor) ? cursor : undefined,
+      take: Math.min(parseInt(take) || 50, 100)
     })
 
     return res.status(200).json(result)

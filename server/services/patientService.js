@@ -1,14 +1,20 @@
 const { prisma } = require('../config/PrismaConfig')
 
-exports.findAllPatients = async ({ take = 20, skip = 0, search } = {}, client = prisma) => {
-  let parts = search && search.trim().split(/\s+/)
-
+exports.findAllPatients = async ({ take = 20, skip = 0, search, from, to } = {}, client = prisma) => {
+  const parts = search?.trim() ? search.trim().split(/\s+/) : null
   let where = {
-    deletedAt: null
+    deletedAt: null,
+    ...((from || to) && {
+      createdAt: {
+        ...(from && { gte: new Date(from) }),
+        ...(to && { lte: new Date(to) })
+      }
+    })
   }
 
-  if (parts && parts.length == 2) {
+  if (parts && parts.length >= 2) {
     where = {
+      ...where,
       ...(search && {
         AND: [
           { firstName: { contains: parts[0], mode: 'insensitive' } },
@@ -20,6 +26,7 @@ exports.findAllPatients = async ({ take = 20, skip = 0, search } = {}, client = 
 
   else if (parts) {
     where = {
+      ...where,
       ...(search && {
         OR: [
           { firstName: { contains: search, mode: 'insensitive' } },

@@ -27,23 +27,38 @@ exports.createAuditLog = async ({
   })
 }
 
-exports.findAuditLogs = async ({ actorType, targetType, actorId, action, trigger, take = 50, from, to } = {}, client = prisma) => {
+exports.findAuditLogs = async ({
+  actorType,
+  targetType,
+  actorId,
+  action,
+  trigger,
+  take = 50,
+  from,      // date range start — gte, from the UI filter
+  to,        // date range end   — lte, from the UI filter
+  cursor     // pagination cursor — lt, from the previous page's last record
+} = {}, client = prisma) => {
+
+  const where = {
+    ...(actorType && { actorType }),
+    ...(targetType && { targetType }),
+    ...(actorId && { actorId }),
+    ...(action && { action }),
+    ...(trigger && { trigger }),
+    // Date range and cursor are separate concerns built into one createdAt clause
+    ...((from || to || cursor) && {
+      createdAt: {
+        ...(from && { gte: new Date(from) }),    // range start — inclusive
+        ...(to && { lte: new Date(to) }),    // range end   — inclusive
+        ...(cursor && { lt: new Date(cursor) }),  // pagination  — exclusive
+      }
+    })
+  }
+
   const records = await client.auditLog.findMany({
-    where: {
-      ...(actorType && { actorType }),
-      ...(targetType && { targetType }),
-      ...(actorId && { actorId }),
-      ...(action && { action }),
-      ...(trigger && { trigger }),
-      ...((to || from) && {
-        createdAt: {
-          ...(to && { lte: new Date(to) }),
-          ...(from && { gte: new Date(from) })
-        }
-      })
-    },
+    where,
     take: take + 1,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' }
   })
 
   const hasMore = records.length > take

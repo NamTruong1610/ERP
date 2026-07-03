@@ -12,14 +12,21 @@ const appointmentInclude = {
   treatment: true
 }
 
-exports.findAllAppointments = async ({ take = 20, skip = 0, search } = {}, client = prisma) => {
+exports.findAllAppointments = async ({ take = 20, skip = 0, search, from, to } = {}, client = prisma) => {
   const parts = search && search.trim().split(/\s+/)
   let where = {
+    ...((from || to) && {
+      date: {
+        ...(from && { gte: new Date(from) }),
+        ...(to && { lte: new Date(to) })
+      }
+    }),
     deletedAt: null
   }
 
   if (parts && parts.length === 1) {
     where = {
+      ...where,
       ...(search && {
         patient: {
           OR: [
@@ -33,11 +40,12 @@ exports.findAllAppointments = async ({ take = 20, skip = 0, search } = {}, clien
 
   else if (parts && parts.length > 1) {
     where = {
+      ...where,
       ...(search && {
         patient: {
           AND: [
             { firstName: { contains: parts[0], mode: 'insensitive' } },
-            { lastName: { contains: parts[1], mode: 'insensitive' } },
+            { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } },
           ]
         }
       })

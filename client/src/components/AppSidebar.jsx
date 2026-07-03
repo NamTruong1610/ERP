@@ -1,8 +1,8 @@
 // components/AppSidebar.jsx
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 
-const NavItem = ({ icon, label, path, active, onClick }) => (
+const NavItem = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}
     className={`nav-item ${active ? 'nav-item-active' : ''}`}
@@ -32,12 +32,12 @@ const SectionLabel = ({ label }) => (
 )
 
 export default function AppSidebar({ active }) {
-  const navigate   = useNavigate()
+  const navigate = useNavigate()
   const { user, logoutUser, isAdmin, isSuperAdmin } = useAuth()
 
   const firstName = user?.name?.fName ?? user?.email?.split('@')[0] ?? 'User'
-  const lastName  = user?.name?.lName ?? ''
-  const initials  = `${firstName[0]}${lastName ? lastName[0] : ''}`.toUpperCase()
+  const lastName = user?.name?.lName ?? ''
+  const initials = `${firstName[0]}${lastName ? lastName[0] : ''}`.toUpperCase()
 
   const go = (path) => navigate(path)
 
@@ -52,12 +52,19 @@ export default function AppSidebar({ active }) {
   }
 
   return (
+    // In AppSidebar.jsx, update the <aside> style:
     <aside style={{
-      width: '220px', minHeight: '100vh', flexShrink: 0,
+      width: '220px',
+      height: '100vh',           // full viewport height
+      position: 'sticky',        // sticks relative to the scroll container
+      top: 0,                    // sticks to the top of the viewport
+      flexShrink: 0,
       background: 'var(--bg-sidebar)',
       borderRight: '1px solid var(--border)',
-      display: 'flex', flexDirection: 'column',
-      padding: '16px 12px'
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '16px 12px',
+      overflowY: 'auto',         // sidebar itself scrolls if nav items overflow
     }}>
 
       {/* Brand */}

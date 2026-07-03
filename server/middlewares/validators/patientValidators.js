@@ -1,6 +1,6 @@
 const { body, param } = require('express-validator')
 
-const VALID_GENDERS = ['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY']
+const VALID_GENDERS = ['Male', 'Female', 'Other', 'Prefer not to say']
 
 exports.validateCreatePatient = [
   body('firstName')
@@ -66,10 +66,10 @@ exports.validateUpdatePatient = [
     .optional()
     .isIn(VALID_GENDERS).withMessage(`Gender must be one of: ${VALID_GENDERS.join(', ')}`),
   body('phone')
-    .optional()
+    .optional({ values: 'falsy' })
     .isMobilePhone().withMessage('Valid phone number is required'),
   body('email')
-    .optional()
+    .optional({ values: 'falsy' })
     .isEmail().withMessage('Valid email is required')
     .normalizeEmail(),
   body('address')

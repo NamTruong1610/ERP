@@ -6,28 +6,80 @@ import AppSidebar from '../../components/AppSidebar'
 import Pagination from '../../components/Pagination'
 import '../../styles/global.css'
 
+// ── Constants ──────────────────────────────────────────────────────────────────
+
 const STATUS_BADGE = {
   SCHEDULED: 'badge-scheduled',
   COMPLETED: 'badge-completed',
   CANCELLED: 'badge-cancelled'
 }
 
+const STATUS_OPTIONS = [
+  { value: '',           label: 'All statuses' },
+  { value: 'SCHEDULED',  label: 'Scheduled' },
+  { value: 'COMPLETED',  label: 'Completed' },
+  { value: 'CANCELLED',  label: 'Cancelled' },
+]
+
+const currentYear = new Date().getFullYear()
+
+const DATE_PRESET_OPTIONS = [
+  { value: '',      label: 'Custom range' },
+  { value: 'today', label: 'Today' },
+  { value: '7d',    label: 'Last 7 days' },
+  { value: '30d',   label: 'Last 30 days' },
+  { value: '90d',   label: 'Last 90 days' },
+  ...Array.from(
+    { length: currentYear - 2024 + 1 },
+    (_, i) => currentYear - i
+  ).map(y => ({ value: String(y), label: String(y) }))
+]
+
+const resolvePreset = (preset) => {
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+  const endOfToday   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+
+  if (preset === 'today') return {
+    from: startOfToday.toISOString(),
+    to:   endOfToday.toISOString()
+  }
+
+  if (preset === '7d' || preset === '30d' || preset === '90d') {
+    const days = parseInt(preset)
+    const from = new Date(startOfToday)
+    from.setDate(from.getDate() - (days - 1))
+    return { from: from.toISOString(), to: endOfToday.toISOString() }
+  }
+
+  if (/^\d{4}$/.test(preset)) return {
+    from: new Date(parseInt(preset), 0, 1, 0, 0, 0, 0).toISOString(),
+    to:   new Date(parseInt(preset), 11, 31, 23, 59, 59, 999).toISOString()
+  }
+
+  return { from: '', to: '' }
+}
+
+const PAGE_SIZE = 20
+
+// ── CreateAppointmentModal ─────────────────────────────────────────────────────
+
 const initialForm = { dentistId: '', patientId: '', date: '', notes: '' }
 
 function formReducer(state, action) {
   switch (action.type) {
-    case 'set': return { ...state, [action.field]: action.value }
+    case 'set':   return { ...state, [action.field]: action.value }
     case 'reset': return initialForm
-    default: return state
+    default:      return state
   }
 }
 
 function CreateAppointmentModal({ onClose, onCreated }) {
-  const [form, dispatch] = useReducer(formReducer, initialForm)
+  const [form,     dispatch]  = useReducer(formReducer, initialForm)
   const [patients, setPatients] = useState([])
   const [dentists, setDentists] = useState([])
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [error,    setError]    = useState('')
+  const [loading,  setLoading]  = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -54,10 +106,7 @@ function CreateAppointmentModal({ onClose, onCreated }) {
     e.preventDefault()
     setLoading(true)
     try {
-      await createAppointment({
-        ...form,
-        dentistId: form.dentistId || undefined
-      })
+      await createAppointment({ ...form, dentistId: form.dentistId || undefined })
       onCreated()
       onClose()
     } catch (err) {
@@ -78,7 +127,9 @@ function CreateAppointmentModal({ onClose, onCreated }) {
         </div>
         <form onSubmit={handleSubmit} className="form">
           <div className="form-group">
-            <label className="form-label">Patient <span style={{ color: 'var(--danger-text)' }}>*</span></label>
+            <label className="form-label">
+              Patient <span style={{ color: 'var(--danger-text)' }}>*</span>
+            </label>
             <select name="patientId" className="form-select" value={form.patientId} onChange={handleChange} required>
               <option value="">Select patient</option>
               {patients.map(p => (
@@ -87,7 +138,10 @@ function CreateAppointmentModal({ onClose, onCreated }) {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Dentist <span style={{ color: 'var(--text-hint)', fontSize: '11px' }}>(optional)</span></label>
+            <label className="form-label">
+              Dentist{' '}
+              <span style={{ color: 'var(--text-hint)', fontSize: '11px' }}>(optional)</span>
+            </label>
             <select name="dentistId" className="form-select" value={form.dentistId} onChange={handleChange}>
               <option value="">Unassigned</option>
               {dentists.map(d => (
@@ -98,7 +152,9 @@ function CreateAppointmentModal({ onClose, onCreated }) {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Date & time <span style={{ color: 'var(--danger-text)' }}>*</span></label>
+            <label className="form-label">
+              Date & time <span style={{ color: 'var(--danger-text)' }}>*</span>
+            </label>
             <input name="date" type="datetime-local" className="form-input"
               value={form.date} onChange={handleChange} required />
           </div>
@@ -121,15 +177,20 @@ function CreateAppointmentModal({ onClose, onCreated }) {
   )
 }
 
-const PAGE_SIZE = 20
+// ── Appointments page ──────────────────────────────────────────────────────────
 
 export default function Appointments() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const search = searchParams.get('search') || ''
-  const skip   = parseInt(searchParams.get('skip') || '0')
-  const take   = parseInt(searchParams.get('take') || String(PAGE_SIZE))
+  // All filter state from URL
+  const search   = searchParams.get('search') || ''
+  const status   = searchParams.get('status') || ''
+  const preset   = searchParams.get('preset') || ''
+  const fromDate = searchParams.get('from')   || ''
+  const toDate   = searchParams.get('to')     || ''
+  const skip     = parseInt(searchParams.get('skip') || '0')
+  const take     = parseInt(searchParams.get('take') || String(PAGE_SIZE))
 
   const [inputValue,   setInputValue]   = useState(search)
   const [appointments, setAppointments] = useState([])
@@ -138,13 +199,18 @@ export default function Appointments() {
   const [error,        setError]        = useState('')
   const [showCreate,   setShowCreate]   = useState(false)
 
+  const resolved = preset ? resolvePreset(preset) : { from: fromDate, to: toDate }
+
   const fetchAppointments = async () => {
     try {
       setLoading(true)
       const data = await getAllAppointments({
         take,
         skip,
-        search: search || undefined
+        search: search        || undefined,
+        status: status        || undefined,
+        from:   resolved.from || undefined,
+        to:     resolved.to   || undefined,
       })
       setAppointments(data.appointments)
       setTotal(data.total)
@@ -155,11 +221,9 @@ export default function Appointments() {
     }
   }
 
-  useEffect(() => {
-    fetchAppointments()
-  }, [searchParams])
+  useEffect(() => { fetchAppointments() }, [searchParams])
 
-  const handleSubmit = (e) => {
+  const handleSearchSubmit = (e) => {
     e.preventDefault()
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
@@ -173,6 +237,53 @@ export default function Appointments() {
     })
   }
 
+  const handleStatusChange = (value) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (value) {
+        next.set('status', value)
+      } else {
+        next.delete('status')
+      }
+      next.set('skip', '0')
+      return next
+    })
+  }
+
+  const handlePresetChange = (value) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (value) {
+        next.set('preset', value)
+      } else {
+        next.delete('preset')
+      }
+      next.delete('from')
+      next.delete('to')
+      next.set('skip', '0')
+      return next
+    })
+  }
+
+  const handleDateChange = (key, value) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (value) {
+        next.set(key, value)
+      } else {
+        next.delete(key)
+      }
+      next.delete('preset')
+      next.set('skip', '0')
+      return next
+    })
+  }
+
+  const clearFilters = () => {
+    setInputValue('')
+    setSearchParams({})
+  }
+
   const handlePageChange = (newSkip, newTake = take) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
@@ -182,35 +293,114 @@ export default function Appointments() {
     })
   }
 
-  const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
+  const hasActiveFilters = search || status || preset || fromDate || toDate
+  const formatDateTime   = (d) => new Date(d).toLocaleString('en-AU')
 
   return (
     <div className="app-layout">
       <AppSidebar active="appointments" />
       <main className="main">
+
+        {/* Header */}
         <div className="page-header">
           <div>
             <div className="page-title">Appointments</div>
             <div className="page-subtitle">{total} total appointments</div>
           </div>
-          <div className="page-actions">
-            <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
-              <div className="search-wrap">
-                <i className="ti ti-search" aria-hidden="true" />
-                <input
-                  className="search-input"
-                  placeholder="Search appointments..."
-                  value={inputValue}
-                  onChange={e => setInputValue(e.target.value)}
-                />
-              </div>
-              <button type="submit" className="btn">Search</button>
-            </form>
-            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-              <i className="ti ti-plus" aria-hidden="true" />
-              New appointment
-            </button>
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            <i className="ti ti-plus" aria-hidden="true" /> New appointment
+          </button>
+        </div>
+
+        {/* Filter bar */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px', alignItems: 'flex-end' }}>
+
+          {/* Search */}
+          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '8px' }}>
+            <div className="search-wrap">
+              <i className="ti ti-search" aria-hidden="true" />
+              <input
+                className="search-input"
+                placeholder="Search by patient name..."
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="btn">Search</button>
+          </form>
+
+          {/* Status */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '11px', color: 'var(--text-hint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              Status
+            </label>
+            <select
+              className="form-select"
+              value={status}
+              onChange={e => handleStatusChange(e.target.value)}
+              style={{ width: 'auto' }}
+            >
+              {STATUS_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
           </div>
+
+          {/* Date preset */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '11px', color: 'var(--text-hint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              Appointment date
+            </label>
+            <select
+              className="form-select"
+              value={preset}
+              onChange={e => handlePresetChange(e.target.value)}
+              style={{ width: 'auto' }}
+            >
+              {DATE_PRESET_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* From date */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '11px', color: 'var(--text-hint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              From
+            </label>
+            <input
+              type="date"
+              className="form-input"
+              value={fromDate}
+              onChange={e => handleDateChange('from', e.target.value)}
+              style={{ width: 'auto' }}
+            />
+          </div>
+
+          {/* To date */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '11px', color: 'var(--text-hint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              To
+            </label>
+            <input
+              type="date"
+              className="form-input"
+              value={toDate}
+              onChange={e => handleDateChange('to', e.target.value)}
+              style={{ width: 'auto' }}
+            />
+          </div>
+
+          {/* Clear filters */}
+          {hasActiveFilters && (
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={clearFilters}
+              style={{ color: 'var(--text-hint)', fontSize: '12px', alignSelf: 'flex-end' }}
+            >
+              <i className="ti ti-x" aria-hidden="true" /> Clear filters
+            </button>
+          )}
         </div>
 
         {error && <div className="feedback-error" style={{ marginBottom: '16px' }}>{error}</div>}
@@ -223,7 +413,9 @@ export default function Appointments() {
               <i className="ti ti-calendar" aria-hidden="true" />
               <div className="empty-title">No appointments found</div>
               <div className="empty-subtitle">
-                {search ? 'Try a different search term' : 'Schedule your first appointment'}
+                {hasActiveFilters
+                  ? 'Try adjusting your search or filters'
+                  : 'Schedule your first appointment'}
               </div>
             </div>
           </div>
@@ -245,7 +437,7 @@ export default function Appointments() {
                     <td>
                       <div className="avatar-cell">
                         <div className="avatar">
-                          {`${appt.patient?.firstName?.[0]}${appt.patient?.lastName?.[0]}`.toUpperCase()}
+                          {`${appt.patient?.firstName?.[0] ?? ''}${appt.patient?.lastName?.[0] ?? ''}`.toUpperCase()}
                         </div>
                         {appt.patient?.firstName} {appt.patient?.lastName}
                       </div>

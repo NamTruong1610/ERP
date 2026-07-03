@@ -1,10 +1,22 @@
 import axiosInstance from './axiosInstance'
 
 // ─── Audit Log ────────────────────────────────────────────────────────────────
-export const getAuditLogs = async ({ cursor, take = 50 } = {}) => {
-  const params = { take, ...(cursor ? { cursor } : {}) }
+export const getAuditLogs = async ({
+  cursor, take = 50,
+  actorType, targetType, action, trigger, from, to
+} = {}) => {
+  const params = {
+    take,
+    ...(cursor && { cursor }),
+    ...(actorType && { actorType }),
+    ...(targetType && { targetType }),
+    ...(action && { action }),
+    ...(trigger && { trigger }),
+    ...(from && { from }),
+    ...(to && { to }),
+  }
   const { data } = await axiosInstance.get('/system/audit', { params })
-  return data  // { logs, nextCursor, hasMore }
+  return data
 }
 
 // ─── Sessions ─────────────────────────────────────────────────────────────────

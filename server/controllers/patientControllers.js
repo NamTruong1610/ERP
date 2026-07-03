@@ -12,12 +12,14 @@ const { prisma } = require('../config/PrismaConfig')
 const { AuditAction, TargetType } = require('@prisma/client')
 
 exports.getAllPatientsController = async (req, res, next) => {
-  const { take = 20, skip = 0, search } = req.query
+  const { take = 20, skip = 0, search, from, to } = req.query
   try {
     const result = await findAllPatients({
       take: Math.min(parseInt(take), 100),
       skip: parseInt(skip),
-      search: search?.trim() || undefined
+      search: search?.trim() || undefined,
+      from,
+      to
     })
     return res.status(200).json(result)
   } catch (error) {
@@ -92,7 +94,13 @@ exports.updatePatientController = async (req, res, next) => {
 
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
-        updates[field] = field === 'dob' ? new Date(req.body[field]) : req.body[field]
+        if (field === 'dob') {
+          updates[field] = new Date(req.body[field])
+        } else if (['phone', 'email', 'address'].includes(field)) {
+          updates[field] = req.body[field]?.trim() || null  // '' → null
+        } else {
+          updates[field] = req.body[field]
+        }
       }
     }
 
