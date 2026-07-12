@@ -312,7 +312,7 @@ export default function PatientDetail() {
                       </span>
                     </td>
                     <td>{appt.treatment?.procedure || '—'}</td>
-                    <td>{appt.treatment ? `$${appt.treatment.cost.toFixed(2)}` : '—'}</td>
+                    <td>{appt.treatment ? `$${appt.treatment.amount.toFixed(2)}` : '—'}</td>
                   </tr>
                 ))}
               </tbody>

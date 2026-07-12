@@ -15,7 +15,7 @@ const STATUS_BADGE = {
   CANCELLED: 'badge-cancelled'
 }
 
-const initialTreatment = { procedure: '', toothNumber: '', notes: '', cost: '' }
+const initialTreatment = { procedure: '', toothNumber: '', notes: '', amount: '' }
 
 function reducer(state, action) {
   switch (action.type) {
@@ -148,7 +148,7 @@ export default function AppointmentDetail() {
           procedure: treatmentForm.procedure,
           toothNumber: treatmentForm.toothNumber ? parseInt(treatmentForm.toothNumber) : null,
           notes: treatmentForm.notes,
-          cost: parseFloat(treatmentForm.cost)
+          amount: parseFloat(treatmentForm.amount)
         })
         setFeedback('Treatment updated')
       } else {
@@ -157,7 +157,7 @@ export default function AppointmentDetail() {
           procedure: treatmentForm.procedure,
           toothNumber: treatmentForm.toothNumber ? parseInt(treatmentForm.toothNumber) : null,
           notes: treatmentForm.notes,
-          cost: parseFloat(treatmentForm.cost)
+          amount: parseFloat(treatmentForm.amount)
         })
         setFeedback('Treatment recorded')
       }
@@ -177,7 +177,7 @@ export default function AppointmentDetail() {
         procedure: appointment.treatment?.procedure || '',
         toothNumber: appointment.treatment?.toothNumber?.toString() || '',
         notes: appointment.treatment?.notes || '',
-        cost: appointment.treatment?.cost?.toString() || ''
+        amount: appointment.treatment?.amount?.toString() || ''
       }
     })
     setShowTreatment(true)
@@ -347,8 +347,8 @@ export default function AppointmentDetail() {
               <div className="form-group">
                 <label className="form-label">Cost (AUD) <span style={{ color: 'var(--danger-text)' }}>*</span></label>
                 <input type="number" min="0" step="0.01" className="form-input"
-                  value={treatmentForm.cost}
-                  onChange={e => dispatchTreatment({ type: 'set', field: 'cost', value: e.target.value })}
+                  value={treatmentForm.amount}
+                  onChange={e => dispatchTreatment({ type: 'set', field: 'amount', value: e.target.value })}
                   placeholder="0.00" required />
               </div>
               {treatmentError && <div className="feedback-error">{treatmentError}</div>}
@@ -377,7 +377,7 @@ export default function AppointmentDetail() {
               </div>
               <div className="detail-item">
                 <div className="detail-label">Cost</div>
-                <div className="detail-value">${appointment.treatment.cost.toFixed(2)}</div>
+                <div className="detail-value">${appointment.treatment.amount.toFixed(2)}</div>
               </div>
               <div className="detail-item">
                 <div className="detail-label">Notes</div>

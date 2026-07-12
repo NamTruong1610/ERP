@@ -39,6 +39,16 @@ const PERMISSIONS = {
   TREATMENTS_UPDATE:        'treatments:update',
   TREATMENTS_DELETE:        'treatments:delete',
 
+  // Invoices
+  INVOICES_READ:            'invoices:read',
+  INVOICES_READ_ALL:        'invoices:read_all',
+  INVOICES_CREATE:          'invoices:create',
+  INVOICES_UPDATE:          'invoices:update',
+  INVOICES_ISSUE:           'invoices:issue',
+  INVOICES_VOID:            'invoices:void',
+  INVOICES_DELETE:          'invoices:delete',
+
+
   // Files
   FILES_READ:               'files:read',
   FILES_UPLOAD:             'files:upload',
@@ -84,6 +94,12 @@ const STAFF_PERMISSIONS = [
   PERMISSIONS.TREATMENTS_CREATE,
   PERMISSIONS.TREATMENTS_UPDATE,
   PERMISSIONS.TREATMENTS_DELETE,
+  PERMISSIONS.INVOICES_READ,
+  PERMISSIONS.INVOICES_READ_ALL,
+  PERMISSIONS.INVOICES_CREATE,
+  PERMISSIONS.INVOICES_UPDATE,
+  PERMISSIONS.INVOICES_ISSUE,
+  PERMISSIONS.INVOICES_VOID,
   PERMISSIONS.FILES_READ,
   PERMISSIONS.FILES_UPLOAD,
   PERMISSIONS.FILES_DELETE,

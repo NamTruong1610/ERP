@@ -17,9 +17,9 @@ exports.validateCreateTreatment = [
     .isString().withMessage('Notes must be a string')
     .trim()
     .isLength({ max: 500 }).withMessage('Notes must be at most 500 characters'),
-  body('cost')
-    .notEmpty().withMessage('Cost is required')
-    .isFloat({ min: 0 }).withMessage('Cost must be a positive number')
+  body('amount')
+    .notEmpty().withMessage('Amount is required')
+    .isFloat({ min: 0 }).withMessage('Amount must be a positive number')
 ]
 
 exports.validateUpdateTreatment = [
@@ -38,7 +38,7 @@ exports.validateUpdateTreatment = [
     .isString().withMessage('Notes must be a string')
     .trim()
     .isLength({ max: 500 }).withMessage('Notes must be at most 500 characters'),
-  body('cost')
+  body('amount')
     .optional()
-    .isFloat({ min: 0 }).withMessage('Cost must be a positive number')
+    .isFloat({ min: 0 }).withMessage('Amount must be a positive number')
 ]

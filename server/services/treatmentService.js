@@ -43,6 +43,38 @@ exports.findTreatmentByAppointmentId = async (appointmentId) => {
   })
 }
 
+exports.findTreatmentsByIds = async (ids, client = prisma) => {
+  return await client.treatment.findMany({
+    where: {
+      id: { in: ids },
+      deletedAt: null
+    },
+    include: {
+      appointment: {
+        select: { patientId: true }
+      },
+      invoiceItems: {
+        where: { invoice: { status: { not: 'VOIDED' } } },  
+        select: { id: true }
+      }
+    }
+  })
+}
+
+// Treatments for a patient that haven't been attached to an InvoiceItem yet —
+// the pool clinic staff pick from when generating a new invoice.
+exports.findUnbilledTreatmentsByPatient = async (patientId, client = prisma) => {
+  return await client.treatment.findMany({
+    where: {
+      appointment: { patientId },
+      deletedAt: null,
+      invoiceItems: { none: { invoice: { status: { not: 'VOIDED' } } } }
+    },
+    include: treatmentInclude,
+    orderBy: { createdAt: 'desc' }
+  })
+}
+
 exports.createTreatment = async (data, client = prisma) => {
   return await client.treatment.create({
     data,

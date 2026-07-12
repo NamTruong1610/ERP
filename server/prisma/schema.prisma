@@ -26,6 +26,7 @@ model User {
   addresses         Address[]
   appointments      Appointment[]
   uploadedFiles     File[]            @relation(name: "uploadedFiles")
+  payments          Payment[] 
   userActivation    UserActivation?
   userMfa           UserMfa?
 }
@@ -124,7 +125,7 @@ model Treatment {
   procedure     String      // e.g. filling, extraction, cleaning
   toothNumber   Int?        // 1-32
   notes         String?
-  cost          Float
+  amount        Float
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   deletedAt     DateTime?
@@ -169,22 +170,31 @@ model File {
 }
 
 model Invoice {
-  id            String        @id @default(cuid())
-  patientId     String
-  patient       Patient       @relation(fields: [patientId], references: [id])
-  invoiceNumber String        @unique   // e.g. INV-2026-0001, human-readable
-  status        InvoiceStatus @default(DRAFT)
-  subtotal      Float
-  tax           Float         @default(0)
-  total         Float
-  notes         String?
-  issuedAt      DateTime?
-  dueAt         DateTime?
-  paidAt        DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  deletedAt     DateTime?
-  items         InvoiceItem[]
+  id               String        @id @default(cuid())
+  patientId        String
+  patient          Patient       @relation(fields: [patientId], references: [id])
+  invoiceNumber    String?       @unique   // e.g. INV-2026-0001, human-readable
+  status           InvoiceStatus @default(DRAFT)
+  subtotal         Float
+  discount         Float
+  tax              Float         @default(0)
+  total            Float
+  abn              String        @default("00000000000")
+  notes            String?
+  issuedAt         DateTime?
+  dueAt            DateTime?
+  paidAt           DateTime?
+  billedToName     String?   // "ABC Insurance Pty Ltd"
+  billedToEmail    String?   // "accounts@insurance.com"
+  billedToPhone    String?   // optional
+  billedToAddress  String? 
+  voidedAt         DateTime?
+  voidReason       String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  deletedAt        DateTime?
+  items            InvoiceItem[]
+  payments         Payment[] 
 }
 
 model InvoiceItem {
@@ -200,10 +210,31 @@ model InvoiceItem {
 enum InvoiceStatus {
   DRAFT       // being prepared, not sent yet
   ISSUED      // sent to patient, awaiting payment
+  PARTIALLY_PAID
   PAID
   OVERDUE     // derived/cron-updated based on dueAt
   CANCELLED
-  VOID        // issued then voided — keeps audit trail, replaces a "delete"
+  VOIDED        // issued then voided — keeps audit trail, replaces a "delete"
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  OTHER
+  // STRIPE added later, once that's wired up
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id])
+  amount      Float
+  method      PaymentMethod
+  note        String?
+  recordedById String
+  recordedBy  User          @relation(fields: [recordedById], references: [id])
+  createdAt   DateTime      @default(now())
 }
 
 enum FileType {
@@ -233,6 +264,7 @@ enum TargetType {
   PATIENT
   APPOINTMENT
   TREATMENT
+  INVOICE
   FILE
   SESSION
   ROLE
@@ -300,7 +332,19 @@ enum AuditAction {
   TREATMENT_UPDATED
   TREATMENT_DELETED
 
-  // Files 
+  // Invoices
+  INVOICE_CREATED
+  INVOICE_UPDATED
+  INVOICE_ISSUED
+  INVOICE_VOIDED
+  INVOICE_DELETED
+  INVOICE_ITEM_ADDED
+  INVOICE_ITEM_UPDATED
+  INVOICE_ITEM_REMOVED
+  INVOICE_PAYMENT_RECORDED
+  INVOICE_PAYMENT_VOIDED
+
+  // Files
   FILE_UPLOADED
   FILE_DOWNLOADED
   FILE_DELETED

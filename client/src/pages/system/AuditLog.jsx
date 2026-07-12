@@ -488,7 +488,10 @@ export default function AuditLog() {
                       style={{ cursor: log.metadata ? 'pointer' : 'default' }}
                     >
                       <td style={{ color: 'var(--text-secondary)', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                        <span title={formatDate(log.createdAt)}>{timeAgo(log.createdAt)}</span>
+                        <div>{timeAgo(log.createdAt)}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-hint)' }}>
+                          {formatDate(log.createdAt)}
+                        </div>
                       </td>
                       <td>
                         <span style={{

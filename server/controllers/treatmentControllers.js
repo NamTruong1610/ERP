@@ -3,10 +3,12 @@ const {
   findAllTreatments,
   findTreatmentById,
   findTreatmentByAppointmentId,
+  findUnbilledTreatmentsByPatient,
   createTreatment,
   updateTreatment,
   softDeleteTreatment
 } = require('../services/treatmentService')
+const { findPatientById } = require('../services/patientService')
 
 const { createAuditLog } = require('../services/auditServices')
 const { prisma } = require('../config/PrismaConfig')
@@ -57,11 +59,26 @@ exports.getTreatmentByAppointmentController = async (req, res, next) => {
   }
 }
 
-exports.createTreatmentController = async (req, res, next) => {
-  const { appointmentId, procedure, toothNumber, notes, cost } = req.body
+exports.getUnbilledTreatmentsController = async (req, res, next) => {
+  const { patientId } = req.params
   try {
-    if (!appointmentId || !procedure || cost === undefined) {
-      return res.status(400).json({ message: 'Appointment, procedure and cost are required' })
+    const patient = await findPatientById(patientId)
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found' })
+    }
+
+    const treatments = await findUnbilledTreatmentsByPatient(patientId)
+    return res.status(200).json({ treatments })
+  } catch (error) {
+    next(error)
+  }
+}
+
+exports.createTreatmentController = async (req, res, next) => {
+  const { appointmentId, procedure, toothNumber, notes, amount } = req.body
+  try {
+    if (!appointmentId || !procedure || amount === undefined) {
+      return res.status(400).json({ message: 'Appointment, procedure and amount are required' })
     }
 
     // Validate appointment exists
@@ -87,7 +104,7 @@ exports.createTreatmentController = async (req, res, next) => {
         procedure,
         toothNumber: toothNumber ? parseInt(toothNumber) : null,
         notes,
-        cost: parseFloat(cost)
+        amount: parseFloat(amount)
       }, tx)
 
       await updateAppointment(appointmentId, { status: 'COMPLETED' }, tx)
@@ -97,7 +114,7 @@ exports.createTreatmentController = async (req, res, next) => {
         targetId: created.id,
         targetType: TargetType.TREATMENT,
         action: AuditAction.TREATMENT_CREATED,
-        metadata: { appointmentId, procedure, toothNumber: created.toothNumber, cost: created.cost },
+        metadata: { appointmentId, procedure, toothNumber: created.toothNumber, amount: created.amount },
         ip: req.ip,
         userAgent: req.headers['user-agent']
       }, tx)
@@ -119,13 +136,13 @@ exports.updateTreatmentController = async (req, res, next) => {
       return res.status(404).json({ message: 'Treatment not found' })
     }
 
-    const allowedFields = ['procedure', 'toothNumber', 'notes', 'cost']
+    const allowedFields = ['procedure', 'toothNumber', 'notes', 'amount']
     const updates = {}
 
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         if (field === 'toothNumber') updates[field] = parseInt(req.body[field])
-        else if (field === 'cost') updates[field] = parseFloat(req.body[field])
+        else if (field === 'amount') updates[field] = parseFloat(req.body[field])
         else updates[field] = req.body[field]
       }
     }

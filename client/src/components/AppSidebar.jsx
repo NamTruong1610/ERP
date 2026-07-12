@@ -100,6 +100,12 @@ export default function AppSidebar({ active }) {
           active={active === 'appointments'}
           onClick={() => go('/clinic/appointments')}
         />
+        <NavItem
+          icon="ti-file-invoice"
+          label="Invoices"
+          active={active === 'invoices'}
+          onClick={() => go('/clinic/invoices')}
+        />
 
         {/* Admin section — admin and super admin */}
         {isAdmin() && (

@@ -12,6 +12,7 @@ exports.appConfig = async (app) => {
   const patientRoutes = require('../routes/patientRoutes')
   const appointmentRoutes = require('../routes/appointmentRoutes')
   const treatmentRoutes = require('../routes/treatmentRoutes')
+  const invoiceRoutes = require('../routes/invoiceRoutes')
   const systemRoutes = require('../routes/systemRoutes')
   const fileRoutes = require('../routes/fileRoutes')
   const statsRoutes = require('../routes/statsRoutes')
@@ -27,6 +28,7 @@ exports.appConfig = async (app) => {
   app.use('/api/v2/patients', patientRoutes);
   app.use('/api/v2/appointments', appointmentRoutes);
   app.use('/api/v2/treatments', treatmentRoutes)
+  app.use('/api/v2/invoices', invoiceRoutes)
   app.use('/api/v2/system', systemRoutes)
   app.use('/api/v2/files', fileRoutes)
   app.use('/api/v2/stats', statsRoutes)

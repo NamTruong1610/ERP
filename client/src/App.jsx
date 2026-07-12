@@ -25,6 +25,8 @@ import Patients from './pages/clinic/Patients'
 import PatientDetail from './pages/clinic/PatientDetail'
 import Appointments from './pages/clinic/Appointments'
 import AppointmentDetail from './pages/clinic/AppointmentDetail'
+import Invoices from './pages/clinic/Invoices'
+import InvoiceDetail from './pages/clinic/InvoiceDetail'
 
 // System — super admin
 import AuditLog    from './pages/system/AuditLog'
@@ -66,6 +68,8 @@ function App() {
         <Route path="/clinic/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
         <Route path="/clinic/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
         <Route path="/clinic/appointments/:id" element={<ProtectedRoute><AppointmentDetail /></ProtectedRoute>} />
+        <Route path="/clinic/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
+        <Route path="/clinic/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
 
         <Route
           path="/system/audit"
