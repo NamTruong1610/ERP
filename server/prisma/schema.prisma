@@ -130,7 +130,7 @@ model Treatment {
   updatedAt     DateTime    @updatedAt
   deletedAt     DateTime?
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  invoiceItems  InvoiceItem[]
+  invoiceItem   InvoiceItem?
 }
 
 model AuditLog {
@@ -198,13 +198,23 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id            String      @id @default(cuid())
+  id            String               @id @default(cuid())
   invoiceId     String
-  invoice       Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  treatmentId   String?     // nullable — link to source treatment if applicable
-  treatment     Treatment?  @relation(fields: [treatmentId], references: [id])
+  invoice       Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  treatmentId   String?              @unique// nullable — link to source treatment if applicable
+  treatment     Treatment?           @relation(fields: [treatmentId], references: [id])
+  allocations   PaymentAllocation[]
+  paidAmount    Float                @default(0)
+  itemStatus    InvoiceItemStatus    @default(UNPAID)
   description   String      // free text, e.g. "Root canal — tooth 14"
   amount        Float
+}
+
+enum InvoiceItemStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  WRITTEN_OFF   // insurance adjustment / bad debt — separate from a real payment
 }
 
 enum InvoiceStatus {
@@ -226,15 +236,26 @@ enum PaymentMethod {
 }
 
 model Payment {
-  id          String        @id @default(cuid())
-  invoiceId   String
-  invoice     Invoice       @relation(fields: [invoiceId], references: [id])
-  amount      Float
-  method      PaymentMethod
-  note        String?
-  recordedById String
-  recordedBy  User          @relation(fields: [recordedById], references: [id])
-  createdAt   DateTime      @default(now())
+  id            String        @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
+  amount        Float
+  method        PaymentMethod
+  note          String?
+  recordedById  String
+  recordedBy    User          @relation(fields: [recordedById], references: [id])
+  allocations   PaymentAllocation[]
+  createdAt     DateTime      @default(now())
+}
+
+model PaymentAllocation {
+  id            String      @id @default(cuid())
+  paymentId     String
+  payment       Payment     @relation(fields: [paymentId], references: [id])
+  invoiceItemId String
+  invoiceItem   InvoiceItem @relation(fields: [invoiceItemId], references: [id])
+  amount        Float       // portion of the payment applied to this item
+  createdAt     DateTime    @default(now())
 }
 
 enum FileType {

@@ -167,3 +167,40 @@ exports.softDeleteDraftInvoice = async (invoiceId, client = prisma) => {
     data: { deletedAt: new Date() }
   })
 }
+
+// service
+exports.getInvoicePaymentLedger = async (invoiceId, client = prisma) => {
+  const invoice = await client.invoice.findUnique({
+    where: { id: invoiceId },
+    include: {
+      items: true,
+      payments: {
+        include: {
+          allocations: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+
+  if (!invoice) return null;
+
+  return {
+    invoiceId: invoice.id,
+    invoiceStatus: invoice.status,
+    totalAmount: invoice.amount,
+    paidAmount: invoice.paidAmount,
+    remainingAmount: invoice.amount - invoice.paidAmount,
+    payments: invoice.payments.map(p => ({
+      id: p.id,
+      method: p.method,
+      amount: p.amount,
+      note: p.note,
+      createdAt: p.createdAt,
+      allocations: p.allocations.map(a => ({
+        invoiceItemId: a.invoiceItemId,
+        amount: a.amount,
+      })),
+    })),
+  };
+};

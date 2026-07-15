@@ -53,8 +53,7 @@ exports.findTreatmentsByIds = async (ids, client = prisma) => {
       appointment: {
         select: { patientId: true }
       },
-      invoiceItems: {
-        where: { invoice: { status: { not: 'VOIDED' } } },  
+      invoiceItem: { 
         select: { id: true }
       }
     }
@@ -68,7 +67,7 @@ exports.findUnbilledTreatmentsByPatient = async (patientId, client = prisma) => 
     where: {
       appointment: { patientId },
       deletedAt: null,
-      invoiceItems: { none: { invoice: { status: { not: 'VOIDED' } } } }
+      invoiceItem: null
     },
     include: treatmentInclude,
     orderBy: { createdAt: 'desc' }

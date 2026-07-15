@@ -1,8 +1,25 @@
 const { prisma } = require('../config/PrismaConfig')
+const { InvoiceItemStatus } = require('@prisma/client')
 
 exports.findInvoiceItemById = async (id, client = prisma) => {
   return await client.invoiceItem.findUnique({
     where: { id },
+    include: {
+      invoice: true,    // needed to check invoice status and patientId
+      treatment: true   // needed for response
+    }
+  })
+}
+
+exports.findUnpaidInvoiceItemsByIds = async (ids, client = prisma) => {
+  return await client.invoiceItem.findMany({
+    where: {
+      id: { in: ids },
+      OR: [
+        { itemStatus: InvoiceItemStatus.UNPAID },
+        { itemStatus: InvoiceItemStatus.PARTIALLY_PAID }
+      ]
+    },
     include: {
       invoice: true,    // needed to check invoice status and patientId
       treatment: true   // needed for response

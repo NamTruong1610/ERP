@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DentaCore ERD</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 24px;
+    background: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  #erd {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  #erd svg.erDiagram .divider path { stroke-opacity: 0.5; }
+  #erd svg.erDiagram .row-rect-odd path,
+  #erd svg.erDiagram .row-rect-odd rect,
+  #erd svg.erDiagram .row-rect-even path,
+  #erd svg.erDiagram .row-rect-even rect { stroke: none !important; }
+</style>
+</head>
+<body>
+<div id="erd">Loading diagram...</div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  themeVariables: {
+    fontSize: '13px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    lineColor: '#73726c',
+    textColor: '#2c2c2a',
+    primaryColor: '#eeedfe',
+    primaryBorderColor: '#534ab7',
+    primaryTextColor: '#26215c',
+    tertiaryColor: '#f7f7f5',
+    tertiaryBorderColor: '#c9c8c0',
+  },
+});
+
+const def = `erDiagram
+  USER ||--o{ USER_ROLE : has
+  USER ||--o| USER_MFA : has
+  USER ||--o| USER_ACTIVATION : has
+  USER ||--o| USER_NAME : has
+  USER ||--o{ ADDRESS : has
+  USER ||--o{ APPOINTMENT : "dentist on"
+  USER ||--o{ FILE : uploads
+  USER ||--o{ PAYMENT : records
+  PATIENT ||--o{ APPOINTMENT : books
+  PATIENT ||--o{ FILE : owns
+  PATIENT ||--o{ INVOICE : billed
+  APPOINTMENT ||--o| TREATMENT : yields
+  TREATMENT ||--o| INVOICE_ITEM : bills
+  INVOICE ||--o{ INVOICE_ITEM : contains
+  INVOICE ||--o{ PAYMENT : receives
+  PAYMENT ||--o{ PAYMENT_ALLOCATION : splits
+  INVOICE_ITEM ||--o{ PAYMENT_ALLOCATION : allocated
+
+  USER {
+    string id PK
+    string email
+    enum status
+    string_array phones
+  }
+  USER_ROLE {
+    string id PK
+    string userId FK
+    enum role
+  }
+  PATIENT {
+    string id PK
+    string firstName
+    string lastName
+    datetime dob
+  }
+  APPOINTMENT {
+    string id PK
+    string dentistId FK
+    string patientId FK
+    datetime date
+    enum status
+  }
+  TREATMENT {
+    string id PK
+    string appointmentId FK
+    string procedure
+    float amount
+  }
+  FILE {
+    string id PK
+    string patientId FK
+    string uploadedBy FK
+    string storageKey
+    enum status
+  }
+  INVOICE {
+    string id PK
+    string patientId FK
+    string invoiceNumber
+    enum status
+    float total
+  }
+  INVOICE_ITEM {
+    string id PK
+    string invoiceId FK
+    string treatmentId FK
+    float amount
+    enum itemStatus
+  }
+  PAYMENT {
+    string id PK
+    string invoiceId FK
+    string recordedById FK
+    float amount
+    enum method
+  }
+  PAYMENT_ALLOCATION {
+    string id PK
+    string paymentId FK
+    string invoiceItemId FK
+    float amount
+  }
+`;
+
+const { svg } = await mermaid.render('erd-svg', def);
+document.getElementById('erd').innerHTML = svg;
+
+// Round entity box corners
+document.querySelectorAll('#erd svg.erDiagram .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+
+document.querySelectorAll('#erd svg.erDiagram .row-rect-odd path, #erd svg.erDiagram .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>
+</body>
+</html>

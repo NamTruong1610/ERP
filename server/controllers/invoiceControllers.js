@@ -72,14 +72,16 @@ exports.createInvoiceController = async (req, res, next) => {
       return res.status(404).json({ message: 'One or more treatments not found' })
     }
 
-    const allBelongToPatient = treatments.every(t => t.appointment.patientId === patientId)
-    if (!allBelongToPatient) {
-      return res.status(400).json({ message: 'One or more treatments do not belong to this patient' })
+    for (const treatment of treatments) {
+      if (treatment.appointment.patientId !== patientId) {
+        return res.status(400).json({ message: 'One or more treatments do not belong to this patient' })
+      }
     }
 
-    const alreadyInvoiced = treatments.some(t => t.invoiceItems.length > 0)
-    if (alreadyInvoiced) {
-      return res.status(400).json({ message: 'One or more treatments have already been invoiced' })
+    for (const treatment of treatments) {
+      if (treatment.invoiceItem != null) {
+        return res.status(400).json({ message: 'One or more treatments have already been invoiced' })
+      }
     }
 
     const invoice = await prisma.$transaction(async (tx) => {

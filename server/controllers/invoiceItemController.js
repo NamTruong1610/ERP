@@ -16,7 +16,7 @@ const resolveTreatmentLinkedItem = async (invoiceRecord, treatmentId, descriptio
   if (treatment.appointment.patientId !== invoiceRecord.patientId) {
     return { error: { status: 400, message: 'Treatment does not belong to this invoice\'s patient' } }
   }
-  if (treatment.invoiceItems.length > 0) {
+  if (treatment.invoiceItem != null) {
     return { error: { status: 400, message: 'Treatment has already been invoiced' } }
   }
 
