@@ -116,7 +116,7 @@ exports.requireAuth = async (req, res, next) => {
     }
 
     return res.status(401).json({
-      message: "Unauthenticated"
+      message: "Unauthenticated check"
     });
 
   } catch (error) {

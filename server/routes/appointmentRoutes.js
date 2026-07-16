@@ -11,7 +11,7 @@ const {
   createAppointmentController,
   updateAppointmentController,
   deleteAppointmentController
-} = require('../controllers/appointmentControllers')
+} = require('../controller/appointmentControllers')
 const {
   validateCreateAppointment,
   validateUpdateAppointment

@@ -36,6 +36,10 @@ export default function Login() {
         navigate('/home')
       }
     } catch (err) {
+      if (err.response?.status === 409) {
+        navigate('/home')
+        return
+      }
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
       setLoading(false)

@@ -26,7 +26,8 @@ model User {
   addresses         Address[]
   appointments      Appointment[]
   uploadedFiles     File[]            @relation(name: "uploadedFiles")
-  payments          Payment[] 
+  payments          Payment[]         @relation(name: "recordedPayments")
+  voidedPayments    Payment[]         @relation(name: "voidedPayments")
   userActivation    UserActivation?
   userMfa           UserMfa?
 }
@@ -179,6 +180,7 @@ model Invoice {
   discount         Float
   tax              Float         @default(0)
   total            Float
+  paidAmount       Float         @default(0)
   abn              String        @default("00000000000")
   notes            String?
   issuedAt         DateTime?
@@ -235,6 +237,11 @@ enum PaymentMethod {
   // STRIPE added later, once that's wired up
 }
 
+enum PaymentStatus {
+  ACTIVE
+  VOIDED
+}
+
 model Payment {
   id            String        @id @default(cuid())
   invoiceId     String
@@ -242,8 +249,13 @@ model Payment {
   amount        Float
   method        PaymentMethod
   note          String?
+  status        PaymentStatus @default(ACTIVE)
   recordedById  String
-  recordedBy    User          @relation(fields: [recordedById], references: [id])
+  recordedBy    User          @relation(fields: [recordedById], references: [id], name: "recordedPayments")
+  voidedById    String?
+  voidedBy      User?         @relation(fields: [voidedById], references: [id], name: "voidedPayments")
+  voidedAt      DateTime?
+  voidReason    String?
   allocations   PaymentAllocation[]
   createdAt     DateTime      @default(now())
 }

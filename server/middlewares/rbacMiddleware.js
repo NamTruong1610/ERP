@@ -1,5 +1,5 @@
 const { ROLES } = require('../config/RBACConfig')
-const { findUserById } = require('../services/userService')
+const { findUserById } = require('../repository/userRepository')
 const { UserStatus } = require('@prisma/client')
 
 exports.requirePermission = (permission) => async (req, res, next) => {

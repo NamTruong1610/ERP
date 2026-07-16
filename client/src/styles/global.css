@@ -313,6 +313,26 @@ body {
   color: var(--danger-text);
 }
 
+.badge-danger {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.badge-paid {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.badge-partial {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.badge-overdue {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
 .badge-staff {
   background: var(--bg-subtle);
   color: var(--text-secondary);

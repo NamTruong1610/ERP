@@ -7,8 +7,8 @@ const { redisConnect } = require('./config/RedisConfig');
 const { appConfig } = require('./config/AppConfig')
 const { validateEnv } = require('./config/validateEnv')
 const cron = require('node-cron')
-const { cleanupExpiredUsers } = require('./utils/cleanupUtils')
-const { cleanupPendingUploads } = require('./services/fileServices')
+const { cleanupExpiredUsers, purgeExpiredSoftDeletedFiles } = require('./utils/cleanupUtils')
+const { cleanupPendingUploads } = require('./repository/fileRepository')
 const { seedAdminUser, seedSuperAdminUser } = require('./utils/seedUtils')
 
 const { hashPassword } = require('./utils/passwordUtils')
@@ -50,12 +50,18 @@ const startServer = async () => {
   // Run immediately on startup
   await cleanupExpiredUsers()
   await cleanupPendingUploads()
+  await purgeExpiredSoftDeletedFiles()
 
-  // Run every hour
-  // cron.schedule('0 * * * *', async () => {
-  //   await cleanupExpiredUsers()
-  // })
+  // Run every hour — expired (unactivated) user accounts
+  cron.schedule('0 * * * *', async () => {
+    await cleanupExpiredUsers()
+  })
 
+  // Run once daily at 3am — permanently purge files that have been
+  // soft-deleted past the retention window (DB row + R2 object)
+  cron.schedule('0 3 * * *', async () => {
+    await purgeExpiredSoftDeletedFiles()
+  })
 
 };
 validateEnv();

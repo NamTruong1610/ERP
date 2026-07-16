@@ -11,6 +11,14 @@ exports.findInvoiceItemById = async (id, client = prisma) => {
   })
 }
 
+// Lean variant — no joins. Used inside hot loops (payment/void processing)
+// that only need paidAmount/amount/itemStatus, not the full invoice+treatment.
+exports.findInvoiceItemByIdLean = async (id, client = prisma) => {
+  return await client.invoiceItem.findUnique({
+    where: { id }
+  })
+}
+
 exports.findUnpaidInvoiceItemsByIds = async (ids, client = prisma) => {
   return await client.invoiceItem.findMany({
     where: {
@@ -24,6 +32,12 @@ exports.findUnpaidInvoiceItemsByIds = async (ids, client = prisma) => {
       invoice: true,    // needed to check invoice status and patientId
       treatment: true   // needed for response
     }
+  })
+}
+
+exports.findInvoiceItemsByInvoiceId = async (invoiceId, client = prisma) => {
+  return await client.invoiceItem.findMany({
+    where: { invoiceId }
   })
 }
 
@@ -49,6 +63,15 @@ exports.updateInvoiceItem = async (id, itemData, client = prisma) => {
       ...(itemData.amount !== undefined && { amount: parseFloat(itemData.amount) }),
       ...(itemData.treatmentId !== undefined && { treatmentId: itemData.treatmentId ?? null }),
     }
+  })
+}
+
+// Used by createPayment/voidPayment flows to update paidAmount + itemStatus
+// together in a single round trip.
+exports.updateInvoiceItemPaidAmountAndStatus = async (id, paidAmount, itemStatus, client = prisma) => {
+  return await client.invoiceItem.update({
+    where: { id },
+    data: { paidAmount, itemStatus },
   })
 }
 

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const {
   createUserController,
-  softDeleteUserController,
+  deleteUserController,
   getAllUsersController,
   getUserController,
   updateUserController,
@@ -13,7 +13,7 @@ const {
   assignRoleController,
   removeRoleController,
   forceLogoutUserController
-} = require("../controllers/adminControllers")
+} = require("../controller/adminControllers")
 
 const { requireAuth } = require("../middlewares/authMiddleware")
 const { requirePermission } = require("../middlewares/rbacMiddleware")
@@ -32,7 +32,7 @@ router.get("/users", requireAuth, requirePermission(PERMISSIONS.USERS_READ), get
 router.get("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_READ), validateUserId, handleValidationErrors, getUserController)
 router.post("/users", requireAuth, requirePermission(PERMISSIONS.USERS_CREATE), validateCreateUser, handleValidationErrors, createUserController)
 router.patch("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_UPDATE), validateUpdateUser, handleValidationErrors, updateUserController)
-router.delete("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_DELETE), validateUserId, handleValidationErrors, softDeleteUserController)
+router.delete("/users/:id", requireAuth, requirePermission(PERMISSIONS.USERS_DELETE), validateUserId, handleValidationErrors, deleteUserController)
 
 router.post("/users/:id/suspend", requireAuth, requirePermission(PERMISSIONS.USERS_SUSPEND), validateUserId, handleValidationErrors, suspendUserController)
 router.post("/users/:id/reactivate", requireAuth, requirePermission(PERMISSIONS.USERS_REACTIVATE), validateUserId, handleValidationErrors, reactivateUserController)

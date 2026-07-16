@@ -54,7 +54,7 @@ exports.seedSuperAdminUser = async () => {
   if (existing) {
     console.log('Super admin already exists — skipping')
     console.log('  Email:    ', email)
-    console.log('  Password: SuperAdmin123!')
+    console.log('  Password: 123456')
     console.log('  MFA secret (paste into any TOTP app):', existing.userMfa?.mfaSecret ?? '(check DB)')
     return
   }
@@ -105,7 +105,7 @@ exports.seedSuperAdminUser = async () => {
   console.log('✓ Super admin created')
   console.log('  ID:        ', user.id)
   console.log('  Email:     ', email)
-  console.log('  Password:  SuperAdmin123!')
+  console.log('  Password:  123456')
   console.log('  MFA secret:', secret.base32)
   console.log('  OTP URI:   ', secret.otpauth_url)
   console.log('')

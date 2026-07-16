@@ -11,7 +11,7 @@ const {
   createTreatmentController,
   updateTreatmentController,
   deleteTreatmentController
-} = require('../controllers/treatmentControllers')
+} = require('../controller/treatmentControllers')
 const {
   validateCreateTreatment,
   validateUpdateTreatment

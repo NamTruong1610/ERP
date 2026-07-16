@@ -66,3 +66,20 @@ export const getUnbilledTreatments = async (patientId) => {
   const { data } = await axiosInstance.get(`/treatments/patient/${patientId}/unbilled`)
   return data // { treatments }
 }
+
+// ─── Payments ─────────────────────────────────────────────────────────────────
+
+export const getInvoicePaymentLedger = async (invoiceId) => {
+  const { data } = await axiosInstance.get(`/payments/invoice/${invoiceId}/ledger`)
+  return data.data // { invoiceId, invoiceStatus, totalAmount, paidAmount, remainingAmount, payments }
+}
+
+export const recordPayment = async ({ invoiceId, method, note, itemPayments }) => {
+  const { data } = await axiosInstance.post('/payments', { invoiceId, method, note, itemPayments })
+  return data.data // { payment, invoice }
+}
+
+export const voidPayment = async (paymentId, reason) => {
+  const { data } = await axiosInstance.post(`/payments/${paymentId}/void`, { reason })
+  return data.data // { payment, invoice }
+}

@@ -11,12 +11,12 @@ const {
   issueInvoiceController,
   voidInvoiceController,
   deleteInvoiceController
-} = require('../controllers/invoiceControllers')
+} = require('../controller/invoiceControllers')
 const {
   createInvoiceItemController,
   updateInvoiceItemController,
   deleteInvoiceItemController
-} = require('../controllers/invoiceItemController')
+} = require('../controller/invoiceItemController')
 const {
   validateCreateInvoice,
   validateUpdateInvoice,

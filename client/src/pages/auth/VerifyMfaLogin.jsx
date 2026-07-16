@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { verifyMfaLogin, getMe } from '../../api/auth'
 import { useAuth } from '../../context/useAuth'
@@ -13,10 +13,11 @@ export default function VerifyMfaLogin() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  if (!mfaLoginTokenId) {
-    navigate('/login')
-    return null
-  }
+  useEffect(() => {
+    if (!mfaLoginTokenId) navigate('/login')
+  }, [mfaLoginTokenId])
+
+  if (!mfaLoginTokenId) return null
 
   const handleSubmit = async (e) => {
     e.preventDefault()

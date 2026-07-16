@@ -42,6 +42,7 @@ export default function AppSidebar({ active }) {
   const go = (path) => navigate(path)
 
   const handleLogout = async () => {
+    if (!window.confirm('Sign out of DentaCore?')) return
     try {
       await fetch('/api/v2/auth/logout', { method: 'POST', credentials: 'include' })
     } catch {
@@ -187,11 +188,14 @@ export default function AppSidebar({ active }) {
         {/* Logout */}
         <button
           onClick={handleLogout}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-bg)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           style={{
             display: 'flex', alignItems: 'center', gap: '10px',
             width: '100%', padding: '8px 12px', borderRadius: '8px',
             border: 'none', cursor: 'pointer', background: 'transparent',
-            color: 'var(--text-hint)', fontSize: '14px', textAlign: 'left'
+            color: 'var(--danger-text)', fontSize: '14px', fontWeight: 500, textAlign: 'left',
+            transition: 'background 0.15s'
           }}
         >
           <i className="ti ti-logout" style={{ fontSize: '18px' }} aria-hidden="true" />

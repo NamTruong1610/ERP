@@ -4,7 +4,7 @@ const {
   setPasswordController,
   get2faSecretController,
   verify2faSecretSetupController
-} = require("../controllers/activationControllers")
+} = require("../controller/activationControllers")
 
 const {
   validateSetPassword,

@@ -12,12 +12,20 @@ const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
   { value: 'DRAFT', label: 'Draft' },
   { value: 'ISSUED', label: 'Issued' },
-  { value: 'VOIDED', label: 'Voided' },   
+  { value: 'PARTIALLY_PAID', label: 'Partially paid' },
+  { value: 'PAID', label: 'Paid' },
+  { value: 'OVERDUE', label: 'Overdue' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+  { value: 'VOIDED', label: 'Voided' },
 ]
 
 const STATUS_BADGE = {
   DRAFT: 'badge-pending',
   ISSUED: 'badge-completed',
+  PARTIALLY_PAID: 'badge-partial',
+  PAID: 'badge-paid',
+  OVERDUE: 'badge-overdue',
+  CANCELLED: 'badge-danger',
   VOIDED: 'badge-danger'
 }
 

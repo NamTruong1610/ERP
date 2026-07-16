@@ -168,7 +168,17 @@ exports.softDeleteDraftInvoice = async (invoiceId, client = prisma) => {
   })
 }
 
-// service
+// Used by voidPaymentService to reverse a payment's effect on the invoice.
+exports.updateInvoiceStatusAndPaidAmount = async (invoiceId, { decrementBy, status }, client = prisma) => {
+  return await client.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      paidAmount: { decrement: decrementBy },
+      status,
+    },
+  })
+}
+
 exports.getInvoicePaymentLedger = async (invoiceId, client = prisma) => {
   const invoice = await client.invoice.findUnique({
     where: { id: invoiceId },
@@ -188,14 +198,19 @@ exports.getInvoicePaymentLedger = async (invoiceId, client = prisma) => {
   return {
     invoiceId: invoice.id,
     invoiceStatus: invoice.status,
-    totalAmount: invoice.amount,
+    // FIXED: was invoice.amount, which is never written anywhere — the
+    // actual computed total field is `total` (see computeTotals above).
+    totalAmount: invoice.total,
     paidAmount: invoice.paidAmount,
-    remainingAmount: invoice.amount - invoice.paidAmount,
+    remainingAmount: invoice.total - invoice.paidAmount,
     payments: invoice.payments.map(p => ({
       id: p.id,
       method: p.method,
       amount: p.amount,
       note: p.note,
+      status: p.status,
+      voidedAt: p.voidedAt,
+      voidReason: p.voidReason,
       createdAt: p.createdAt,
       allocations: p.allocations.map(a => ({
         invoiceItemId: a.invoiceItemId,

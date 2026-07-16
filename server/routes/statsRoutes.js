@@ -10,7 +10,7 @@ const {
   getMyStatsController,
   getClinicStatsController,
   getSystemStatsController
-} = require('../controllers/statsControllers')
+} = require('../controller/statsControllers')
 
 router.use(requireAuth)
 

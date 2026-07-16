@@ -3,16 +3,32 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   getInvoice, updateInvoice, issueInvoice, voidInvoice, deleteInvoice,
   createInvoiceItem, updateInvoiceItem, deleteInvoiceItem,
-  getUnbilledTreatments
+  getUnbilledTreatments,
+  getInvoicePaymentLedger, recordPayment, voidPayment,
 } from '../../api/invoice'
+import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/AppSidebar'
 import '../../styles/global.css'
 
 const STATUS_BADGE = {
   DRAFT: 'badge-pending',
   ISSUED: 'badge-completed',
+  PARTIALLY_PAID: 'badge-partial',
+  PAID: 'badge-paid',
+  OVERDUE: 'badge-overdue',
+  CANCELLED: 'badge-danger',
   VOIDED: 'badge-danger'
 }
+
+const PAYMENT_METHODS = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'CARD', label: 'Card' },
+  { value: 'BANK_TRANSFER', label: 'Bank transfer' },
+  { value: 'OTHER', label: 'Other' },
+]
+
+// Invoice statuses the backend will actually accept a payment against
+const PAYABLE_STATUSES = ['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']
 
 const formatMoney = (n) => `$${Number(n).toFixed(2)}`
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-AU') : '—'
@@ -31,6 +47,7 @@ const initialItemForm = { treatmentId: '', description: '', amount: '' }
 export default function InvoiceDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { isAdmin } = useAuth()
 
   const [invoice, setInvoice] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -54,6 +71,17 @@ export default function InvoiceDetail() {
   const [unbilled, setUnbilled] = useState([])
   const [deletingItemId, setDeletingItemId] = useState(null)
 
+  // Payments
+  const [ledger, setLedger] = useState(null)
+  const [ledgerLoading, setLedgerLoading] = useState(false)
+  const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
+  const [paymentNote, setPaymentNote] = useState('')
+  const [paymentAmounts, setPaymentAmounts] = useState({}) // itemId -> amount string
+  const [paymentError, setPaymentError] = useState('')
+  const [paymentLoading, setPaymentLoading] = useState(false)
+  const [voidingPaymentId, setVoidingPaymentId] = useState(null)
+
   const fetchInvoice = async () => {
     try {
       const data = await getInvoice(id)
@@ -65,10 +93,30 @@ export default function InvoiceDetail() {
     }
   }
 
+  const fetchLedger = async () => {
+    setLedgerLoading(true)
+    try {
+      const data = await getInvoicePaymentLedger(id)
+      setLedger(data)
+    } catch {
+      // non-critical — payments panel just won't render totals
+    } finally {
+      setLedgerLoading(false)
+    }
+  }
+
   useEffect(() => { fetchInvoice() }, [id])
+
+  // Payments only exist once an invoice has left DRAFT — no point fetching before that
+  useEffect(() => {
+    if (invoice && invoice.status !== 'DRAFT') {
+      fetchLedger()
+    }
+  }, [id, invoice?.status])
 
   const isDraft = invoice?.status === 'DRAFT'
   const isVoided = invoice?.status === 'VOIDED'
+  const isPayable = invoice && PAYABLE_STATUSES.includes(invoice.status)
 
   // ── Edit invoice details ──────────────────────────────────────────────────
 
@@ -189,7 +237,12 @@ export default function InvoiceDetail() {
     setItemLoading(true)
     setItemError('')
     try {
-      const payload = itemForm.treatmentId
+      // Linking a NEW treatment (only possible in 'add' mode) auto-derives
+      // description/amount server-side. Every other case — including editing
+      // an item that's already linked to a treatment — sends description/amount
+      // directly; the backend leaves the existing treatment link untouched
+      // when treatmentId isn't part of the payload.
+      const payload = itemMode === 'add' && itemForm.treatmentId
         ? { treatmentId: itemForm.treatmentId }
         : { description: itemForm.description, amount: itemForm.amount }
 
@@ -224,6 +277,83 @@ export default function InvoiceDetail() {
     }
   }
 
+  // ── Payments ──────────────────────────────────────────────────────────────
+
+  const payableItems = (invoice?.items || []).filter(
+    item => item.itemStatus === 'UNPAID' || item.itemStatus === 'PARTIALLY_PAID'
+  )
+
+  const startRecordPayment = () => {
+    const defaults = {}
+    for (const item of payableItems) {
+      defaults[item.id] = (item.amount - item.paidAmount).toFixed(2)
+    }
+    setPaymentAmounts(defaults)
+    setPaymentMethod('CASH')
+    setPaymentNote('')
+    setPaymentError('')
+    setShowPaymentForm(true)
+  }
+
+  const toggleItemPayment = (itemId, remaining) => {
+    setPaymentAmounts(prev => {
+      const next = { ...prev }
+      if (next[itemId] !== undefined) {
+        delete next[itemId]
+      } else {
+        next[itemId] = remaining.toFixed(2)
+      }
+      return next
+    })
+  }
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault()
+    setPaymentError('')
+
+    const itemPayments = Object.entries(paymentAmounts)
+      .map(([itemId, amount]) => [itemId, parseFloat(amount)])
+      .filter(([, amount]) => !isNaN(amount) && amount > 0)
+
+    if (itemPayments.length === 0) {
+      setPaymentError('Select at least one item and enter an amount')
+      return
+    }
+
+    setPaymentLoading(true)
+    try {
+      await recordPayment({
+        invoiceId: id,
+        method: paymentMethod,
+        note: paymentNote.trim() || undefined,
+        itemPayments,
+      })
+      setFeedback('Payment recorded')
+      setShowPaymentForm(false)
+      await Promise.all([fetchInvoice(), fetchLedger()])
+    } catch (err) {
+      setPaymentError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setPaymentLoading(false)
+    }
+  }
+
+  const handleVoidPayment = async (paymentId) => {
+    const reason = window.prompt('Reason for voiding this payment?')
+    if (!reason || !reason.trim()) return
+    setVoidingPaymentId(paymentId)
+    setError('')
+    try {
+      await voidPayment(paymentId, reason.trim())
+      setFeedback('Payment voided')
+      await Promise.all([fetchInvoice(), fetchLedger()])
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setVoidingPaymentId(null)
+    }
+  }
+
   if (loading) return <div className="loading">Loading invoice...</div>
   if (!invoice) return <div className="loading">{error || 'Invoice not found'}</div>
 
@@ -248,7 +378,7 @@ export default function InvoiceDetail() {
             </div>
           </div>
           <span className={`badge ${STATUS_BADGE[invoice.status]}`}>
-            {invoice.status.toLowerCase()}
+            {invoice.status.toLowerCase().replace(/_/g, ' ')}
           </span>
         </div>
 
@@ -317,6 +447,11 @@ export default function InvoiceDetail() {
                     {deleting ? 'Deleting...' : 'Delete invoice'}
                   </button>
                 </>
+              )}
+              {isPayable && (
+                <button className="btn btn-primary" onClick={startRecordPayment}>
+                  <i className="ti ti-cash" aria-hidden="true" /> Record payment
+                </button>
               )}
               {invoice.status === 'ISSUED' && (
                 <button className="btn btn-danger" disabled={voiding} onClick={handleVoid}>
@@ -400,7 +535,12 @@ export default function InvoiceDetail() {
                   </select>
                 </div>
               )}
-              {!itemForm.treatmentId && (
+              {/* Only hidden when adding a new item AND linking it to a treatment
+                  (amount/description are auto-derived from the treatment in that
+                  case). Editing an existing item — even one already linked to a
+                  treatment — always shows these fields, since the backend allows
+                  updating them as long as the treatment link itself isn't changed. */}
+              {(itemMode !== 'add' || !itemForm.treatmentId) && (
                 <>
                   <div className="form-group">
                     <label className="form-label">Description <span style={{ color: 'var(--danger-text)' }}>*</span></label>
@@ -427,6 +567,84 @@ export default function InvoiceDetail() {
           </div>
         )}
 
+        {/* Record payment form */}
+        {showPaymentForm && (
+          <div className="card" style={{ marginBottom: '16px' }}>
+            <div className="card-title">Record payment</div>
+            <form onSubmit={handlePaymentSubmit} className="form">
+              <div className="form-group">
+                <label className="form-label">Items being paid</label>
+                {payableItems.length === 0 ? (
+                  <div className="feedback-error">No unpaid items on this invoice</div>
+                ) : (
+                  <div className="table-wrap">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th></th>
+                          <th>Description</th>
+                          <th>Remaining</th>
+                          <th>Amount to pay</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payableItems.map(item => {
+                          const remaining = item.amount - item.paidAmount
+                          const included = paymentAmounts[item.id] !== undefined
+                          return (
+                            <tr key={item.id}>
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  checked={included}
+                                  onChange={() => toggleItemPayment(item.id, remaining)}
+                                />
+                              </td>
+                              <td>{item.description}</td>
+                              <td style={{ color: 'var(--text-secondary)' }}>{formatMoney(remaining)}</td>
+                              <td>
+                                <input
+                                  type="number" min="0.01" max={remaining} step="0.01"
+                                  className="form-input" style={{ width: '110px' }}
+                                  value={paymentAmounts[item.id] ?? ''}
+                                  disabled={!included}
+                                  onChange={e => setPaymentAmounts(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                />
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Payment method</label>
+                  <select className="form-select" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                    {PAYMENT_METHODS.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Note (optional)</label>
+                  <input className="form-input" value={paymentNote}
+                    onChange={e => setPaymentNote(e.target.value)} placeholder="e.g. Receipt #1234" />
+                </div>
+              </div>
+              {paymentError && <div className="feedback-error">{paymentError}</div>}
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={() => setShowPaymentForm(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={paymentLoading || payableItems.length === 0}>
+                  {paymentLoading ? 'Recording...' : 'Record payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
         {/* Items */}
         <div className="table-wrap" style={{ marginBottom: '16px' }}>
           <table className="table">
@@ -435,6 +653,7 @@ export default function InvoiceDetail() {
                 <th>Description</th>
                 <th>Linked treatment</th>
                 <th>Amount</th>
+                <th>Paid</th>
                 {isDraft && <th></th>}
               </tr>
             </thead>
@@ -446,6 +665,9 @@ export default function InvoiceDetail() {
                     {item.treatment ? `${item.treatment.procedure}${item.treatment.toothNumber ? ` (tooth ${item.treatment.toothNumber})` : ''}` : '—'}
                   </td>
                   <td>{formatMoney(item.amount)}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>
+                    {item.itemStatus === 'WRITTEN_OFF' ? 'Written off' : formatMoney(item.paidAmount ?? 0)}
+                  </td>
                   {isDraft && (
                     <td>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -469,6 +691,78 @@ export default function InvoiceDetail() {
           </table>
         </div>
 
+        {/* Payments history */}
+        {!isDraft && (
+          <div className="card" style={{ marginBottom: '16px' }}>
+            <div className="card-title">Payments</div>
+            {ledgerLoading && !ledger ? (
+              <div className="loading" style={{ padding: '12px 0' }}>Loading payments...</div>
+            ) : !ledger ? (
+              <div className="feedback-error">Failed to load payment history</div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: '24px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Paid</div>
+                    <div style={{ fontSize: '18px', fontWeight: 700 }}>{formatMoney(ledger.paidAmount)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-hint)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Remaining</div>
+                    <div style={{ fontSize: '18px', fontWeight: 700 }}>{formatMoney(ledger.remainingAmount)}</div>
+                  </div>
+                </div>
+
+                {ledger.payments.length === 0 ? (
+                  <div style={{ fontSize: '13px', color: 'var(--text-hint)' }}>No payments recorded yet</div>
+                ) : (
+                  <div className="table-wrap">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Method</th>
+                          <th>Amount</th>
+                          <th>Note</th>
+                          <th>Status</th>
+                          {isAdmin() && <th></th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ledger.payments.map(p => (
+                          <tr key={p.id}>
+                            <td>{formatDateTime(p.createdAt)}</td>
+                            <td style={{ color: 'var(--text-secondary)' }}>{p.method.toLowerCase().replace(/_/g, ' ')}</td>
+                            <td>{formatMoney(p.amount)}</td>
+                            <td style={{ color: 'var(--text-secondary)' }}>{p.note || '—'}</td>
+                            <td>
+                              <span className={`badge ${p.status === 'VOIDED' ? 'badge-danger' : 'badge-paid'}`}>
+                                {p.status === 'VOIDED' ? 'voided' : 'active'}
+                              </span>
+                            </td>
+                            {isAdmin() && (
+                              <td>
+                                {p.status !== 'VOIDED' && (
+                                  <button
+                                    className="btn btn-sm btn-danger"
+                                    onClick={() => handleVoidPayment(p.id)}
+                                    disabled={voidingPaymentId === p.id}
+                                  >
+                                    {voidingPaymentId === p.id ? 'Voiding...' : 'Void'}
+                                  </button>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Totals */}
         <div className="card" style={{ maxWidth: '320px', marginLeft: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
@@ -486,6 +780,16 @@ export default function InvoiceDetail() {
           }}>
             <span>Total</span><span>{formatMoney(invoice.total)}</span>
           </div>
+          {!isDraft && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--success-text)', marginTop: '10px' }}>
+                <span>Paid</span><span>{formatMoney(invoice.paidAmount ?? 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px' }}>
+                <span>Balance due</span><span>{formatMoney(invoice.total - (invoice.paidAmount ?? 0))}</span>
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>

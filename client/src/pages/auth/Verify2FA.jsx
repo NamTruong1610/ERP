@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { verify2faSetup } from '../../api/activation'
 import '../../styles/global.css'
@@ -11,10 +11,11 @@ export default function Verify2FA() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  if (!activationToken || !mfaToken) {
-    navigate('/login')
-    return null
-  }
+  useEffect(() => {
+    if (!activationToken || !mfaToken) navigate('/login')
+  }, [activationToken, mfaToken])
+
+  if (!activationToken || !mfaToken) return null
 
   const handleSubmit = async (e) => {
     e.preventDefault()

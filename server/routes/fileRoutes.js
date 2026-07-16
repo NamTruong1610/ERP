@@ -13,7 +13,7 @@ const {
   downloadFileController,
   softDeleteFileController,
   hardDeleteFileController
-} = require('../controllers/fileControllers')
+} = require('../controller/fileController')
 
 router.use(requireAuth)
 
