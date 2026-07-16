@@ -91,7 +91,7 @@ On first boot the server automatically:
 ### Frontend setup
 
 ```bash
-cd <frontend-directory>
+cd client
 npm install
 npm run dev
 ```
