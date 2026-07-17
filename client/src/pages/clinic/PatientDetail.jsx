@@ -280,7 +280,7 @@ export default function PatientDetail() {
         </div>
 
         {!patient.appointments?.length ? (
-          <div className="table-wrap">
+          <div className="table-wrap" style={{ marginBottom: '32px' }}>
             <div className="empty">
               <i className="ti ti-calendar" aria-hidden="true" />
               <div className="empty-title">No appointments yet</div>

@@ -28,10 +28,10 @@ exports.validateCreatePatient = [
     .notEmpty().withMessage('Gender is required')
     .isIn(VALID_GENDERS).withMessage(`Gender must be one of: ${VALID_GENDERS.join(', ')}`),
   body('phone')
-    .optional()
+    .optional({ values: 'falsy' })
     .isMobilePhone().withMessage('Valid phone number is required'),
   body('email')
-    .optional()
+    .optional({ values: 'falsy' })
     .isEmail().withMessage('Valid email is required')
     .normalizeEmail(),
   body('address')
