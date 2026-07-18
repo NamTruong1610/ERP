@@ -104,6 +104,7 @@ exports.updatePatientService = async (id, body, actor) => {
     }, tx)
     return result
   })
+  return patient
 }
 
 exports.deletePatientService = async (id, actor) => {

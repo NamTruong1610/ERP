@@ -108,10 +108,12 @@ export default function PatientDetail() {
     setEditLoading(true)
     setEditError('')
     try {
-      await updatePatient(id, editForm)
+      const data = await updatePatient(id, editForm)
+      // updatePatient's response is patient scalars only (no appointments/files
+      // relations) — merge rather than replace, since those didn't change.
+      setPatient(prev => ({ ...prev, ...data.patient }))
       setFeedback('Patient updated successfully')
       setShowEdit(false)
-      await fetchPatient()
     } catch (err) {
       setEditError(err.response?.data?.message || 'Something went wrong')
     } finally {

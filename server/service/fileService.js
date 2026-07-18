@@ -155,23 +155,28 @@ exports.hardDeleteFileService = async (fileId, actor) => {
     throw new AppError('File must be soft-deleted before it can be purged', 409);
   }
 
-  await createAuditLog({
-    actorId: actor.id,
-    actorType: ActorType.USER,
-    targetId: fileId,
-    targetType: TargetType.FILE,
-    action: AuditAction.FILE_PURGED,
-    metadata: {
-      patientId: fileRecord.patientId,
-      fileName: fileRecord.fileName,
-      mimeType: fileRecord.mimeType,
-      sizeBytes: fileRecord.sizeBytes,
-    },
-    ip: actor.ip,
-    userAgent: actor.userAgent,
-    trigger: TriggerType.ADMIN_ACTION,
-  });
-
+  // R2 delete goes first — it's the external, network-dependent step, and
+  // it's safe to retry (deleting an already-missing key is a no-op success).
+  // A crash here just means "retry the purge"; nothing has been recorded yet.
   await deleteObject(fileRecord.storageKey);
-  await hardDeleteFile(fileId);
+
+  await prisma.$transaction(async (tx) => {
+    await createAuditLog({
+      actorId: actor.id,
+      actorType: ActorType.USER,
+      targetId: fileId,
+      targetType: TargetType.FILE,
+      action: AuditAction.FILE_PURGED,
+      metadata: {
+        patientId: fileRecord.patientId,
+        fileName: fileRecord.fileName,
+        mimeType: fileRecord.mimeType,
+        sizeBytes: fileRecord.sizeBytes,
+      },
+      ip: actor.ip,
+      userAgent: actor.userAgent,
+      trigger: TriggerType.ADMIN_ACTION,
+    }, tx);
+    await hardDeleteFile(fileId, tx);
+  });
 };

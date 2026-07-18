@@ -66,25 +66,27 @@ exports.purgeExpiredSoftDeletedFiles = async () => {
   // attributed to the system rather than any user, so there's a permanent
   // record of what was purged and when even though the File row itself
   // is about to be gone.
-  await Promise.all(
-    expired.map(f => createAuditLog({
-      actorId: null,
-      actorType: ActorType.SYSTEM,
-      targetId: f.id,
-      targetType: TargetType.FILE,
-      action: AuditAction.FILE_PURGED,
-      metadata: {
-        patientId: f.patientId,
-        fileName: f.fileName,
-        mimeType: f.mimeType,
-        sizeBytes: f.sizeBytes,
-      },
-      trigger: TriggerType.SYSTEM,
-    }))
-  )
+  await prisma.$transaction(async (tx) => {
+    for (const f of expired) {
+      await createAuditLog({
+        actorId: null,
+        actorType: ActorType.SYSTEM,
+        targetId: f.id,
+        targetType: TargetType.FILE,
+        action: AuditAction.FILE_PURGED,
+        metadata: {
+          patientId: f.patientId,
+          fileName: f.fileName,
+          mimeType: f.mimeType,
+          sizeBytes: f.sizeBytes,
+        },
+        trigger: TriggerType.SYSTEM,
+      }, tx)
+    }
 
-  await prisma.file.deleteMany({
-    where: { id: { in: expired.map(f => f.id) } }
+    await tx.file.deleteMany({
+      where: { id: { in: expired.map(f => f.id) } }
+    })
   })
 
   console.log(`Purged ${expired.length} expired soft-deleted files`)

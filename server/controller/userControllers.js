@@ -223,7 +223,7 @@ exports.enable2faController = async (req, res, next) => {
 
 exports.getDentistsController = async (req, res, next) => {
   try {
-    const dentists = await getDentistsService()
+    const { dentists } = await getDentistsService()
     return res.status(200).json({ dentists })
   } catch (error) {
     if (error instanceof AppError) {
@@ -232,6 +232,3 @@ exports.getDentistsController = async (req, res, next) => {
     next(error)
   }
 }
-
-
-

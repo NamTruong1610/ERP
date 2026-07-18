@@ -154,6 +154,10 @@ exports.changePasswordService = async ({ currentPassword, newPassword, confirmNe
   }
 
   const hashedPassword = await hashPassword(newPassword)
+
+  // Invalidate all other sessions so other devices are forced to re-login
+  await invalidateAllUserSessions(actor.id)
+
   await prisma.$transaction(async (tx) => {
     await updateUser(userRecord, { password: hashedPassword }, tx)
     await createAuditLog({
@@ -166,10 +170,6 @@ exports.changePasswordService = async ({ currentPassword, newPassword, confirmNe
       userAgent: actor.userAgent
     }, tx)
   })
-
-  // Invalidate all other sessions so other devices are forced to re-login
-  await invalidateAllUserSessions(actor.id)
-
 }
 
 exports.changeEmailService = async ({ email, password }, actor) => {
@@ -289,6 +289,9 @@ exports.disable2faService = async ({ password, otp }, actor) => {
     throw new AppError("Invalid OTP", 401)
   }
 
+  // Invalidate all sessions and force re-login
+  await invalidateAllUserSessions(userRecord.id)
+
   await prisma.$transaction(async (tx) => {
     await updateMfa(userRecord.id, { enabled: false }, tx)
     await createAuditLog({
@@ -301,9 +304,7 @@ exports.disable2faService = async ({ password, otp }, actor) => {
       userAgent: actor.userAgent
     }, tx)
   })
-
-  // Invalidate all sessions and force re-login
-  await invalidateAllUserSessions(userRecord.id)
+  
 }
 
 exports.enable2faService = async ({ password, otp }, actor) => {

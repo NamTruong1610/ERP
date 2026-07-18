@@ -140,7 +140,7 @@ export default function InvoiceDetail() {
     setEditLoading(true)
     setEditError('')
     try {
-      await updateInvoice(id, {
+      const data = await updateInvoice(id, {
         dueAt: editForm.dueAt ? new Date(editForm.dueAt).toISOString() : null,
         notes: editForm.notes,
         billedToName: editForm.billedToName,
@@ -148,9 +148,9 @@ export default function InvoiceDetail() {
         billedToPhone: editForm.billedToPhone,
         billedToAddress: editForm.billedToAddress,
       })
+      setInvoice(data.invoice)
       setFeedback('Invoice updated')
       setShowEdit(false)
-      await fetchInvoice()
     } catch (err) {
       setEditError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -165,9 +165,9 @@ export default function InvoiceDetail() {
     setIssuing(true)
     setError('')
     try {
-      await issueInvoice(id)
+      const data = await issueInvoice(id)
+      setInvoice(data.invoice)
       setFeedback('Invoice issued')
-      await fetchInvoice()
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -181,9 +181,9 @@ export default function InvoiceDetail() {
     setVoiding(true)
     setError('')
     try {
-      await voidInvoice(id, reason.trim())
+      const data = await voidInvoice(id, reason.trim())
+      setInvoice(data.invoice)
       setFeedback('Invoice voided')
-      await fetchInvoice()
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -322,15 +322,16 @@ export default function InvoiceDetail() {
 
     setPaymentLoading(true)
     try {
-      await recordPayment({
+      const data = await recordPayment({
         invoiceId: id,
         method: paymentMethod,
         note: paymentNote.trim() || undefined,
         itemPayments,
       })
+      setInvoice(data.invoice)
       setFeedback('Payment recorded')
       setShowPaymentForm(false)
-      await Promise.all([fetchInvoice(), fetchLedger()])
+      await fetchLedger()
     } catch (err) {
       setPaymentError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -344,9 +345,10 @@ export default function InvoiceDetail() {
     setVoidingPaymentId(paymentId)
     setError('')
     try {
-      await voidPayment(paymentId, reason.trim())
+      const data = await voidPayment(paymentId, reason.trim())
+      setInvoice(data.invoice)
       setFeedback('Payment voided')
-      await Promise.all([fetchInvoice(), fetchLedger()])
+      await fetchLedger()
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {

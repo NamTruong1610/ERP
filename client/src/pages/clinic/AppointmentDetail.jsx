@@ -98,14 +98,14 @@ export default function AppointmentDetail() {
     setEditLoading(true)
     setEditError('')
     try {
-      await updateAppointment(id, {
+      const data = await updateAppointment(id, {
         dentistId: editForm.dentistId,
         date: new Date(editForm.date).toISOString(),
         notes: editForm.notes
       })
+      setAppointment(data.appointment)
       setFeedback('Appointment updated')
       setShowEdit(false)
-      await fetchAppointment()
     } catch (err) {
       setEditError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -118,9 +118,9 @@ export default function AppointmentDetail() {
     setError('')
     setFeedback('')
     try {
-      await updateAppointment(id, { status })
+      const data = await updateAppointment(id, { status })
+      setAppointment(data.appointment)
       setFeedback(`Appointment marked as ${status.toLowerCase()}`)
-      await fetchAppointment()
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -144,14 +144,18 @@ export default function AppointmentDetail() {
     setTreatmentError('')
     try {
       if (appointment.treatment) {
-        await updateTreatment(appointment.treatment.id, {
+        const data = await updateTreatment(appointment.treatment.id, {
           procedure: treatmentForm.procedure,
           toothNumber: treatmentForm.toothNumber ? parseInt(treatmentForm.toothNumber) : null,
           notes: treatmentForm.notes,
           amount: parseFloat(treatmentForm.amount)
         })
+        setAppointment(prev => ({ ...prev, treatment: data.treatment }))
         setFeedback('Treatment updated')
       } else {
+        // Creating a treatment also flips the appointment's status to COMPLETED
+        // server-side — a refetch is needed here since the treatment response
+        // alone doesn't reflect that.
         await createTreatment({
           appointmentId: id,
           procedure: treatmentForm.procedure,
@@ -160,9 +164,9 @@ export default function AppointmentDetail() {
           amount: parseFloat(treatmentForm.amount)
         })
         setFeedback('Treatment recorded')
+        await fetchAppointment()
       }
       setShowTreatment(false)
-      await fetchAppointment()
     } catch (err) {
       setTreatmentError(err.response?.data?.message || 'Something went wrong')
     } finally {

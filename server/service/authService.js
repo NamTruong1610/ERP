@@ -40,6 +40,7 @@ const {
   sendAccountRecoveryEmail
 } = require("../utils/emailUtils.js")
 
+const { prisma } = require("../config/PrismaConfig.js")
 const { UserStatus, ActorType, AuditAction, TriggerType, TargetType } = require('@prisma/client')
 const { redisClient } = require("../config/RedisConfig.js")
 const { SESSION_TTL_MS, REMEMBER_TTL_MS, COOKIE_OPTIONS, RECOVERY_TTL_SECONDS, RECOVERY_MAP_TTL_SECONDS, RECOVERY_EMAIL_IDEMPOTENCY_MS, MFA_LOGIN_TTL_SECONDS, MFA_LOGIN_MAP_TTL_SECONDS } = require("../config/constants.js")
@@ -437,6 +438,13 @@ exports.resetPasswordService = async ({ password, confirmPassword, recoveryToken
 
   const hashedPassword = await hashPassword(password)
 
+  // Delete user->recovery tokens map, recovery token, user->sessions map, login sessions, user->remember map, rememberMe tokens
+  // Delete user->sessions map and login sessions
+  await invalidateAllUserSessions(userRecord.id)
+  // Delete user->recovery tokens map and recovery token
+  await redisClient.del(`user_recover:${userRecord.id}`)
+  await redisClient.del(`token:recover:${recoveryToken}`)
+
   await prisma.$transaction(async (tx) => {
     await updateUser(userRecord, { password: hashedPassword }, tx)
     await createAuditLog({
@@ -450,12 +458,6 @@ exports.resetPasswordService = async ({ password, confirmPassword, recoveryToken
     }, tx)
   })
 
-  // Delete user->recovery tokens map, recovery token, user->sessions map, login sessions, user->remember map, rememberMe tokens
-  // Delete user->sessions map and login sessions
-  await invalidateAllUserSessions(userRecord.id)
-  // Delete user->recovery tokens map and recovery token
-  await redisClient.del(`user_recover:${userRecord.id}`)
-  await redisClient.del(`token:recover:${recoveryToken}`)
 }
 
 // Enable 2FA:

@@ -65,7 +65,10 @@ exports.createPaymentService = async ({ invoiceId, method, note, itemPayments: r
       userAgent: actor.userAgent,
     }, tx);
 
-    return result;
+    // createPayment's own invoice update has no include — fetch the fully
+    // populated invoice here so the caller can use this response directly
+    // instead of needing a separate GET.
+    return { payment: result.payment, invoice: await findInvoiceById(invoiceId, tx) };
   });
 };
 
@@ -129,6 +132,8 @@ exports.voidPaymentService = async (paymentId, reason, actor) => {
       userAgent: actor.userAgent,
     }, tx);
 
-    return { payment: voidedPayment, invoice: updatedInvoice };
+    // Same reasoning as createPaymentService — return the fully populated
+    // invoice so the caller doesn't need a separate fetch.
+    return { payment: voidedPayment, invoice: await findInvoiceById(payment.invoiceId, tx) };
   });
 };

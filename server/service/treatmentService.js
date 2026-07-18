@@ -140,7 +140,7 @@ exports.updateTreatmentService = async (id, body, actor) => {
     return result
   })
 
-  return { treatment: updated }
+  return updated
 }
 
 exports.deleteTreatmentService = async (id, actor) => {

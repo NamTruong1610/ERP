@@ -95,6 +95,9 @@ exports.deleteUserService = async (id, actor) => {
     throw new AppError('No user found', 404)
   }
 
+  // Invalidate all sessions and remember tokens (standalone due to Redis being a different service from Prisma)
+  await invalidateAllUserSessions(id)
+
   // Write-ahead: log before the destructive operation
   await prisma.$transaction(async (tx) => {
     await createAuditLog({
@@ -108,10 +111,6 @@ exports.deleteUserService = async (id, actor) => {
     }, tx)
     await softDeleteUserById(userRecord.id, tx)
   })
-
-  // Invalidate all sessions and remember tokens (standalone due to Redis being a different service from Prisma)
-  await invalidateAllUserSessions(id)
-
 }
 
 exports.hardDeleteUserService = async (id, actor) => {
@@ -120,6 +119,9 @@ exports.hardDeleteUserService = async (id, actor) => {
     throw new AppError('No user found', 404)
 
   }
+
+  // Invalidate all sessions and remember tokens
+  await invalidateAllUserSessions(id)
 
   await prisma.$transaction(async (tx) => {
     await createAuditLog({
@@ -133,9 +135,6 @@ exports.hardDeleteUserService = async (id, actor) => {
     }, tx)
     await deleteUserById(id, tx)
   })
-
-  // Invalidate all sessions and remember tokens
-  await invalidateAllUserSessions(id)
 }
 
 exports.getAllUsersService = async ({ search, take, skip }) => {
@@ -187,6 +186,9 @@ exports.suspendUserService = async (id, actor) => {
     throw new AppError("User is already suspended", 400)
   }
 
+  // Invalidate all sessions and remember tokens
+  await invalidateAllUserSessions(id)
+
   await prisma.$transaction(async (tx) => {
     await updateUser(userRecord, { status: UserStatus.SUSPENDED }, tx)
     await createAuditLog({
@@ -199,9 +201,6 @@ exports.suspendUserService = async (id, actor) => {
       userAgent: actor.userAgent
     }, tx)
   })
-
-  // Invalidate all sessions and remember tokens
-  await invalidateAllUserSessions(id)
 
 }
 
@@ -228,6 +227,9 @@ exports.reset2faService = async (id, actor) => {
 
   const rawActivationTokenId = await generateActivationToken()
   const hashedActivationTokenId = await hashToken(rawActivationTokenId)
+
+  // Invalidate all sessions so the user is forced to log in and set up 2FA again
+  await invalidateAllUserSessions(id)
 
   await prisma.$transaction(async (tx) => {
     if (userRecord.userActivation) {
@@ -260,8 +262,6 @@ exports.reset2faService = async (id, actor) => {
     }, tx)
   })
 
-  // Invalidate all sessions so the user is forced to log in and set up 2FA again
-  await invalidateAllUserSessions(id)
   await sendAccountActivationEmail(userRecord.email, rawActivationTokenId)
 }
 
@@ -384,6 +384,8 @@ exports.forceLogoutUserService = async (id, actor) => {
     throw new AppError("User not found", 404)
   }
 
+  await invalidateAllUserSessions(id)
+
   await createAuditLog({
     actorId: actor.id,
     targetId: id,
@@ -393,9 +395,6 @@ exports.forceLogoutUserService = async (id, actor) => {
     ip: actor.ip,
     userAgent: actor.userAgent
   })
-
-  await invalidateAllUserSessions(id)
-
 }
 
 // Review this service in business security context

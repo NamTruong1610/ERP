@@ -25,6 +25,10 @@ export const AuthProvider = ({ children }) => {
   const login     = (userData) => setUser(userData)
   const logoutUser = () => setUser(null)
 
+  // Merge a partial patch into the current user (e.g. after a profile edit
+  // whose response already contains the new value) — no network call.
+  const updateUser = (patch) => setUser(prev => prev ? { ...prev, ...patch } : prev)
+
   const isAdmin = () =>
     user?.roles?.some(r => r.role === 'ADMIN' || r.role === 'SUPER_ADMIN') ?? false
 
@@ -46,6 +50,7 @@ export const AuthProvider = ({ children }) => {
       loading,
       login,
       logoutUser,
+      updateUser,
       isAdmin,
       isSuperAdmin,
       refreshUser

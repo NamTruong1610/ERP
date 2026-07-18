@@ -29,7 +29,7 @@ function Field({ label, value }) {
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { logoutUser, refreshUser } = useAuth()
+  const { logoutUser, updateUser } = useAuth()
 
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -82,11 +82,11 @@ export default function Profile() {
     e.preventDefault()
     setNameLoading(true)
     try {
-      await updateName({ name: nameForm }) 
+      const data = await updateName({ name: nameForm })
+      setProfile(prev => ({ ...prev, name: data.name }))
+      updateUser({ name: data.name })
       showFeedback('Name updated')
       setShowNameEdit(false)
-      await fetchProfile()
-      await refreshUser() 
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -98,10 +98,10 @@ export default function Profile() {
     e.preventDefault()
     setPhoneLoading(true)
     try {
-      await addPhone({ phone: newPhone })
+      const data = await addPhone({ phone: newPhone })
+      setProfile(prev => ({ ...prev, phones: data.phones }))
       setNewPhone('')
       showFeedback('Phone added')
-      await fetchProfile()
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -111,9 +111,11 @@ export default function Profile() {
 
   const handleRemovePhone = async (phone) => {
     try {
-      await removePhone(phone)
+      // removePhone expects { phone } — passing the bare string was sending
+      // DELETE /user/phones/undefined on every call.
+      const data = await removePhone({ phone })
+      setProfile(prev => ({ ...prev, phones: data.phones }))
       showFeedback('Phone removed')
-      await fetchProfile()
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     }
@@ -123,17 +125,18 @@ export default function Profile() {
     e.preventDefault()
     setAddressLoading(true)
     try {
+      let data
       if (editingAddressId) {
-        await updateAddress({ addressId: editingAddressId, address: addressForm })
+        data = await updateAddress({ addressId: editingAddressId, address: addressForm })
         showFeedback('Address updated')
       } else {
-        await addAddress({ address: addressForm })
+        data = await addAddress({ address: addressForm })
         showFeedback('Address added')
       }
+      setProfile(prev => ({ ...prev, addresses: data.addresses }))
       setShowAddressForm(false)
       setEditingAddressId(null)
       setAddressForm({ street: '', suburb: '', post: '', city: '' })
-      await fetchProfile()
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     } finally {
@@ -143,9 +146,9 @@ export default function Profile() {
 
   const handleRemoveAddress = async (id) => {
     try {
-      await removeAddress({ addressId: id })
+      const data = await removeAddress({ addressId: id })
+      setProfile(prev => ({ ...prev, addresses: data.addresses }))
       showFeedback('Address removed')
-      await fetchProfile()
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong')
     }
