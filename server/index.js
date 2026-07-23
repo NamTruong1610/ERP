@@ -7,6 +7,7 @@ const { redisConnect } = require('./config/RedisConfig');
 const { appConfig } = require('./config/AppConfig')
 const { validateEnv } = require('./config/validateEnv')
 const cron = require('node-cron')
+const { startEmailWorker } = require('./workers/emailWorker')
 const { cleanupExpiredUsers, purgeExpiredSoftDeletedFiles } = require('./utils/cleanupUtils')
 const { cleanupPendingUploads } = require('./repository/fileRepository')
 const { seedAdminUser, seedSuperAdminUser } = require('./utils/seedUtils')
@@ -25,7 +26,7 @@ const startServer = async () => {
 
   // CORS configuration (example using Express)
   const corsOptions = {
-    origin: 'http://localhost:5173', // Your frontend URL
+    origin: process.env.CLIENT_URL || 'http://localhost:5173', // Your frontend URL
     credentials: true, // Allow credentials (cookies)
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -36,6 +37,8 @@ const startServer = async () => {
   await prismaConnect();
   // Redis Connection
   await redisConnect();
+
+  startEmailWorker()
   // Seed testing admin user
   await seedAdminUser()
 

@@ -40,9 +40,7 @@ const {
   hashToken
 } = require("../utils/activationTokenUtils")
 
-const {
-  sendAccountActivationEmail
-} = require("../utils/emailUtils")
+const { enqueueEmail, EMAIL_JOBS } = require("../queues/emailQueue")
 
 const { ACTIVATION_TTL_MS, ACTIVATION_EMAIL_IDEMPOTENCY_MS } = require('../config/constants')
 
@@ -79,7 +77,7 @@ exports.createUserService = async (email, actor) => {
 
   await invalidateClinicStats()
 
-  await sendAccountActivationEmail(email, rawActivationTokenId)
+  await enqueueEmail(EMAIL_JOBS.ACTIVATION, { email, tokenId: rawActivationTokenId })
 
   return {
     id: newUser.id,
@@ -262,7 +260,7 @@ exports.reset2faService = async (id, actor) => {
     }, tx)
   })
 
-  await sendAccountActivationEmail(userRecord.email, rawActivationTokenId)
+  await enqueueEmail(EMAIL_JOBS.ACTIVATION, { email: userRecord.email, tokenId: rawActivationTokenId })
 }
 
 exports.resendActivationEmailService = async (id, actor) => {
@@ -309,8 +307,7 @@ exports.resendActivationEmailService = async (id, actor) => {
     }, tx)
   })
 
-  await sendAccountActivationEmail(userRecord.email, rawActivationTokenId)
-
+  await enqueueEmail(EMAIL_JOBS.ACTIVATION, { email: userRecord.email, tokenId: rawActivationTokenId })
 
 }
 

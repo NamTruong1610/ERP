@@ -31,9 +31,7 @@ const {
   generateActivationToken
 } = require("../utils/activationTokenUtils")
 
-const {
-  sendEmailChangeVerificationEmail
-} = require("../utils/emailUtils")
+const { enqueueEmail, EMAIL_JOBS } = require("../queues/emailQueue")
 
 const {
   verifyMfaOtp
@@ -216,7 +214,7 @@ exports.changeEmailService = async ({ email, password }, actor) => {
     )
   ])
 
-  await sendEmailChangeVerificationEmail(email, tokenId)
+  await enqueueEmail(EMAIL_JOBS.EMAIL_CHANGE, { email, tokenId })
 
   await createAuditLog({
     actorId: actor.id,
@@ -304,7 +302,7 @@ exports.disable2faService = async ({ password, otp }, actor) => {
       userAgent: actor.userAgent
     }, tx)
   })
-  
+
 }
 
 exports.enable2faService = async ({ password, otp }, actor) => {

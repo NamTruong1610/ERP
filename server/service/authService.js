@@ -36,9 +36,7 @@ const {
   verifyMfaOtp,
 } = require("../utils/mfaUtils.js")
 
-const {
-  sendAccountRecoveryEmail
-} = require("../utils/emailUtils.js")
+const { enqueueEmail, EMAIL_JOBS } = require("../queues/emailQueue")
 
 const { prisma } = require("../config/PrismaConfig.js")
 const { UserStatus, ActorType, AuditAction, TriggerType, TargetType } = require('@prisma/client')
@@ -364,7 +362,7 @@ exports.forgotPasswordService = async (email, actor) => {
     )
   ])
 
-  await sendAccountRecoveryEmail(email, recoveryTokenId)
+  await enqueueEmail(EMAIL_JOBS.RECOVERY, { email, tokenId: recoveryTokenId })
 
   await createAuditLog({
     actorId: userRecord.id,

@@ -22,9 +22,7 @@ const {
   updateUserActivation
 } = require('../repository/activationRepository')
 
-const {
-  sendAccountActivationEmail
-} = require('../utils/emailUtils')
+const { enqueueEmail, EMAIL_JOBS } = require('../queues/emailQueue')
 
 const {
   generateActivationToken,
@@ -137,7 +135,7 @@ exports.restoreUserService = async (id, actor) => {
   });
 
   // Email after commit — never email for a restore that rolled back
-  await sendAccountActivationEmail(userRecord.email, rawActivationTokenId);
+  await enqueueEmail(EMAIL_JOBS.ACTIVATION, { email: userRecord.email, tokenId: rawActivationTokenId });
 };
 
 exports.purgeUserService = async (id, actor) => {

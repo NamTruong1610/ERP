@@ -134,7 +134,7 @@ exports.deleteInvoiceItemService = async (invoiceId, itemId, actor) => {
       targetId: invoiceId,
       targetType: TargetType.INVOICE,
       action: AuditAction.INVOICE_ITEM_REMOVED,
-      metadata: { itemId },
+      metadata: { item: itemRecord },
       ip: actor.ip,
       userAgent: actor.userAgent,
     }, tx);

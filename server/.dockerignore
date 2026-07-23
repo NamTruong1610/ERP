@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+.env
+.env.*
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+.dockerignore
+dist
+build
+
+# If your Vite frontend lives in the same repo, exclude it from the backend
+# image — adjust the path to match your layout (e.g. client/, frontend/, web/).
+# client
