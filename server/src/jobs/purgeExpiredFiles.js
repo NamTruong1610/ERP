@@ -5,32 +5,6 @@ const { createAuditLog } = require('../repositories/auditRepository')
 const { AuditAction, ActorType, TargetType, TriggerType } = require('@prisma/client')
 const { FILE_PURGE_RETENTION_MS } = require('../config/constants')
 
-exports.cleanupExpiredUsers = async () => {
-  // Find expired activations
-  const expiredActivations = await prisma.userActivation.findMany({
-    where: {
-      expiresAt: { lt: new Date() }
-    },
-    select: { userId: true }
-  })
-
-  if (expiredActivations.length === 0) {
-    console.log('Cleaned up 0 expired users')
-    return
-  }
-
-  const expiredUserIds = expiredActivations.map(a => a.userId)
-
-  // Delete the users — UserActivation cascades automatically
-  const deleted = await prisma.user.deleteMany({
-    where: {
-      id: { in: expiredUserIds }
-    }
-  })
-
-  console.log(`Cleaned up ${deleted.count} expired users`)
-}
-
 // Permanently deletes files that have been soft-deleted for longer than
 // FILE_PURGE_RETENTION_MS — removes both the R2 object and the DB row.
 // Only ever touches files where deletedAt is already set: purging a file
