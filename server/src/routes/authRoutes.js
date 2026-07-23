@@ -8,9 +8,9 @@ const {
   logoutAllController,
   forgotPasswordController,
   resetPasswordController
-} = require("../controller/authControllers")
+} = require("../controllers/authController")
 
-const { findUserById } = require('../repository/userRepository')
+const { findUserById } = require('../repositories/userRepository')
 
 const {
   requireAuth

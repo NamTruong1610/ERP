@@ -13,7 +13,7 @@ const {
   getDeletedUsersController,
   restoreUserController,
   purgeUserController
-} = require('../controller/systemControllers')
+} = require('../controllers/systemController')
 
 router.use(requireAuth)
 

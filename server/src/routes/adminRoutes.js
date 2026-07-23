@@ -13,7 +13,7 @@ const {
   assignRoleController,
   removeRoleController,
   forceLogoutUserController
-} = require("../controller/adminControllers")
+} = require("../controllers/adminController")
 
 const { requireAuth } = require("../middlewares/authMiddleware")
 const { requirePermission } = require("../middlewares/rbacMiddleware")

@@ -17,7 +17,7 @@ const {
   disable2faController,
   enable2faController,
   getDentistsController
-} = require("../controller/userControllers")
+} = require("../controllers/userController")
 const {
   validateUpdateName,
   validateUpdatePhone,

@@ -6,7 +6,7 @@ const {
   purgeUserService,
   getAllActiveSessionsService,
   getAllDeletedUsersService
-} = require("../service/systemService");
+} = require("../services/systemService");
 
 exports.getAuditLogsController = async (req, res, next) => {
   try {

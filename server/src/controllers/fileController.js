@@ -5,7 +5,7 @@ const {
   downloadFileService,
   softDeleteFileService,
   hardDeleteFileService
-} = require('../service/fileService')
+} = require('../services/fileService')
 
 const { AppError } = require('../utils/errorsUtil.js');
 

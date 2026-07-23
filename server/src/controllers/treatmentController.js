@@ -6,7 +6,7 @@ const {
   createTreatmentService,
   updateTreatmentService,
   deleteTreatmentService
-} = require('../service/treatmentService')
+} = require('../services/treatmentService')
 
 const { AppError } = require('../utils/errorsUtil.js');
 

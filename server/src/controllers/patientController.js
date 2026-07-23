@@ -4,7 +4,7 @@ const {
   createPatientService,
   updatePatientService,
   deletePatientService
-} = require('../service/patientService')
+} = require('../services/patientService')
 
 const { AppError } = require('../utils/errorsUtil.js');
 

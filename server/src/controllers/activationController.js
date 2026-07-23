@@ -2,7 +2,7 @@ const {
   setPasswordService,
   get2faSecretService,
   verify2faSecretSetupService
-} = require('../service/activationService')
+} = require('../services/activationService')
 
 const { AppError } = require('../utils/errorsUtil.js');
 

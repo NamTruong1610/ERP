@@ -6,7 +6,7 @@ const {
   logoutAllService,
   forgotPasswordService,
   resetPasswordService
-} = require('../service/authService')
+} = require('../services/authService')
 
 const {
   COOKIE_OPTIONS, SESSION_TTL_MS, REMEMBER_TTL_MS

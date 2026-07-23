@@ -5,23 +5,23 @@ const {
   updateUser,
   deleteUserExpiresAtById,
   deleteUserById
-} = require("../repository/userRepository")
+} = require("../repositories/userRepository")
 
 const {
   findUserActivationByTokenId,
   deleteUserActivation
-} = require("../repository/activationRepository")
+} = require("../repositories/activationRepository")
 
 const {
   findMfaByUserId,
   updateMfa,
   upsertUserMfa,
   createUserMfa
-} = require("../repository/mfaRepository")
+} = require("../repositories/mfaRepository")
 
 const {
   createAuditLog
-} = require("../repository/auditRepository")
+} = require("../repositories/auditRepository")
 
 const { AppError } = require('../utils/errorsUtil.js');
 

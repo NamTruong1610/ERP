@@ -2,7 +2,7 @@ const {
   getMyStatsService,
   getClinicStatsService,
   getSystemStatsService
-} = require('../service/statsService')
+} = require('../services/statsService')
 
 const { AppError } = require('../utils/errorsUtil.js');
 

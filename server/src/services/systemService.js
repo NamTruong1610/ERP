@@ -4,23 +4,23 @@ const {
   findDeletedUserById,
   restoreUser,
   hardDeleteUserById
-} = require('../repository/userRepository')
+} = require('../repositories/userRepository')
 
 const {
   findAuditLogs,
   createAuditLog
-} = require('../repository/auditRepository')
+} = require('../repositories/auditRepository')
 
 const {
   getAllActiveSessions,
   revokeSessionById,
   revokeAllSessions
-} = require('../repository/sessionRepository')
+} = require('../repositories/sessionRepository')
 
 const {
   createUserActivation,
   updateUserActivation
-} = require('../repository/activationRepository')
+} = require('../repositories/activationRepository')
 
 const { enqueueEmail, EMAIL_JOBS } = require('../queues/emailQueue')
 

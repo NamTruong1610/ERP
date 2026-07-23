@@ -1,4 +1,4 @@
-const { findAppointmentById, updateAppointment } = require('../repository/appointmentRepository')
+const { findAppointmentById, updateAppointment } = require('../repositories/appointmentRepository')
 const {
   findAllTreatments,
   findTreatmentById,
@@ -7,10 +7,10 @@ const {
   createTreatment,
   updateTreatment,
   softDeleteTreatment
-} = require('../repository/treatmentRepository')
-const { findPatientById } = require('../repository/patientRepository')
+} = require('../repositories/treatmentRepository')
+const { findPatientById } = require('../repositories/patientRepository')
 
-const { createAuditLog } = require('../repository/auditRepository')
+const { createAuditLog } = require('../repositories/auditRepository')
 const { AppError } = require('../utils/errorsUtil.js');
 
 const { prisma } = require('../config/PrismaConfig')

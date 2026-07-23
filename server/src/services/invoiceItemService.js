@@ -1,7 +1,7 @@
-const { findInvoiceById, recomputeInvoiceTotals } = require('../repository/invoiceRepository');
-const { createInvoiceItem, updateInvoiceItem, deleteInvoiceItem, findInvoiceItemById } = require('../repository/invoiceItemRepository');
-const { findTreatmentsByIds } = require('../repository/treatmentRepository');
-const { createAuditLog } = require('../repository/auditRepository');
+const { findInvoiceById, recomputeInvoiceTotals } = require('../repositories/invoiceRepository');
+const { createInvoiceItem, updateInvoiceItem, deleteInvoiceItem, findInvoiceItemById } = require('../repositories/invoiceItemRepository');
+const { findTreatmentsByIds } = require('../repositories/treatmentRepository');
+const { createAuditLog } = require('../repositories/auditRepository');
 const { prisma } = require('../config/PrismaConfig');
 const { AppError } = require('../utils/errorsUtil.js');
 const { AuditAction, TargetType, InvoiceStatus } = require('@prisma/client');

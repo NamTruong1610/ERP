@@ -9,7 +9,7 @@ const {
   createPatientController,
   updatePatientController,
   deletePatientController
-} = require('../controller/patientControllers')
+} = require('../controllers/patientController')
 const {
   validateCreatePatient,
   validateUpdatePatient

@@ -2,10 +2,10 @@
 const {
   createDraftInvoice, findInvoiceById, findAllInvoices,
   issueInvoiceById, updateInvoiceDraft, voidInvoiceById, softDeleteDraftInvoice,
-} = require('../repository/invoiceRepository');
-const { findTreatmentsByIds } = require('../repository/treatmentRepository');
-const { findPatientById } = require('../repository/patientRepository');
-const { createAuditLog } = require('../repository/auditRepository');
+} = require('../repositories/invoiceRepository');
+const { findTreatmentsByIds } = require('../repositories/treatmentRepository');
+const { findPatientById } = require('../repositories/patientRepository');
+const { createAuditLog } = require('../repositories/auditRepository');
 const { prisma } = require('../config/PrismaConfig');
 const { AppError } = require('../utils/errorsUtil.js');
 const { AuditAction, TargetType, InvoiceStatus } = require('@prisma/client');

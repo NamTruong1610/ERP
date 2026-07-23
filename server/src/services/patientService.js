@@ -4,10 +4,10 @@ const {
   createPatient,
   updatePatient,
   softDeletePatient
-} = require('../repository/patientRepository')
+} = require('../repositories/patientRepository')
 
-const { invalidateClinicStats } = require('../repository/statsRepository')
-const { createAuditLog } = require('../repository/auditRepository')
+const { invalidateClinicStats } = require('../repositories/statsRepository')
+const { createAuditLog } = require('../repositories/auditRepository')
 const { prisma } = require('../config/PrismaConfig')
 const { AuditAction, TargetType } = require('@prisma/client')
 

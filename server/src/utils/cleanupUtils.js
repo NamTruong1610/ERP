@@ -1,7 +1,7 @@
 const { prisma } = require('../config/PrismaConfig')
 const { DeleteObjectCommand } = require('@aws-sdk/client-s3')
 const { r2Client } = require('../config/R2Config')
-const { createAuditLog } = require('../repository/auditRepository')
+const { createAuditLog } = require('../repositories/auditRepository')
 const { AuditAction, ActorType, TargetType, TriggerType } = require('@prisma/client')
 const { FILE_PURGE_RETENTION_MS } = require('../config/constants')
 

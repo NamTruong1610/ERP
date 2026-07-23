@@ -9,7 +9,7 @@ const { validateEnv } = require('./config/validateEnv')
 const cron = require('node-cron')
 const { startEmailWorker } = require('./workers/emailWorker')
 const { cleanupExpiredUsers, purgeExpiredSoftDeletedFiles } = require('./utils/cleanupUtils')
-const { cleanupPendingUploads } = require('./repository/fileRepository')
+const { cleanupPendingUploads } = require('./repositories/fileRepository')
 const { seedAdminUser, seedSuperAdminUser } = require('./utils/seedUtils')
 
 const { hashPassword } = require('./utils/passwordUtils')

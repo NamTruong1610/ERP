@@ -6,7 +6,7 @@ const {
   createAppointmentService,
   updateAppointmentService,
   deleteAppointmentService
-} = require('../service/appointmentService')
+} = require('../services/appointmentService')
 
 const { AppError } = require('../utils/errorsUtil.js');
 

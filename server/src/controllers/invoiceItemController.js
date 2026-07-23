@@ -1,6 +1,6 @@
 const {
   createInvoiceItemService, updateInvoiceItemService, deleteInvoiceItemService,
-} = require('../service/invoiceItemService');
+} = require('../services/invoiceItemService');
 const { AppError } = require('../utils/errorsUtil.js');
 
 const actorFrom = (req) => ({ id: req.user.id, ip: req.ip, userAgent: req.headers['user-agent'] });

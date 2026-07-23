@@ -7,7 +7,7 @@ const {
   createPaymentController,
   getInvoicePaymentLedgerController,
   voidPaymentController,
-} = require('../controller/paymentControllers')
+} = require('../controllers/paymentController')
 const {
   validateCreatePayment,
   validateGetInvoiceLedger,

@@ -2,10 +2,10 @@
 const {
   createPendingFile, findFileById, findAnyFileById,
   findFilesByPatientId, updateFileById, softDeleteFile, hardDeleteFile,
-} = require('../repository/fileRepository');
-const { findPatientById } = require('../repository/patientRepository');
-const { createAuditLog } = require('../repository/auditRepository');
-const { generateUploadUrl, generateDownloadUrl, objectExists, deleteObject } = require('../repository/r2Repository');
+} = require('../repositories/fileRepository');
+const { findPatientById } = require('../repositories/patientRepository');
+const { createAuditLog } = require('../repositories/auditRepository');
+const { generateUploadUrl, generateDownloadUrl, objectExists, deleteObject } = require('../repositories/r2Repository');
 const { prisma } = require('../config/PrismaConfig');
 const { AppError } = require('../utils/errorsUtil.js');
 const { ActorType, AuditAction, TargetType, TriggerType, FileStatus } = require('@prisma/client');

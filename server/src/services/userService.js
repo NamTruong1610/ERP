@@ -6,19 +6,19 @@ const {
   updateUserAddressByAddressId,
   deleteUserAddressByAddressId,
   findAllDentistUsers
-} = require("../repository/userRepository")
+} = require("../repositories/userRepository")
 
 const {
   invalidateAllUserSessions
-} = require("../repository/sessionRepository")
+} = require("../repositories/sessionRepository")
 
 const {
   findMfaByUserId,
   updateMfa,
   createUserMfa
-} = require("../repository/mfaRepository")
+} = require("../repositories/mfaRepository")
 
-const { createAuditLog } = require("../repository/auditRepository")
+const { createAuditLog } = require("../repositories/auditRepository")
 
 const { AppError } = require('../utils/errorsUtil.js');
 

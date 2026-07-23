@@ -11,7 +11,7 @@ const {
   removeRoleController,
   forceLogoutUserService,
   updateUserService
-} = require('../service/adminService')
+} = require('../services/adminService')
 
 const { AppError } = require('../utils/errorsUtil.js');
 

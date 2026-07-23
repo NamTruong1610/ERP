@@ -6,12 +6,12 @@ const {
   createAppointment,
   updateAppointment,
   softDeleteAppointment
-} = require('../repository/appointmentRepository')
+} = require('../repositories/appointmentRepository')
 
-const { findUserById } = require('../repository/userRepository')
-const { findPatientById } = require('../repository/patientRepository')
-const { createAuditLog } = require('../repository/auditRepository')
-const { invalidateClinicStats, invalidateMyStats } = require('../repository/statsRepository')
+const { findUserById } = require('../repositories/userRepository')
+const { findPatientById } = require('../repositories/patientRepository')
+const { createAuditLog } = require('../repositories/auditRepository')
+const { invalidateClinicStats, invalidateMyStats } = require('../repositories/statsRepository')
 
 const { prisma } = require('../config/PrismaConfig')
 const { UserStatus, AuditAction, TargetType } = require('@prisma/client')

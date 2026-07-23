@@ -2,23 +2,23 @@ const {
   findUserByEmail,
   findUserById,
   updateUser
-} = require("../repository/userRepository.js")
+} = require("../repositories/userRepository.js")
 
 const {
   createUserSession,
   invalidateLocalUserSession,
   invalidateAllUserSessions
-} = require("../repository/sessionRepository.js")
+} = require("../repositories/sessionRepository.js")
 
 const {
   findMfaByUserId,
   updateMfa,
   createUserMfa
-} = require("../repository/mfaRepository.js")
+} = require("../repositories/mfaRepository.js")
 
 const {
   createAuditLog
-} = require("../repository/auditRepository.js")
+} = require("../repositories/auditRepository.js")
 
 const { AppError } = require('../utils/errorsUtil.js');
 

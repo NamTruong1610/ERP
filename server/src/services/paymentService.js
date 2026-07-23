@@ -1,13 +1,13 @@
 const { InvoiceStatus, InvoiceItemStatus, PaymentStatus, AuditAction, TargetType } = require('@prisma/client');
-const { findInvoiceById, getInvoicePaymentLedger, updateInvoiceStatusAndPaidAmount } = require('../repository/invoiceRepository');
+const { findInvoiceById, getInvoicePaymentLedger, updateInvoiceStatusAndPaidAmount } = require('../repositories/invoiceRepository');
 const {
   findUnpaidInvoiceItemsByIds,
   findInvoiceItemByIdLean,
   updateInvoiceItemPaidAmountAndStatus,
   findInvoiceItemsByInvoiceId,
-} = require('../repository/invoiceItemRepository');
-const { createPayment, findPaymentById, markPaymentVoided } = require('../repository/paymentRepository');
-const { createAuditLog } = require('../repository/auditRepository');
+} = require('../repositories/invoiceItemRepository');
+const { createPayment, findPaymentById, markPaymentVoided } = require('../repositories/paymentRepository');
+const { createAuditLog } = require('../repositories/auditRepository');
 const { prisma } = require('../config/PrismaConfig');
 const { AppError } = require('../utils/errorsUtil.js');
 

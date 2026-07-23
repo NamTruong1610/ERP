@@ -9,29 +9,29 @@ const {
   deleteUserById,
   createUserRole,
   deleteUserRole
-} = require("../repository/userRepository")
+} = require("../repositories/userRepository")
 
 const {
   invalidateAllUserSessions
-} = require("../repository/sessionRepository")
+} = require("../repositories/sessionRepository")
 
 const {
   createUserActivation,
   updateUserActivation
-} = require("../repository/activationRepository")
+} = require("../repositories/activationRepository")
 
 const {
   findMfaByUserId,
   updateMfa,
   upsertUserMfa,
   deleteMfa
-} = require("../repository/mfaRepository")
+} = require("../repositories/mfaRepository")
 
 const {
   createAuditLog
-} = require("../repository/auditRepository")
+} = require("../repositories/auditRepository")
 
-const { invalidateClinicStats } = require('../repository/statsRepository')
+const { invalidateClinicStats } = require('../repositories/statsRepository')
 
 const { AppError } = require('../utils/errorsUtil.js');
 

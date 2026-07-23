@@ -1,6 +1,6 @@
 const {
   createPaymentService, getInvoicePaymentLedgerService, voidPaymentService,
-} = require('../service/paymentService'); // FIXED: was '../service/paymentService' (singular, wrong path)
+} = require('../services/paymentService'); // FIXED: was '../services/paymentService' (singular, wrong path)
 const { AppError } = require('../utils/errorsUtil.js');
 
 const actorFrom = (req) => ({ id: req.user.id, ip: req.ip, userAgent: req.headers['user-agent'] });

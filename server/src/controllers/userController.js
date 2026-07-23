@@ -12,7 +12,7 @@ const {
   disable2faService,
   enable2faService,
   getDentistsService
-} = require('../service/userService')
+} = require('../services/userService')
 
 const { AppError } = require('../utils/errorsUtil.js');
 

@@ -17,7 +17,7 @@ const {
   countFilesByStatus,
   sumFileSizeByStatus,
   countAuditLogsInRange,
-} = require('../repository/statsRepository')
+} = require('../repositories/statsRepository')
 
 // service
 exports.getMyStatsService = async (userId) => {
