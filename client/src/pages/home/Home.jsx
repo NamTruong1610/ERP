@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/layout/AppSidebar'
 import { getMyStats, getClinicStats, getSystemStats } from '../../api/stats'
+import { timeAgo } from '../../lib/format'
+import { actionLabel } from '../../lib/labels'
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
@@ -30,39 +32,7 @@ const StatCard = ({ icon, label, value, loading }) => (
 
 // ─── Recent Activity ──────────────────────────────────────────────────────────
 
-const actionLabel = (action) => {
-  const map = {
-    LOGIN_SUCCESS: 'Logged in',
-    LOGOUT: 'Logged out',
-    PATIENT_CREATED: 'Created a patient',
-    PATIENT_UPDATED: 'Updated a patient',
-    PATIENT_DELETED: 'Deleted a patient',
-    APPOINTMENT_CREATED: 'Created an appointment',
-    APPOINTMENT_UPDATED: 'Updated an appointment',
-    APPOINTMENT_CANCELLED: 'Cancelled an appointment',
-    APPOINTMENT_DELETED: 'Deleted an appointment',
-    TREATMENT_CREATED: 'Recorded a treatment',
-    TREATMENT_UPDATED: 'Updated a treatment',
-    FILE_UPLOADED: 'Uploaded a file',
-    PASSWORD_CHANGED: 'Changed password',
-    EMAIL_CHANGED: 'Changed email',
-    MFA_ENABLED: 'Enabled 2FA',
-    MFA_DISABLED: 'Disabled 2FA',
-  }
-  return map[action] ?? action.toLowerCase().replace(/_/g, ' ')
-}
 
-const timeAgo = (dateString) => {
-  const diff = Date.now() - new Date(dateString).getTime()
-  const mins = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  return `${days}d ago`
-}
 
 // ─── Greeting ─────────────────────────────────────────────────────────────────
 
