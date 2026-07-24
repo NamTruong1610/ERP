@@ -14,221 +14,125 @@ const {
   getDentistsService
 } = require('../services/userService')
 
-const { AppError } = require('../lib/AppError');
-
 exports.getProfileController = async (req, res, next) => {
   const { id } = req.user
-  try {
-    const data = await getProfileService(id)
+  const data = await getProfileService(id)
 
-    return res.status(200).json(
-      data
-    )
-
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json(
+    data
+  )
 }
 
 exports.updateNameController = async (req, res, next) => {
   const { id } = req.user
   const { name } = req.body
-  try {
-    const { updatedName } = await updateNameService(id, name)
-    return res.status(200).json({
-      name: updatedName
-    })
-
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  const { updatedName } = await updateNameService(id, name)
+  return res.status(200).json({
+    name: updatedName
+  })
 }
 
 exports.updatePhonesController = async (req, res, next) => {
   const { id } = req.user
   const { phone } = req.body
-  try {
-    const { phones } = await updatePhonesService(id, phone)
-    return res.status(200).json({ phones })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  const { phones } = await updatePhonesService(id, phone)
+  return res.status(200).json({ phones })
 }
 
 exports.removePhoneController = async (req, res, next) => {
   const { id } = req.user
   const { phone } = req.params
-  try {
-    const { phones } = await removePhoneService(id, phone)
-    return res.status(200).json({ phones })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  const { phones } = await removePhoneService(id, phone)
+  return res.status(200).json({ phones })
 }
 
 exports.addAddressController = async (req, res, next) => {
   const { id } = req.user
   const { address } = req.body
-  try {
-    const { addresses } = await addAddressService(id, address)
+  const { addresses } = await addAddressService(id, address)
 
-    return res.status(200).json({ addresses })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ addresses })
 }
 
 exports.updateAddressController = async (req, res, next) => {
   const { id } = req.user
   const { addressId } = req.params
   const { address } = req.body
-  try {
-    const { addresses } = await updateAddressService({ id, addressId, address })
-    return res.status(200).json({ addresses })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  const { addresses } = await updateAddressService({ id, addressId, address })
+  return res.status(200).json({ addresses })
 }
 
 exports.removeAddressController = async (req, res, next) => {
   const { id } = req.user
   const { addressId } = req.params
-  try {
-    const { addresses } = await removeAddressService(id, addressId)
-    return res.status(200).json({ addresses })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  const { addresses } = await removeAddressService(id, addressId)
+  return res.status(200).json({ addresses })
 }
 
 exports.changePasswordController = async (req, res, next) => {
   const { currentPassword, newPassword, confirmNewPassword } = req.body
-  try {
-    await changePasswordService(
-      { currentPassword, newPassword, confirmNewPassword },
-      { id: req.user.id, ip: req.ip, userAgent: req.headers['user-agent'] }
-    )
+  await changePasswordService(
+    { currentPassword, newPassword, confirmNewPassword },
+    { id: req.user.id, ip: req.ip, userAgent: req.headers['user-agent'] }
+  )
 
-    res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
-    res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
+  res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
+  res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
 
-    return res.status(200).json({ message: "Password changed successfully" })
-
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ message: "Password changed successfully" })
 }
 
 exports.changeEmailController = async (req, res, next) => {
   const { id } = req.user
   const { email, password } = req.body
-  try {
-    await changeEmailService(
-      { email, password },
-      {
-        id: req.user.id,
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
-      }
-    )
-    return res.status(200).json({ message: "Verification email sent" })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
+  await changeEmailService(
+    { email, password },
+    {
+      id: req.user.id,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
     }
-    next(error)
-  }
+  )
+  return res.status(200).json({ message: "Verification email sent" })
 }
 
 exports.verifyEmailChangeController = async (req, res, next) => {
   const { tokenId } = req.body
-  try {
-    await verifyEmailChangeService(tokenId, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  await verifyEmailChangeService(tokenId, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({ message: "Email changed successfully" })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ message: "Email changed successfully" })
 }
 
 exports.disable2faController = async (req, res, next) => {
   const { password, otp } = req.body
-  try {
-    await disable2faService({ password, otp }, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  await disable2faService({ password, otp }, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
-    res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
+  res.clearCookie("SESSIONID", { ...COOKIE_OPTIONS })
+  res.clearCookie("REMEMBER", { ...COOKIE_OPTIONS })
 
-    return res.status(200).json({ message: "2FA disabled successfully" })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ message: "2FA disabled successfully" })
 }
 
 exports.enable2faController = async (req, res, next) => {
   const { password, otp } = req.body
-  try {
-    await enable2faService({ password, otp }, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  await enable2faService({ password, otp }, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({ message: "2FA enabled successfully" })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ message: "2FA enabled successfully" })
 }
 
 exports.getDentistsController = async (req, res, next) => {
-  try {
-    const { dentists } = await getDentistsService()
-    return res.status(200).json({ dentists })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  const { dentists } = await getDentistsService()
+  return res.status(200).json({ dentists })
 }
