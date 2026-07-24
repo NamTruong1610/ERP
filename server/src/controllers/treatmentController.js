@@ -8,7 +8,7 @@ const {
   deleteTreatmentService
 } = require('../services/treatmentService')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.getAllTreatmentsController = async (req, res, next) => {
   const { take = 20, skip = 0 } = req.query

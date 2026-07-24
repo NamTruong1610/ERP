@@ -6,7 +6,7 @@ const {
   deletePatientService
 } = require('../services/patientService')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.getAllPatientsController = async (req, res, next) => {
   const { take = 20, skip = 0, search, from, to } = req.query

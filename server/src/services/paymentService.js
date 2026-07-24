@@ -9,7 +9,7 @@ const {
 const { createPayment, findPaymentById, markPaymentVoided } = require('../repositories/paymentRepository');
 const { createAuditLog } = require('../repositories/auditRepository');
 const { prisma } = require('../config/PrismaConfig');
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 // itemPayments: [invoice item id -> amount] map
 exports.createPaymentService = async ({ invoiceId, method, note, itemPayments: rawItemPayments }, actor) => {

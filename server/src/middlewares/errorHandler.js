@@ -1,5 +1,5 @@
 const { Prisma } = require('@prisma/client')
-const { AppError } = require('../utils/errorsUtil.js')
+const { AppError } = require('../lib/AppError')
 
 // Prisma error code → HTTP status + client-safe message
 const PRISMA_ERRORS = {

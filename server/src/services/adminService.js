@@ -33,12 +33,12 @@ const {
 
 const { invalidateClinicStats } = require('../repositories/statsRepository')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 const {
   generateActivationToken,
   hashToken
-} = require("../utils/activationTokenUtils")
+} = require("../utils/tokenUtils")
 
 const { enqueueEmail, EMAIL_JOBS } = require("../queues/emailQueue")
 

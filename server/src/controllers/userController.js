@@ -14,7 +14,7 @@ const {
   getDentistsService
 } = require('../services/userService')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.getProfileController = async (req, res, next) => {
   const { id } = req.user

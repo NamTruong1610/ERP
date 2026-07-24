@@ -27,7 +27,7 @@ const { enqueueEmail, EMAIL_JOBS } = require('../queues/emailQueue')
 const {
   generateActivationToken,
   hashToken
-} = require('../utils/activationTokenUtils')
+} = require('../utils/tokenUtils')
 
 const { prisma } = require('../config/PrismaConfig')
 const { AuditAction, TargetType, TriggerType, ActorType, UserStatus } = require('@prisma/client')

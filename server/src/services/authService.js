@@ -20,7 +20,7 @@ const {
   createAuditLog
 } = require("../repositories/auditRepository.js")
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 const {
   hashPassword,
@@ -30,7 +30,7 @@ const {
 const {
   generateActivationToken,
   hashToken
-} = require("../utils/activationTokenUtils.js")
+} = require("../utils/tokenUtils.js")
 
 const {
   verifyMfaOtp,

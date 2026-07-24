@@ -23,7 +23,7 @@ const {
   createAuditLog
 } = require("../repositories/auditRepository")
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 const {
   hashPassword,
@@ -34,7 +34,7 @@ const {
   generateActivationToken,
   hashToken,
   compareTokenHash
-} = require("../utils/activationTokenUtils")
+} = require("../utils/tokenUtils")
 const { redisClient } = require("../config/RedisConfig")
 
 const {

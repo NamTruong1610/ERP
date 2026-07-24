@@ -7,7 +7,7 @@ const { findTreatmentsByIds } = require('../repositories/treatmentRepository');
 const { findPatientById } = require('../repositories/patientRepository');
 const { createAuditLog } = require('../repositories/auditRepository');
 const { prisma } = require('../config/PrismaConfig');
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 const { AuditAction, TargetType, InvoiceStatus } = require('@prisma/client');
 
 exports.getAllInvoicesService = async ({ take, skip, patientId, status }) =>

@@ -12,7 +12,7 @@ const {
   COOKIE_OPTIONS, SESSION_TTL_MS, REMEMBER_TTL_MS
 } = require('../config/constants.js')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.getMeController = async (req, res, next) => {
   try {

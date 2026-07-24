@@ -8,7 +8,7 @@ const {
   deleteAppointmentService
 } = require('../services/appointmentService')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.getAllAppointmentsController = async (req, res, next) => {
   const { take = 20, skip = 0, search, from, to } = req.query

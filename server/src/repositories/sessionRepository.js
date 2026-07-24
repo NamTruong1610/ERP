@@ -1,5 +1,5 @@
 const { redisClient } = require('../config/RedisConfig')
-const { generateActivationToken } = require('../utils/activationTokenUtils')
+const { generateActivationToken } = require('../utils/tokenUtils')
 const { SESSION_TTL_SECONDS, SESSION_TTL_MS, REMEMBER_TTL_SECONDS, REMEMBER_TTL_MS, COOKIE_OPTIONS } = require('../config/constants')
 const { prisma } = require('../config/PrismaConfig')
 

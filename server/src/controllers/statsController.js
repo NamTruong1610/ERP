@@ -4,7 +4,7 @@ const {
   getSystemStatsService
 } = require('../services/statsService')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.getMyStatsController = async (req, res, next) => {
   try {

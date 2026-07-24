@@ -3,7 +3,7 @@ const {
   getAllInvoicesService, getInvoiceService, createInvoiceService,
   updateInvoiceService, issueInvoiceService, voidInvoiceService, deleteInvoiceService,
 } = require('../services/invoiceService');
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 const actorFrom = (req) => ({ id: req.user.id, ip: req.ip, userAgent: req.headers['user-agent'] });
 const handle = (res, next, error) => {

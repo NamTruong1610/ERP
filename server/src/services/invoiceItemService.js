@@ -3,7 +3,7 @@ const { createInvoiceItem, updateInvoiceItem, deleteInvoiceItem, findInvoiceItem
 const { findTreatmentsByIds } = require('../repositories/treatmentRepository');
 const { createAuditLog } = require('../repositories/auditRepository');
 const { prisma } = require('../config/PrismaConfig');
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 const { AuditAction, TargetType, InvoiceStatus } = require('@prisma/client');
 
 const resolveTreatmentLinkedItem = async (invoiceRecord, treatmentId, description, amount) => {

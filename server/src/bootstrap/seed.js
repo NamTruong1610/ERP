@@ -1,4 +1,4 @@
-const { seedAdminUser, seedSuperAdminUser } = require('../utils/seedUtils')
+const { seedAdminUser, seedSuperAdminUser } = require('./seedUsers')
 
 exports.runSeeds = async () => {
   // These create accounts with a known password. Never in production.

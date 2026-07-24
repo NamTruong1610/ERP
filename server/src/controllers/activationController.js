@@ -4,7 +4,7 @@ const {
   verify2faSecretSetupService
 } = require('../services/activationService')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.setPasswordController = async (req, res, next) => {
   const { activationToken, password, confirmPassword } = req.body

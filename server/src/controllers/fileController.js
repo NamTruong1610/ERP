@@ -7,7 +7,7 @@ const {
   hardDeleteFileService
 } = require('../services/fileService')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.getFilesByPatientController = async (req, res, next) => {
   try {

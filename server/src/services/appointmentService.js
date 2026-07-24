@@ -18,7 +18,7 @@ const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
 
 const VALID_STATUSES = ['SCHEDULED', 'COMPLETED', 'CANCELLED']
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.getAllAppointmentsService = async ({ take, skip, search, from, to }) => {
 

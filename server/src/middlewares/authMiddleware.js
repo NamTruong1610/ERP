@@ -1,6 +1,6 @@
 const {
   generateActivationToken,
-} = require("../utils/activationTokenUtils")
+} = require("../utils/tokenUtils")
 
 const { redisClient } = require("../config/RedisConfig")
 const {

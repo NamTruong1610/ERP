@@ -13,7 +13,7 @@ const {
   updateUserService
 } = require('../services/adminService')
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 exports.createUserController = async (req, res, next) => {
   const { email } = req.body

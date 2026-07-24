@@ -20,7 +20,7 @@ const {
 
 const { createAuditLog } = require("../repositories/auditRepository")
 
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 const {
   comparePasswordHash,
@@ -29,7 +29,7 @@ const {
 
 const {
   generateActivationToken
-} = require("../utils/activationTokenUtils")
+} = require("../utils/tokenUtils")
 
 const { enqueueEmail, EMAIL_JOBS } = require("../queues/emailQueue")
 

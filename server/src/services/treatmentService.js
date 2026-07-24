@@ -11,7 +11,7 @@ const {
 const { findPatientById } = require('../repositories/patientRepository')
 
 const { createAuditLog } = require('../repositories/auditRepository')
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 
 const { prisma } = require('../config/PrismaConfig')
 const { AuditAction, TargetType } = require('@prisma/client')

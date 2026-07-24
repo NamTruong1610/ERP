@@ -5,7 +5,7 @@ const {
   sendAccountActivationEmail,
   sendAccountRecoveryEmail,
   sendEmailChangeVerificationEmail,
-} = require('../utils/emailUtils')
+} = require('../lib/email/mailer')
 
 // Job name -> the actual Resend sender. The senders are unchanged; the worker
 // is just the thing that now calls them, off the request path, with retries.

@@ -7,7 +7,7 @@ const { findPatientById } = require('../repositories/patientRepository');
 const { createAuditLog } = require('../repositories/auditRepository');
 const { generateUploadUrl, generateDownloadUrl, objectExists, deleteObject } = require('../repositories/r2Repository');
 const { prisma } = require('../config/PrismaConfig');
-const { AppError } = require('../utils/errorsUtil.js');
+const { AppError } = require('../lib/AppError');
 const { ActorType, AuditAction, TargetType, TriggerType, FileStatus } = require('@prisma/client');
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf', 'application/dicom'];
