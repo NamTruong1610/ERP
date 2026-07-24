@@ -1,5 +1,5 @@
 require('dotenv').config()
-
+const { app } = require('./app')
 const { validateEnv } = require('./config/validateEnv')
 validateEnv()
 
@@ -13,8 +13,6 @@ const PORT = process.env.PORT || 5500
 
 const startServer = async () => {
   await connect()
-
-  const { app } = require('./app')
 
   const emailWorker = startEmailWorker()
 

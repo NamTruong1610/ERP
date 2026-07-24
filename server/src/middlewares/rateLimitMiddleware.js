@@ -2,19 +2,32 @@ const rateLimit = require('express-rate-limit')
 const { RedisStore } = require('rate-limit-redis')
 const { redisClient } = require('../config/RedisConfig')
 
-const makeLimiter = ({ windowMs, max, message, prefix }) => rateLimit({
-  windowMs,
-  max,
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: new RedisStore({
-    sendCommand: (...args) => redisClient.sendCommand(args),
-    prefix
-  }),
-  handler: (req, res) => {
-    res.status(429).json({ message })
+// Returns a middleware that builds its RedisStore on first request rather
+// than at module load. RedisStore runs SCRIPT LOAD the moment it's
+// constructed, so building it at import time requires a connected client —
+// which forces every importer of this file to be required after redisConnect().
+const makeLimiter = ({ windowMs, max, message, prefix }) => {
+  let limiter
+
+  return (req, res, next) => {
+    if (!limiter) {
+      limiter = rateLimit({
+        windowMs,
+        max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        store: new RedisStore({
+          sendCommand: (...args) => redisClient.sendCommand(args),
+          prefix
+        }),
+        handler: (req, res) => {
+          res.status(429).json({ message })
+        }
+      })
+    }
+    return limiter(req, res, next)
   }
-})
+}
 
 exports.loginLimiter = makeLimiter({
   windowMs: 15 * 60 * 1000,
