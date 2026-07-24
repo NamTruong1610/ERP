@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
 import { getDeletedUsers, restoreUser, purgeUser } from '../../api/system'
 import '../../styles/global.css'
 

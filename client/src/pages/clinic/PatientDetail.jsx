@@ -2,8 +2,8 @@ import { useState, useEffect, useReducer } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient } from '../../api/clinic'
 import { getPatientFiles, getDownloadUrl, softDeleteFile } from '../../api/files'
-import FileUpload from '../../components/FileUpload'
-import AppSidebar from '../../components/AppSidebar'
+import FileUpload from '../../features/files/FileUpload'
+import AppSidebar from '../../components/layout/AppSidebar'
 import '../../styles/global.css'
 
 const STATUS_BADGE = {

@@ -1,22 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
- 
-// Shows a blank screen while the session check is in progress
-// Prevents a flash redirect to /login before we know if the user is logged in
-const LoadingScreen = () => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    background: '#0f1117',
-    color: '#6b7280',
-    fontFamily: 'Sora, sans-serif',
-    fontSize: '14px'
-  }}>
-    Loading...
-  </div>
-)
+import LoadingScreen from '../components/ui/LoadingScreen'
  
 // Requires authenticated session
 export const ProtectedRoute = ({ children }) => {

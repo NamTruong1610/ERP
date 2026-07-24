@@ -2,8 +2,8 @@ import { useState, useEffect, useReducer } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getAllInvoices, createInvoice, getUnbilledTreatments } from '../../api/invoice'
 import { getAllPatients } from '../../api/clinic'
-import AppSidebar from '../../components/AppSidebar'
-import Pagination from '../../components/Pagination'
+import AppSidebar from '../../components/layout/AppSidebar'
+import Pagination from '../../components/ui/Pagination'
 import '../../styles/global.css'
 
 // ── Constants ──────────────────────────────────────────────────────────────────

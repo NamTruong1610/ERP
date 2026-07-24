@@ -1,6 +1,5 @@
-// components/AppSidebar.jsx
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/useAuth'
+import { useAuth } from '../../context/useAuth'
 
 const NavItem = ({ icon, label, active, onClick }) => (
   <button

@@ -6,7 +6,7 @@ import {
   deleteUser, updateUser
 } from '../../api/admin'
 import { useAuth } from '../../context/useAuth'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
 import '../../styles/global.css'
 
 const STATUS_BADGE = {

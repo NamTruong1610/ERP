@@ -6,7 +6,7 @@ import {
 } from '../../api/clinic'
 import { getDentists } from '../../api/user'
 import { useAuth } from '../../context/useAuth'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
 import '../../styles/global.css'
 
 const STATUS_BADGE = {

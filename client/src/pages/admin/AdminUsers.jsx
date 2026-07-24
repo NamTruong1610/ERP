@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useReducer } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllUsers, createUser } from '../../api/admin'
 import { useAuth } from '../../context/useAuth'
-import AppSidebar from '../../components/AppSidebar'
-import Pagination from '../../components/Pagination'
+import AppSidebar from '../../components/layout/AppSidebar'
+import Pagination from '../../components/ui/Pagination'
 import '../../styles/global.css'
 
 const STATUS_BADGE = {

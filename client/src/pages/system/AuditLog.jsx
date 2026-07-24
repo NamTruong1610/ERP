@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
 import { getAuditLogs } from '../../api/system'
 import '../../styles/global.css'
 

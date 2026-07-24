@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
 import { getAllSessions, revokeSession, revokeAllSessions } from '../../api/system'
 import { useAuth } from '../../context/useAuth'
 import '../../styles/global.css'

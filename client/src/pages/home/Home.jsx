@@ -1,7 +1,7 @@
 // pages/home/Home.jsx
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/useAuth'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
 import { getMyStats, getClinicStats, getSystemStats } from '../../api/stats'
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────

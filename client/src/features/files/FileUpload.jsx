@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { initiateUpload, confirmUpload } from '../api/files'
+import { initiateUpload, confirmUpload } from '../../api/files'
 
 const ACCEPTED_TYPES = {
   'image/jpeg':      { label: 'JPEG', fileType: 'IMAGE' },

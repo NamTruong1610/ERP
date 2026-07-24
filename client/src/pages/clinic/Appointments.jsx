@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useReducer } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getAllAppointments, createAppointment, getAllPatients } from '../../api/clinic'
 import { getDentists } from '../../api/user'
-import AppSidebar from '../../components/AppSidebar'
-import Pagination from '../../components/Pagination'
+import AppSidebar from '../../components/layout/AppSidebar'
+import Pagination from '../../components/ui/Pagination'
 import '../../styles/global.css'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
