@@ -6,14 +6,10 @@ import {
 } from '../../api/clinic'
 import { getDentists } from '../../api/user'
 import { useAuth } from '../../context/useAuth'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
+import { formatDateTime } from '../../lib/format'
+import { APPOINTMENT_STATUS_BADGE } from '../../lib/labels'
 import '../../styles/global.css'
-
-const STATUS_BADGE = {
-  SCHEDULED: 'badge-scheduled',
-  COMPLETED: 'badge-completed',
-  CANCELLED: 'badge-cancelled'
-}
 
 const initialTreatment = { procedure: '', toothNumber: '', notes: '', amount: '' }
 
@@ -187,8 +183,6 @@ export default function AppointmentDetail() {
     setShowTreatment(true)
   }
 
-  const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
-
   if (loading) return <div className="loading">Loading appointment...</div>
   if (!appointment) return <div className="loading">{error || 'Appointment not found'}</div>
 
@@ -210,7 +204,7 @@ export default function AppointmentDetail() {
             </div>
             <div className="page-subtitle">{formatDateTime(appointment.date)}</div>
           </div>
-          <span className={`badge ${STATUS_BADGE[appointment.status]}`}>
+          <span className={`badge ${APPOINTMENT_STATUS_BADGE[appointment.status]}`}>
             {appointment.status.toLowerCase()}
           </span>
         </div>

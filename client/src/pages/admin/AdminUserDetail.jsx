@@ -6,16 +6,10 @@ import {
   deleteUser, updateUser
 } from '../../api/admin'
 import { useAuth } from '../../context/useAuth'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
+import { formatDateTime } from '../../lib/format'
+import { USER_STATUS_BADGE } from '../../lib/labels'
 import '../../styles/global.css'
-
-const STATUS_BADGE = {
-  ACTIVE: 'badge-active',
-  SUSPENDED: 'badge-suspended',
-  PENDING_ACTIVATION: 'badge-pending',
-  PENDING_MFA_SETUP: 'badge-pending',
-  PENDING_MFA_VERIFICATION: 'badge-pending',
-}
 
 const AVAILABLE_ROLES = ['STAFF', 'ADMIN']
 
@@ -109,8 +103,6 @@ export default function AdminUserDetail() {
     return [name.fName, name.mName, name.lName].filter(Boolean).join(' ') || '—'
   }
 
-  const formatDate = (d) => d ? new Date(d).toLocaleString('en-AU') : '—'
-
   const initials = (u) => {
     if (u?.name?.fName && u?.name?.lName) return `${u.name.fName[0]}${u.name.lName[0]}`.toUpperCase()
     return u?.email?.[0]?.toUpperCase() ?? '?'
@@ -141,7 +133,7 @@ export default function AdminUserDetail() {
               <div className="page-subtitle">{user.email}</div>
             </div>
           </div>
-          <span className={`badge ${STATUS_BADGE[user.status] || 'badge-pending'}`}>
+          <span className={`badge ${USER_STATUS_BADGE[user.status] || 'badge-pending'}`}>
             {user.status.toLowerCase().replace(/_/g, ' ')}
           </span>
         </div>
@@ -171,11 +163,11 @@ export default function AdminUserDetail() {
             </div>
             <div className="detail-item">
               <div className="detail-label">Created</div>
-              <div className="detail-value">{formatDate(user.createdAt)}</div>
+              <div className="detail-value">{formatDateTime(user.createdAt)}</div>
             </div>
             <div className="detail-item">
               <div className="detail-label">Last updated</div>
-              <div className="detail-value">{formatDate(user.updatedAt)}</div>
+              <div className="detail-value">{formatDateTime(user.updatedAt)}</div>
             </div>
           </div>
         </div>

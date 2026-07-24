@@ -1,19 +1,9 @@
 import { useState, useEffect } from 'react'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
 import { getAllSessions, revokeSession, revokeAllSessions } from '../../api/system'
 import { useAuth } from '../../context/useAuth'
+import { timeAgo } from '../../lib/format'
 import '../../styles/global.css'
-
-const timeAgo = (dateString) => {
-  const diff = Date.now() - new Date(dateString).getTime()
-  const mins  = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days  = Math.floor(diff / 86400000)
-  if (mins  < 1)   return 'just now'
-  if (mins  < 60)  return `${mins}m ago`
-  if (hours < 24)  return `${hours}h ago`
-  return `${days}d ago`
-}
 
 export default function Sessions() {
   const { user: currentUser } = useAuth()

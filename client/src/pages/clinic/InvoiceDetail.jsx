@@ -7,18 +7,10 @@ import {
   getInvoicePaymentLedger, recordPayment, voidPayment,
 } from '../../api/invoice'
 import { useAuth } from '../../context/useAuth'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
+import { formatDate, formatDateTime } from '../../lib/format'
+import { INVOICE_STATUS_BADGE } from '../../lib/labels'
 import '../../styles/global.css'
-
-const STATUS_BADGE = {
-  DRAFT: 'badge-pending',
-  ISSUED: 'badge-completed',
-  PARTIALLY_PAID: 'badge-partial',
-  PAID: 'badge-paid',
-  OVERDUE: 'badge-overdue',
-  CANCELLED: 'badge-danger',
-  VOIDED: 'badge-danger'
-}
 
 const PAYMENT_METHODS = [
   { value: 'CASH', label: 'Cash' },
@@ -31,8 +23,6 @@ const PAYMENT_METHODS = [
 const PAYABLE_STATUSES = ['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']
 
 const formatMoney = (n) => `$${Number(n).toFixed(2)}`
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-AU') : '—'
-const formatDateTime = (d) => d ? new Date(d).toLocaleString('en-AU') : '—'
 
 function reducer(state, action) {
   switch (action.type) {
@@ -379,7 +369,7 @@ export default function InvoiceDetail() {
               </span>
             </div>
           </div>
-          <span className={`badge ${STATUS_BADGE[invoice.status]}`}>
+          <span className={`badge ${INVOICE_STATUS_BADGE[invoice.status]}`}>
             {invoice.status.toLowerCase().replace(/_/g, ' ')}
           </span>
         </div>

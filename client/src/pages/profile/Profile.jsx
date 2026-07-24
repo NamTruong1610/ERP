@@ -6,7 +6,7 @@ import {
   changePassword, changeEmail, disable2fa, enable2fa
 } from '../../api/user'
 import { useAuth } from '../../context/useAuth'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
 import '../../styles/global.css'
 
 function Section({ title, children }) {

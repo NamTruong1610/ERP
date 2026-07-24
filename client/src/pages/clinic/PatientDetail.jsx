@@ -2,21 +2,12 @@ import { useState, useEffect, useReducer } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient } from '../../api/clinic'
 import { getPatientFiles, getDownloadUrl, softDeleteFile } from '../../api/files'
-import FileUpload from '../../components/FileUpload'
-import AppSidebar from '../../components/AppSidebar'
+import FileUpload from '../../features/files/FileUpload'
+import AppSidebar from '../../components/layout/AppSidebar'
+import { formatDate, formatDateTime } from '../../lib/format'
+import { APPOINTMENT_STATUS_BADGE, FILE_ICON } from '../../lib/labels'
 import '../../styles/global.css'
 
-const STATUS_BADGE = {
-  SCHEDULED: 'badge-scheduled',
-  COMPLETED: 'badge-completed',
-  CANCELLED: 'badge-cancelled'
-}
-
-const FILE_ICON = {
-  IMAGE: 'ti-photo',
-  PDF:   'ti-file-type-pdf',
-  DICOM: 'ti-scan',
-}
 
 function editReducer(state, action) {
   switch (action.type) {
@@ -35,7 +26,7 @@ const formatDentist = (dentist) => {
 const formatBytes = (n) => {
   if (n < 1024)         return `${n} B`
   if (n < 1024 * 1024)  return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / 1024 / 1024).toFixed(1)} MB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB` 
 }
 
 export default function PatientDetail() {
@@ -156,8 +147,6 @@ export default function PatientDetail() {
     }
   }
 
-  const formatDate     = (d) => new Date(d).toLocaleDateString('en-AU')
-  const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
   const initials       = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
 
   if (loading) return <div className="loading">Loading patient...</div>
@@ -309,7 +298,7 @@ export default function PatientDetail() {
                       {formatDentist(appt.dentist)}
                     </td>
                     <td>
-                      <span className={`badge ${STATUS_BADGE[appt.status]}`}>
+                      <span className={`badge ${APPOINTMENT_STATUS_BADGE[appt.status]}`}>
                         {appt.status.toLowerCase()}
                       </span>
                     </td>

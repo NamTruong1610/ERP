@@ -2,17 +2,13 @@ import { useState, useEffect, useRef, useReducer } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getAllAppointments, createAppointment, getAllPatients } from '../../api/clinic'
 import { getDentists } from '../../api/user'
-import AppSidebar from '../../components/AppSidebar'
-import Pagination from '../../components/Pagination'
+import AppSidebar from '../../components/layout/AppSidebar'
+import Pagination from '../../components/ui/Pagination'
+import { formatDateTime } from '../../lib/format'
+import { APPOINTMENT_STATUS_BADGE } from '../../lib/labels'
 import '../../styles/global.css'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-
-const STATUS_BADGE = {
-  SCHEDULED: 'badge-scheduled',
-  COMPLETED: 'badge-completed',
-  CANCELLED: 'badge-cancelled'
-}
 
 const STATUS_OPTIONS = [
   { value: '',           label: 'All statuses' },
@@ -294,7 +290,6 @@ export default function Appointments() {
   }
 
   const hasActiveFilters = search || status || preset || fromDate || toDate
-  const formatDateTime   = (d) => new Date(d).toLocaleString('en-AU')
 
   return (
     <div className="app-layout">
@@ -450,7 +445,7 @@ export default function Appointments() {
                       }
                     </td>
                     <td>
-                      <span className={`badge ${STATUS_BADGE[appt.status]}`}>
+                      <span className={`badge ${APPOINTMENT_STATUS_BADGE[appt.status]}`}>
                         {appt.status.toLowerCase()}
                       </span>
                     </td>

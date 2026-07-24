@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import AppSidebar from '../../components/AppSidebar'
+import AppSidebar from '../../components/layout/AppSidebar'
 import { getAuditLogs } from '../../api/system'
+import { timeAgo, formatDateTimeLong } from '../../lib/format'
 import '../../styles/global.css'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -88,20 +89,6 @@ const DATE_PRESET_OPTIONS = [
 ]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-const timeAgo = (dateString) => {
-  const diff = Date.now() - new Date(dateString).getTime()
-  const mins = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  return `${days}d ago`
-}
-
-const formatDate = (d) =>
-  new Date(d).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
 
 const actionColor = (action) => {
   if (action.includes('DELETED') || action.includes('PURGED') || action.includes('FAILED'))
@@ -490,7 +477,7 @@ export default function AuditLog() {
                       <td style={{ color: 'var(--text-secondary)', fontSize: '12px', whiteSpace: 'nowrap' }}>
                         <div>{timeAgo(log.createdAt)}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-hint)' }}>
-                          {formatDate(log.createdAt)}
+                          {formatDateTimeLong(log.createdAt)}
                         </div>
                       </td>
                       <td>

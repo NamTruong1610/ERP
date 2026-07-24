@@ -34,7 +34,7 @@ import Sessions    from './pages/system/Sessions'
 import DeletedUsers from './pages/system/DeletedUsers'
 
 // Guards
-import { ProtectedRoute, AdminRoute, SuperAdminRoute } from './components/ProtectedRoute'
+import { ProtectedRoute, AdminRoute, SuperAdminRoute } from './routes/guards'
 
 
 function App() {
