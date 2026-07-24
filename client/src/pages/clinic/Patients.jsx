@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getAllPatients, createPatient } from '../../api/clinic'
 import AppSidebar from '../../components/layout/AppSidebar'
 import Pagination from '../../components/ui/Pagination'
+import { formatDate } from '../../lib/format'
 import '../../styles/global.css'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -272,7 +273,6 @@ export default function Patients() {
 
   const hasActiveFilters = search || preset || fromDate || toDate
   const initials = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
-  const formatDate = (d) => new Date(d).toLocaleDateString('en-AU')
 
   return (
     <div className="app-layout">

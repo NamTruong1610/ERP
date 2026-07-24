@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import AppSidebar from '../../components/layout/AppSidebar'
 import { getDeletedUsers, restoreUser, purgeUser } from '../../api/system'
+import { formatDateLong } from '../../lib/format'
 import '../../styles/global.css'
 
-const formatDate = (d) =>
-  new Date(d).toLocaleDateString('en-AU', { dateStyle: 'medium' })
 
 export default function DeletedUsers() {
   const [users,    setUsers]    = useState([])
@@ -155,10 +154,10 @@ export default function DeletedUsers() {
                       </div>
                     </td>
                     <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      {user.deletedAt ? formatDate(user.deletedAt) : '—'}
+                      {user.deletedAt ? formatDateLong(user.deletedAt) : '—'}
                     </td>
                     <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      {formatDate(user.createdAt)}
+                      {formatDateLong(user.createdAt)}
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '8px' }}>

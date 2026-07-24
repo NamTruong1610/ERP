@@ -4,19 +4,10 @@ import { getPatient, updatePatient, deletePatient } from '../../api/clinic'
 import { getPatientFiles, getDownloadUrl, softDeleteFile } from '../../api/files'
 import FileUpload from '../../features/files/FileUpload'
 import AppSidebar from '../../components/layout/AppSidebar'
+import { formatDate, formatDateTime } from '../../lib/format'
+import { APPOINTMENT_STATUS_BADGE, FILE_ICON } from '../../lib/labels'
 import '../../styles/global.css'
 
-const STATUS_BADGE = {
-  SCHEDULED: 'badge-scheduled',
-  COMPLETED: 'badge-completed',
-  CANCELLED: 'badge-cancelled'
-}
-
-const FILE_ICON = {
-  IMAGE: 'ti-photo',
-  PDF:   'ti-file-type-pdf',
-  DICOM: 'ti-scan',
-}
 
 function editReducer(state, action) {
   switch (action.type) {
@@ -156,8 +147,6 @@ export default function PatientDetail() {
     }
   }
 
-  const formatDate     = (d) => new Date(d).toLocaleDateString('en-AU')
-  const formatDateTime = (d) => new Date(d).toLocaleString('en-AU')
   const initials       = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
 
   if (loading) return <div className="loading">Loading patient...</div>
@@ -309,7 +298,7 @@ export default function PatientDetail() {
                       {formatDentist(appt.dentist)}
                     </td>
                     <td>
-                      <span className={`badge ${STATUS_BADGE[appt.status]}`}>
+                      <span className={`badge ${APPOINTMENT_STATUS_BADGE[appt.status]}`}>
                         {appt.status.toLowerCase()}
                       </span>
                     </td>

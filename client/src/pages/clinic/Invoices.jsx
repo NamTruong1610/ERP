@@ -4,6 +4,8 @@ import { getAllInvoices, createInvoice, getUnbilledTreatments } from '../../api/
 import { getAllPatients } from '../../api/clinic'
 import AppSidebar from '../../components/layout/AppSidebar'
 import Pagination from '../../components/ui/Pagination'
+import { formatDate } from '../../lib/format'
+import { INVOICE_STATUS_BADGE } from '../../lib/labels'
 import '../../styles/global.css'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -19,18 +21,7 @@ const STATUS_OPTIONS = [
   { value: 'VOIDED', label: 'Voided' },
 ]
 
-const STATUS_BADGE = {
-  DRAFT: 'badge-pending',
-  ISSUED: 'badge-completed',
-  PARTIALLY_PAID: 'badge-partial',
-  PAID: 'badge-paid',
-  OVERDUE: 'badge-overdue',
-  CANCELLED: 'badge-danger',
-  VOIDED: 'badge-danger'
-}
-
 const formatMoney = (n) => `$${Number(n).toFixed(2)}`
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-AU') : '—'
 
 // ── CreateInvoiceModal ─────────────────────────────────────────────────────────
 
@@ -401,7 +392,7 @@ export default function Invoices() {
                     </td>
                     <td>{inv.patient?.firstName} {inv.patient?.lastName}</td>
                     <td>
-                      <span className={`badge ${STATUS_BADGE[inv.status]}`}>
+                      <span className={`badge ${INVOICE_STATUS_BADGE[inv.status]}`}>
                         {inv.status.toLowerCase()}
                       </span>
                     </td>

@@ -4,15 +4,8 @@ import { getAllUsers, createUser } from '../../api/admin'
 import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/layout/AppSidebar'
 import Pagination from '../../components/ui/Pagination'
+import { USER_STATUS_BADGE } from '../../lib/labels'
 import '../../styles/global.css'
-
-const STATUS_BADGE = {
-  ACTIVE: 'badge-active',
-  SUSPENDED: 'badge-suspended',
-  PENDING_ACTIVATION: 'badge-pending',
-  PENDING_MFA_SETUP: 'badge-pending',
-  PENDING_MFA_VERIFICATION: 'badge-pending',
-}
 
 const initialForm = { email: '' }
 
@@ -211,7 +204,7 @@ export default function AdminUsers() {
                       </div>
                     </td>
                     <td>
-                      <span className={`badge ${STATUS_BADGE[u.status] || 'badge-pending'}`}>
+                      <span className={`badge ${USER_STATUS_BADGE[u.status] || 'badge-pending'}`}>
                         {u.status.toLowerCase().replace(/_/g, ' ')}
                       </span>
                     </td>

@@ -8,3 +8,15 @@ export const timeAgo = (dateString) => {
   if (hours < 24)  return `${hours}h ago`
   return `${days}d ago`
 }
+
+export const formatDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-AU') : '—'
+
+export const formatDateTime = (d) =>
+  d ? new Date(d).toLocaleString('en-AU') : '—'
+
+export const formatDateLong = (d) =>
+  d ? new Date(d).toLocaleDateString('en-AU', { dateStyle: 'medium' }) : '—'
+
+export const formatDateTimeLong = (d) =>
+  d ? new Date(d).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
