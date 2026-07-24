@@ -11,6 +11,8 @@ const { createAuditLog } = require('../repositories/auditRepository')
 const { prisma } = require('../config/PrismaConfig')
 const { AuditAction, TargetType } = require('@prisma/client')
 
+const { AppError } = require('../lib/AppError')
+
 exports.getAllPatientsService = async ({ take, skip, search, from, to }) => {
   const patients = await findAllPatients({
     take: Math.min(parseInt(take), 100),

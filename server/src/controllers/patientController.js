@@ -23,15 +23,8 @@ exports.getAllPatientsController = async (req, res, next) => {
 
 exports.getPatientController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    const patient = await getPatientService(id)
-    return res.status(200).json({ patient })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  const patient = await getPatientService(id)
+  return res.status(200).json({ patient })
 }
 
 exports.createPatientController = async (req, res, next) => {

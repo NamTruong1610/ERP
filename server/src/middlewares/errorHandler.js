@@ -19,7 +19,7 @@ exports.errorHandler = (err, req, res, next) => {
 
   // Thrown deliberately by a service — already has a client-safe message
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({ message: err.message })
+    return res.status(err.statusCode || 500).json({ message: err.message })
   }
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {

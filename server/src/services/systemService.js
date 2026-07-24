@@ -33,6 +33,7 @@ const { prisma } = require('../config/PrismaConfig')
 const { AuditAction, TargetType, TriggerType, ActorType, UserStatus } = require('@prisma/client')
 const { ACTIVATION_TTL_MS } = require('../config/constants')
 
+const { AppError } = require('../lib/AppError')
 
 // service
 const VALID_ACTOR_TYPES = ['USER', 'SYSTEM'];
