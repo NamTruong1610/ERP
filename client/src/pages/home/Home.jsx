@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/AppSidebar'
-import axiosInstance from '../../api/axiosInstance'
+import { getMyStats, getClinicStats, getSystemStats } from '../../api/stats'
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
@@ -32,35 +32,35 @@ const StatCard = ({ icon, label, value, loading }) => (
 
 const actionLabel = (action) => {
   const map = {
-    LOGIN_SUCCESS:          'Logged in',
-    LOGOUT:                 'Logged out',
-    PATIENT_CREATED:        'Created a patient',
-    PATIENT_UPDATED:        'Updated a patient',
-    PATIENT_DELETED:        'Deleted a patient',
-    APPOINTMENT_CREATED:    'Created an appointment',
-    APPOINTMENT_UPDATED:    'Updated an appointment',
-    APPOINTMENT_CANCELLED:  'Cancelled an appointment',
-    APPOINTMENT_DELETED:    'Deleted an appointment',
-    TREATMENT_CREATED:      'Recorded a treatment',
-    TREATMENT_UPDATED:      'Updated a treatment',
-    FILE_UPLOADED:          'Uploaded a file',
-    PASSWORD_CHANGED:       'Changed password',
-    EMAIL_CHANGED:          'Changed email',
-    MFA_ENABLED:            'Enabled 2FA',
-    MFA_DISABLED:           'Disabled 2FA',
+    LOGIN_SUCCESS: 'Logged in',
+    LOGOUT: 'Logged out',
+    PATIENT_CREATED: 'Created a patient',
+    PATIENT_UPDATED: 'Updated a patient',
+    PATIENT_DELETED: 'Deleted a patient',
+    APPOINTMENT_CREATED: 'Created an appointment',
+    APPOINTMENT_UPDATED: 'Updated an appointment',
+    APPOINTMENT_CANCELLED: 'Cancelled an appointment',
+    APPOINTMENT_DELETED: 'Deleted an appointment',
+    TREATMENT_CREATED: 'Recorded a treatment',
+    TREATMENT_UPDATED: 'Updated a treatment',
+    FILE_UPLOADED: 'Uploaded a file',
+    PASSWORD_CHANGED: 'Changed password',
+    EMAIL_CHANGED: 'Changed email',
+    MFA_ENABLED: 'Enabled 2FA',
+    MFA_DISABLED: 'Disabled 2FA',
   }
   return map[action] ?? action.toLowerCase().replace(/_/g, ' ')
 }
 
 const timeAgo = (dateString) => {
   const diff = Date.now() - new Date(dateString).getTime()
-  const mins  = Math.floor(diff / 60000)
+  const mins = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
-  const days  = Math.floor(diff / 86400000)
+  const days = Math.floor(diff / 86400000)
 
-  if (mins  < 1)   return 'just now'
-  if (mins  < 60)  return `${mins}m ago`
-  if (hours < 24)  return `${hours}h ago`
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  if (hours < 24) return `${hours}h ago`
   return `${days}d ago`
 }
 
@@ -83,35 +83,29 @@ const formatDate = () =>
 export default function Home() {
   const { user, isAdmin, isSuperAdmin } = useAuth()
 
-  const [myStats,     setMyStats]     = useState(null)
+  const [myStats, setMyStats] = useState(null)
   const [clinicStats, setClinicStats] = useState(null)
   const [systemStats, setSystemStats] = useState(null)
-  const [loading,     setLoading]     = useState(true)
+  const [loading, setLoading] = useState(true)
 
   const firstName = user?.name?.fName ?? user?.email?.split('@')[0] ?? 'there'
 
   useEffect(() => {
     const fetchStats = async () => {
-      try {
-        // All users get personal stats
-        const promises = [axiosInstance.get('/stats/me')]
+      // allSettled so a 403 on one tier doesn't lose the others.
+      // Resolving null for tiers the user can't see keeps the array
+      // positions fixed regardless of role.
+      const [mine, clinic, system] = await Promise.allSettled([
+        getMyStats(),
+        isAdmin() ? getClinicStats() : Promise.resolve(null),
+        isSuperAdmin() ? getSystemStats() : Promise.resolve(null),
+      ])
 
-        // Admins additionally get clinic stats
-        if (isAdmin()) promises.push(axiosInstance.get('/stats/clinic'))
+      if (mine.status === 'fulfilled') setMyStats(mine.value)
+      if (clinic.status === 'fulfilled' && clinic.value) setClinicStats(clinic.value)
+      if (system.status === 'fulfilled' && system.value) setSystemStats(system.value)
 
-        // Super admins additionally get system stats
-        if (isSuperAdmin()) promises.push(axiosInstance.get('/stats/system'))
-
-        const results = await Promise.allSettled(promises)
-
-        if (results[0].status === 'fulfilled') setMyStats(results[0].value.data)
-        if (results[1]?.status === 'fulfilled') setClinicStats(results[1].value.data)
-        if (results[2]?.status === 'fulfilled') setSystemStats(results[2].value.data)
-      } catch {
-        // silently fail — stats are non-critical
-      } finally {
-        setLoading(false)
-      }
+      setLoading(false)
     }
 
     fetchStats()

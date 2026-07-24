@@ -14,6 +14,10 @@ const {
   getDentistsService
 } = require('../services/userService')
 
+const {
+  COOKIE_OPTIONS, SESSION_TTL_MS, REMEMBER_TTL_MS
+} = require('../config/constants.js')
+
 exports.getProfileController = async (req, res, next) => {
   const { id } = req.user
   const data = await getProfileService(id)
