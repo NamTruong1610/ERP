@@ -13,243 +13,148 @@ const {
   updateUserService
 } = require('../services/adminService')
 
-const { AppError } = require('../lib/AppError');
-
 exports.createUserController = async (req, res, next) => {
   const { email } = req.body
-  try {
-    const data = await createUserService(email, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  const data = await createUserService(email, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(201).json({
-      id: data.id,
-      email: data.email,
-      status: data.status
-    })
-
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(201).json({
+    id: data.id,
+    email: data.email,
+    status: data.status
+  })
 }
 
 exports.deleteUserController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    await deleteUserService(id, {
-      id: req.user.id,
-      userAgent: req.headers['user-agent'],
-      ip: req.ip
-    })
+  await deleteUserService(id, {
+    id: req.user.id,
+    userAgent: req.headers['user-agent'],
+    ip: req.ip
+  })
 
-    return res.status(200).json({
-      message: 'User deleted successfully'
-    })
-
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({
+    message: 'User deleted successfully'
+  })
 }
 
 exports.hardDeleteUserController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    await hardDeleteUserService(id, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  await hardDeleteUserService(id, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({
-      message: 'User deleted successfully'
-    })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error);
-  }
-
+  return res.status(200).json({
+    message: 'User deleted successfully'
+  })
 }
 
 exports.getAllUsersController = async (req, res, next) => {
   const { search, take, skip } = req.query;
-  try {
-    const result = await getAllUsersService({ search, take, skip });
-    return res.status(200).json(result);
-  } catch (error) {
-    next(error);
-  }
+  const result = await getAllUsersService({ search, take, skip });
+  return res.status(200).json(result);
 };
 
 exports.getUserController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    const data = await getUserService(id)
-
-    return res.status(200).json(data)
-
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  const data = await getUserService(id)
+  return res.status(200).json(data)
 }
 
 exports.suspendUserController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    await suspendUserService(id, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  await suspendUserService(id, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({ message: "User suspended successfully" })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ message: "User suspended successfully" })
 }
 
 // For users stuck in PENDING_ACTIVATION whose 48hr token expired (the user has already submitted their password and set up mfa, but hasn't verify otp for mfa)
 exports.reset2faController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    await reset2faService(id, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  await reset2faService(id, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({ message: "2FA reset successfully" })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ message: "2FA reset successfully" })
 }
 
 exports.resendActivationEmailController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    await resendActivationEmailService(id, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  await resendActivationEmailService(id, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({ message: "Activation email resent successfully" })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ message: "Activation email resent successfully" })
 }
 
 exports.assignRoleController = async (req, res, next) => {
   const { id } = req.params
   const { role } = req.body
-  try {
-    const data = await assignRoleService(id, role, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  const data = await assignRoleService(id, role, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({ roles: data.roles })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ roles: data.roles })
 }
 
 exports.removeRoleController = async (req, res, next) => {
   const { id } = req.params
   const { role } = req.body
-  try {
-    const data = await removeRoleService(id, role, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  const data = await removeRoleService(id, role, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({ roles: data.roles })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ roles: data.roles })
 }
 
 exports.forceLogoutUserController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    await forceLogoutUserService(id, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  await forceLogoutUserService(id, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({ message: "User forcefully logged out successfully" })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ message: "User forcefully logged out successfully" })
 }
 
 exports.updateUserController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    const data = await updateUserService(id, req.body, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  const data = await updateUserService(id, req.body, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json(data)
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json(data)
 }
 
 exports.reactivateUserController = async (req, res, next) => {
   const { id } = req.params
-  try {
-    await reactivateUserService(id, {
-      id: req.user.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    })
+  await reactivateUserService(id, {
+    id: req.user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
 
-    return res.status(200).json({ message: "User reactivated successfully" })
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ message: error.message });
-    }
-    next(error)
-  }
+  return res.status(200).json({ message: "User reactivated successfully" })
 }
 
 
