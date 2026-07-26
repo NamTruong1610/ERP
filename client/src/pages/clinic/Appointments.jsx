@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useReducer } from 'react'
+import { useState, useEffect, useReducer } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getAllAppointments, createAppointment, getAllPatients } from '../../api/clinic'
 import { getDentists } from '../../api/user'
