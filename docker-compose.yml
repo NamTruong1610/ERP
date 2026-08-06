@@ -1,0 +1,78 @@
+# Local orchestration. Postgres + Redis always; api + nginx(client) under the
+# `full` profile for prod-parity runs.
+#
+#   docker compose up                 -> infra only; run api/client on host
+#   docker compose --profile full up  -> everything, browse via http://localhost:8080
+#
+# Railway does NOT read this file — there each of Postgres, Redis, api, client
+# is its own service built from these same Dockerfiles. This is a local tool.
+#
+# Secrets (R2, Resend, clinic, Stripe) go in a .env next to this file.
+# DATABASE_URL / REDIS_URL are set explicitly so they point at the service
+# names and override anything in .env.
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dentacore
+      POSTGRES_PASSWORD: dentacore
+      POSTGRES_DB: dentacore
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dentacore"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    profiles: ["full"]
+    build:
+      context: ./server
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://dentacore:dentacore@postgres:5432/dentacore
+      REDIS_URL: redis://redis:6379
+      PORT: 5500
+    expose:
+      - "5500"     # reachable by nginx over the compose network; not published
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  client:
+    profiles: ["full"]
+    build:
+      context: ./client
+    environment:
+      # No trailing slash — keeps the /api prefix when proxying (see nginx.conf).
+      API_UPSTREAM: http://api:5500
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:

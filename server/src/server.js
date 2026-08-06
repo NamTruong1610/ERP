@@ -7,6 +7,7 @@ const { connect } = require('./bootstrap/connections')
 const { runSeeds } = require('./bootstrap/seed')
 const { registerShutdown } = require('./bootstrap/shutdown')
 const { startEmailWorker } = require('./workers/emailWorker')
+const { startMaintenanceWorker } = require('./workers/maintenanceWorker')
 const { startJobs } = require('./jobs')
 
 const PORT = process.env.PORT || 5500
@@ -15,6 +16,7 @@ const startServer = async () => {
   await connect()
 
   const emailWorker = startEmailWorker()
+  const maintenanceWorker = startMaintenanceWorker()
 
   await runSeeds()
 
@@ -22,12 +24,12 @@ const startServer = async () => {
     console.log(`App listening on port ${PORT}`)
   })
 
-  const jobs = await startJobs()
+  // Registers schedules + enqueues catch-up. Workers are already up to consume.
+  await startJobs()
 
   registerShutdown({
     server,
-    jobs,
-    workers: [emailWorker],
+    workers: [emailWorker, maintenanceWorker],
   })
 }
 
