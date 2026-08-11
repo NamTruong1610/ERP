@@ -1,17 +1,24 @@
 const { prisma } = require('../config/PrismaConfig')
 
 const treatmentInclude = {
-  appointment: {
+  visit: {
     include: {
-      dentist: {
-        select: {
-          id: true,
-          email: true,
-          name: true
+      patient: true,
+      visitProviders: {
+        include: {
+          performer: { select: { id: true, email: true, name: true } }
         }
-      },
-      patient: true
+      }
     }
+  },
+  treatmentPlan: {
+    select: { id: true, title: true, status: true }
+  },
+  treatmentPlanItem: {
+    select: { id: true, estimatedAmount: true }
+  },
+  performedBy: {
+    select: { id: true, email: true, name: true }
   }
 }
 
@@ -36,10 +43,13 @@ exports.findTreatmentById = async (id) => {
   })
 }
 
-exports.findTreatmentByAppointmentId = async (appointmentId) => {
-  return await prisma.treatment.findFirst({
-    where: { appointmentId, deletedAt: null },
-    include: treatmentInclude
+// Replaces findTreatmentByAppointmentId — a Visit can now have many
+// Treatments, so this returns a list, not a single record.
+exports.findTreatmentsByVisitId = async (visitId, client = prisma) => {
+  return await client.treatment.findMany({
+    where: { visitId, deletedAt: null },
+    include: treatmentInclude,
+    orderBy: { createdAt: 'asc' }
   })
 }
 
@@ -50,22 +60,20 @@ exports.findTreatmentsByIds = async (ids, client = prisma) => {
       deletedAt: null
     },
     include: {
-      appointment: {
+      visit: {
         select: { patientId: true }
       },
-      invoiceItem: { 
+      invoiceItem: {
         select: { id: true }
       }
     }
   })
 }
 
-// Treatments for a patient that haven't been attached to an InvoiceItem yet —
-// the pool clinic staff pick from when generating a new invoice.
 exports.findUnbilledTreatmentsByPatient = async (patientId, client = prisma) => {
   return await client.treatment.findMany({
     where: {
-      appointment: { patientId },
+      visit: { patientId },
       deletedAt: null,
       invoiceItem: null
     },

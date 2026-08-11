@@ -2,14 +2,20 @@ const { prisma } = require('../config/PrismaConfig')
 
 const appointmentInclude = {
   dentist: {
-    select: {
-      id: true,
-      email: true,
-      name: true
-    }
+    select: { id: true, email: true, name: true }
   },
   patient: true,
-  treatment: true
+  visit: {
+    select: {
+      id: true,
+      status: true,
+      visitDate: true,
+      treatments: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'asc' }
+      }
+    }
+  }
 }
 
 exports.findAllAppointments = async ({ take = 20, skip = 0, search, from, to } = {}, client = prisma) => {
@@ -105,13 +111,6 @@ exports.updateAppointment = async (id, data, client = prisma) => {
 }
 
 exports.softDeleteAppointment = async (id, client = prisma) => {
-  const now = new Date()
-
-  await client.treatment.updateMany({
-    where: { appointmentId: id, deletedAt: null },
-    data: { deletedAt: new Date() }
-  })
-
   return await client.appointment.update({
     where: { id },
     data: { deletedAt: new Date() }

@@ -1,6 +1,7 @@
 const {
   findAllPatients,
   findPatientById,
+  findInvoicedTreatmentByPatientId,
   createPatient,
   updatePatient,
   softDeletePatient
@@ -115,6 +116,11 @@ exports.deletePatientService = async (id, actor) => {
     throw new AppError('Patient not found', 404)
   }
 
+  const invoicedTreatment = await findInvoicedTreatmentByPatientId(id)
+  if (invoicedTreatment) {
+    throw new AppError('Cannot delete a patient with treatments that have already been invoiced', 409)
+  }
+
   await prisma.$transaction(async (tx) => {
     await createAuditLog({
       actorId: actor.id,
@@ -127,5 +133,4 @@ exports.deletePatientService = async (id, actor) => {
     }, tx)
     await softDeletePatient(id, tx)
   })
-
 }

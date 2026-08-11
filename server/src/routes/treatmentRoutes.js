@@ -6,7 +6,7 @@ const { PERMISSIONS } = require('../config/RBACConfig')
 const {
   getAllTreatmentsController,
   getTreatmentController,
-  getTreatmentByAppointmentController,
+  getTreatmentsByVisitController,
   getUnbilledTreatmentsController,
   createTreatmentController,
   updateTreatmentController,
@@ -19,7 +19,7 @@ const {
 const { handleValidationErrors } = require('../middlewares/validators/handleValidationErrors')
 
 router.get('/', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_READ_ALL), getAllTreatmentsController)
-router.get('/appointment/:appointmentId', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_READ), getTreatmentByAppointmentController)
+router.get('/visit/:visitId', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_READ), getTreatmentsByVisitController)
 router.get('/patient/:patientId/unbilled', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_READ), getUnbilledTreatmentsController)
 router.get('/:id', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_READ), getTreatmentController)
 router.post('/', requireAuth, requirePermission(PERMISSIONS.TREATMENTS_CREATE), validateCreateTreatment, handleValidationErrors, createTreatmentController)

@@ -39,6 +39,19 @@ const PERMISSIONS = {
   TREATMENTS_UPDATE:        'treatments:update',
   TREATMENTS_DELETE:        'treatments:delete',
 
+  // Treatment plans
+  TREATMENT_PLANS_READ:        'treatment_plans:read',
+  TREATMENT_PLANS_READ_ALL:    'treatment_plans:read_all',
+  TREATMENT_PLANS_CREATE:      'treatment_plans:create',
+  TREATMENT_PLANS_UPDATE:      'treatment_plans:update',
+
+  // Visits
+  VISITS_READ:          'visits:read',
+  VISITS_READ_ALL:      'visits:read_all',
+  VISITS_CREATE:        'visits:create',
+  VISITS_UPDATE:        'visits:update',
+  VISITS_DELETE:        'visits:delete',
+
   // Invoices
   INVOICES_READ:            'invoices:read',
   INVOICES_READ_ALL:        'invoices:read_all',
@@ -98,6 +111,15 @@ const STAFF_PERMISSIONS = [
   PERMISSIONS.TREATMENTS_CREATE,
   PERMISSIONS.TREATMENTS_UPDATE,
   PERMISSIONS.TREATMENTS_DELETE,
+  PERMISSIONS.TREATMENT_PLANS_READ,
+  PERMISSIONS.TREATMENT_PLANS_READ_ALL,
+  PERMISSIONS.TREATMENT_PLANS_CREATE,
+  PERMISSIONS.TREATMENT_PLANS_UPDATE,
+  PERMISSIONS.VISITS_READ,
+  PERMISSIONS.VISITS_READ_ALL,
+  PERMISSIONS.VISITS_CREATE,
+  PERMISSIONS.VISITS_UPDATE,
+  PERMISSIONS.VISITS_DELETE,
   PERMISSIONS.FILES_READ,
   PERMISSIONS.FILES_UPLOAD,
   PERMISSIONS.FILES_DELETE,

@@ -55,18 +55,33 @@ exports.findPatientById = async (id) => {
       appointments: {
         where: { deletedAt: null },
         include: {
-          dentist: {
+          dentist: { select: { id: true, email: true, name: true } },
+          visit: {
             select: {
               id: true,
-              email: true,
-              name: true
+              status: true,
+              visitDate: true,
+              treatments: {
+                where: { deletedAt: null },
+                orderBy: { createdAt: 'asc' }
+              }
             }
-          },
-          treatment: true
+          }
         },
         orderBy: { date: 'desc' }
       }
     }
+  })
+}
+
+exports.findInvoicedTreatmentByPatientId = async (patientId, client = prisma) => {
+  return await client.treatment.findFirst({
+    where: {
+      visit: { patientId },
+      deletedAt: null,
+      invoiceItem: { isNot: null }
+    },
+    select: { id: true, procedure: true }
   })
 }
 
@@ -88,12 +103,16 @@ exports.hardDeletePatient = async (id) => {
 }
 
 exports.softDeletePatient = async (id, client = prisma) => {
-  const now = new Date()
   await client.treatment.updateMany({
     where: {
-      appointment: { patientId: id },
+      visit: { patientId: id },
       deletedAt: null
     },
+    data: { deletedAt: new Date() }
+  })
+
+  await client.visit.updateMany({
+    where: { patientId: id, deletedAt: null },
     data: { deletedAt: new Date() }
   })
 

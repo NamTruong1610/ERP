@@ -42,7 +42,7 @@ exports.createInvoiceService = async (data, actor) => {
   }
 
   for (const treatment of treatments) {
-    if (treatment.appointment.patientId !== patientId) {
+    if (treatment.visit.patientId !== patientId) {
       throw new AppError('One or more treatments do not belong to this patient', 400);
     }
   }

@@ -82,14 +82,9 @@ export const deleteAppointment = async (id) => {
 
 // ─── Treatments ────────────────────────────────────────────────────────────────
 
-export const getTreatment = async (id) => {
-  const { data } = await axiosInstance.get(`/treatments/${id}`)
-  return data // { treatment }
-}
-
-export const getTreatmentByAppointment = async (appointmentId) => {
-  const { data } = await axiosInstance.get(`/treatments/appointment/${appointmentId}`)
-  return data // { treatment }
+export const getTreatmentsByVisit = async (visitId) => {
+  const { data } = await axiosInstance.get(`/treatments/visit/${visitId}`)
+  return data // { treatments }
 }
 
 export const createTreatment = async (treatmentData) => {

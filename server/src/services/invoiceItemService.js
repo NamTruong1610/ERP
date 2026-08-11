@@ -9,7 +9,7 @@ const { AuditAction, TargetType, InvoiceStatus } = require('@prisma/client');
 const resolveTreatmentLinkedItem = async (invoiceRecord, treatmentId, description, amount) => {
   const [treatment] = await findTreatmentsByIds([treatmentId]);
   if (!treatment) throw new AppError('Treatment not found', 404);
-  if (treatment.appointment.patientId !== invoiceRecord.patientId) {
+  if (treatment.visit.patientId !== invoiceRecord.patientId) {
     throw new AppError("Treatment does not belong to this invoice's patient", 400);
   }
   if (treatment.invoiceItem != null) {

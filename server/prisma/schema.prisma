@@ -11,223 +11,409 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id                String            @id @default(cuid())
-  email             String        
-  password          String?
-  status            UserStatus        @default(PENDING_ACTIVATION)
-  roles             UserRole[]
-  phones            String[]          @default([])
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  deletedAt         DateTime?     
+// =============================================================================
+// IDENTITY & AUTH
+// =============================================================================
 
-  name              UserName?
-  addresses         Address[]
-  appointments      Appointment[]
-  uploadedFiles     File[]            @relation(name: "uploadedFiles")
-  payments          Payment[]         @relation(name: "recordedPayments")
-  voidedPayments    Payment[]         @relation(name: "voidedPayments")
-  userActivation    UserActivation?
-  userMfa           UserMfa?
+model User {
+  id                    String          @id @default(cuid())
+  email                 String
+  password              String?
+  status                UserStatus      @default(PENDING_ACTIVATION)
+  phones                String[]        @default([])
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  deletedAt             DateTime?
+
+  name                  UserName?
+  addresses             Address[]
+  roles                 UserRole[]
+  userActivation        UserActivation?
+  userMfa               UserMfa?
+
+  appointments          Appointment[]
+  visitProviders        VisitProvider[]
+  performedTreatments   Treatment[]
+  treatmentPlansCreated TreatmentPlan[]
+  uploadedFiles         File[]          @relation(name: "uploadedFiles")
+  payments              Payment[]       @relation(name: "recordedPayments")
+  voidedPayments        Payment[]       @relation(name: "voidedPayments")
 }
 
 model UserRole {
   id         String   @id @default(cuid())
   userId     String
   role       Role
-  assignedBy String?  
+  assignedBy String?
   assignedAt DateTime @default(now())
+
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, role]) 
+  @@unique([userId, role])
 }
 
 model UserMfa {
-  id                String    @id @default(cuid())
-  enabled           Boolean   @default(false)
-  mfaSecret         String?
-  mfaUri            String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  enabled   Boolean  @default(false)
+  mfaSecret String?
+  mfaUri    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId            String    @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserActivation {
-  id                String    @id @default(cuid())
-  tokenId           String    @unique
-  expiresAt         DateTime
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  tokenId   String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId            String    @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserName {
-  id     String  @id @default(cuid())
+  id     String @id @default(cuid())
+  userId String @unique
   fName  String?
   mName  String?
   lName  String?
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String  @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Address {
-  id      String  @id @default(cuid())
-  street  String?
-  suburb  String?
-  post    String?
-  city    String?
+  id     String  @id @default(cuid())
+  userId String
+  street String?
+  suburb String?
+  post   String?
+  city   String?
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId  String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Patient {
-  id           String        @id @default(cuid())
-  firstName    String
-  lastName     String
-  dob          DateTime      // date of birth
-  gender       String
-  phone        String?
-  email        String?
-  address      String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  deletedAt    DateTime?
+// =============================================================================
+// CLINICAL — patients, scheduling, visits, treatment plans, treatments
+// =============================================================================
 
-  appointments Appointment[]
-  files        File[]
-  invoices Invoice[]
+model Patient {
+  id             String          @id @default(cuid())
+  firstName      String
+  lastName       String
+  dob            DateTime        // date of birth
+  gender         String
+  phone          String?
+  email          String?
+  address        String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  appointments   Appointment[]
+  visits         Visit[]
+  treatmentPlans TreatmentPlan[]
+  files          File[]
+  invoices       Invoice[]
 }
 
 model Appointment {
-  id          String       @id @default(cuid())
-  dentistId   String?
-  patientId   String
-  date        DateTime
-  status      AppointmentStatus       @default(SCHEDULED) // SCHEDULED, COMPLETED, CANCELLED
-  notes       String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  deletedAt   DateTime?
-  dentist     User?        @relation(fields: [dentistId], references: [id])
-  patient     Patient      @relation(fields: [patientId], references: [id])
-  treatment   Treatment?   @relation 
+  id        String            @id @default(cuid())
+  dentistId String?
+  patientId String
+  date      DateTime
+  status    AppointmentStatus @default(SCHEDULED) // SCHEDULED, COMPLETED, CANCELLED
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  deletedAt DateTime?
+
+  dentist   User?             @relation(fields: [dentistId], references: [id])
+  patient   Patient           @relation(fields: [patientId], references: [id])
+  visit     Visit?            @relation
+}
+
+model Visit {
+  id             String          @id @default(cuid())
+  patientId      String
+  appointmentId  String?         @unique // a Visit can exist w/o an appointment (walk-in)
+  visitDate      DateTime
+  status         VisitStatus     // IN_PROGRESS | COMPLETED | CANCELLED
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  visitProviders VisitProvider[]
+  treatments     Treatment[]
+
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  appointment    Appointment?    @relation(fields: [appointmentId], references: [id])
+}
+
+model VisitProvider {
+  id          String            @id @default(cuid())
+  visitId     String
+  performerId String
+  role        VisitProviderRole // PRIMARY | ASSISTING | HYGIENIST | OTHER
+  createdAt   DateTime          @default(now())
+
+  visit       Visit             @relation(fields: [visitId], references: [id])
+  performer   User              @relation(fields: [performerId], references: [id])
+
+  @@unique([visitId, performerId])
+}
+
+model TreatmentPlan {
+  id                 String              @id @default(cuid())
+  patientId          String
+  createdById        String?
+  title              String
+  status             TreatmentPlanStatus // PROPOSED | ACTIVE | COMPLETED | CANCELLED
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+
+  treatments         Treatment[]
+  treatmentPlanItems TreatmentPlanItem[]
+
+  patient            Patient             @relation(fields: [patientId], references: [id])
+  createdBy          User?               @relation(fields: [createdById], references: [id])
+}
+
+model TreatmentPlanItem {
+  id              String         @id @default(cuid())
+  treatmentPlanId String
+  procedure       String
+  toothNumber     Int?
+  estimatedAmount Float
+  status          PlanItemStatus // PROPOSED | COMPLETED | CANCELLED
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  treatment       Treatment?
+
+  treatmentPlan   TreatmentPlan  @relation(fields: [treatmentPlanId], references: [id])
 }
 
 model Treatment {
-  id            String      @id @default(cuid())
-  appointmentId String      @unique
-  procedure     String      // e.g. filling, extraction, cleaning
-  toothNumber   Int?        // 1-32
-  notes         String?
-  amount        Float
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  deletedAt     DateTime?
-  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  invoiceItem   InvoiceItem?
+  id                  String             @id @default(cuid())
+  visitId             String
+  treatmentPlanId     String?
+  treatmentPlanItemId String?            @unique
+  performedById       String?
+  procedure           String             // e.g. filling, extraction, cleaning
+  toothNumber         Int?               // 1-32
+  notes               String?
+  amount              Float
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  deletedAt           DateTime?
+
+  invoiceItem         InvoiceItem?
+
+  visit               Visit              @relation(fields: [visitId], references: [id])
+  treatmentPlan       TreatmentPlan?     @relation(fields: [treatmentPlanId], references: [id])
+  treatmentPlanItem   TreatmentPlanItem? @relation(fields: [treatmentPlanItemId], references: [id])
+  performedBy         User?              @relation(fields: [performedById], references: [id])
 }
 
-model AuditLog {
-  id         String   @id @default(cuid())
-  
-  actorId    String?  // null for system-triggered events
-  actorType  ActorType @default(USER)
-
-  targetId   String?
-  targetType TargetType?
-  
-  action     AuditAction
-  
-  metadata   Json?    
-  ip         String?
-  userAgent  String?
-  trigger    TriggerType @default(USER_ACTION)
-  
-  createdAt  DateTime @default(now())
-}
+// =============================================================================
+// FILES
+// =============================================================================
 
 model File {
-  id          String      @id @default(cuid())
-  patientId   String
-  uploadedBy  String
-  fileName    String      // original name shown in UI
-  storageKey  String      @unique  // R2 object key — never exposed to client
-  mimeType    String
-  fileType    FileType
-  sizeBytes   Int
-  status      FileStatus  @default(PENDING)
-  createdAt   DateTime    @default(now())
-  deletedAt   DateTime?
+  id         String     @id @default(cuid())
+  patientId  String
+  uploadedBy String
+  fileName   String     // original name shown in UI
+  storageKey String     @unique // R2 object key — never exposed to client
+  mimeType   String
+  fileType   FileType
+  sizeBytes  Int
+  status     FileStatus @default(PENDING)
+  createdAt  DateTime   @default(now())
+  deletedAt  DateTime?
 
-  patient     Patient     @relation(fields: [patientId], references: [id])
-  uploader    User        @relation(fields: [uploadedBy], references: [id], name: "uploadedFiles")
+  patient    Patient    @relation(fields: [patientId], references: [id])
+  uploader   User       @relation(fields: [uploadedBy], references: [id], name: "uploadedFiles")
 }
 
+// =============================================================================
+// BILLING — invoices, payments, allocations
+// =============================================================================
+
 model Invoice {
-  id               String        @id @default(cuid())
-  patientId        String
-  patient          Patient       @relation(fields: [patientId], references: [id])
-  invoiceNumber    String?       @unique   // e.g. INV-2026-0001, human-readable
-  status           InvoiceStatus @default(DRAFT)
-  subtotal         Float
-  discount         Float
-  tax              Float         @default(0)
-  total            Float
-  paidAmount       Float         @default(0)
-  abn              String        @default("00000000000")
-  notes            String?
-  issuedAt         DateTime?
-  dueAt            DateTime?
-  paidAt           DateTime?
-  billedToName     String?   // "ABC Insurance Pty Ltd"
-  billedToEmail    String?   // "accounts@insurance.com"
-  billedToPhone    String?   // optional
-  billedToAddress  String? 
-  voidedAt         DateTime?
-  voidReason       String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  deletedAt        DateTime?
-  items            InvoiceItem[]
-  payments         Payment[] 
+  id              String        @id @default(cuid())
+  patientId       String
+  invoiceNumber   String?       @unique // e.g. INV-2026-0001, human-readable
+  status          InvoiceStatus @default(DRAFT)
+  subtotal        Float
+  discount        Float
+  tax             Float         @default(0)
+  total           Float
+  paidAmount      Float         @default(0)
+  abn             String        @default("00000000000")
+  notes           String?
+  issuedAt        DateTime?
+  dueAt           DateTime?
+  paidAt          DateTime?
+  billedToName    String?       // "ABC Insurance Pty Ltd"
+  billedToEmail   String?       // "accounts@insurance.com"
+  billedToPhone   String?       // optional
+  billedToAddress String?
+  voidedAt        DateTime?
+  voidReason      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  items           InvoiceItem[]
+  payments        Payment[]
+
+  patient         Patient       @relation(fields: [patientId], references: [id])
 }
 
 model InvoiceItem {
-  id            String               @id @default(cuid())
-  invoiceId     String
-  invoice       Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  treatmentId   String?              @unique// nullable — link to source treatment if applicable
-  treatment     Treatment?           @relation(fields: [treatmentId], references: [id])
-  allocations   PaymentAllocation[]
-  paidAmount    Float                @default(0)
-  itemStatus    InvoiceItemStatus    @default(UNPAID)
-  description   String      // free text, e.g. "Root canal — tooth 14"
-  amount        Float
+  id          String              @id @default(cuid())
+  invoiceId   String
+  treatmentId String?             @unique // nullable — link to source treatment if applicable
+  description String              // free text, e.g. "Root canal — tooth 14"
+  amount      Float
+  paidAmount  Float               @default(0)
+  itemStatus  InvoiceItemStatus   @default(UNPAID)
+
+  allocations PaymentAllocation[]
+
+  invoice     Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  treatment   Treatment?          @relation(fields: [treatmentId], references: [id])
 }
 
-enum InvoiceItemStatus {
-  UNPAID
-  PARTIALLY_PAID
-  PAID
-  WRITTEN_OFF   // insurance adjustment / bad debt — separate from a real payment
+model Payment {
+  id           String              @id @default(cuid())
+  invoiceId    String
+  amount       Float
+  method       PaymentMethod
+  note         String?
+  status       PaymentStatus       @default(ACTIVE)
+  recordedById String
+  voidedById   String?
+  voidedAt     DateTime?
+  voidReason   String?
+  createdAt    DateTime            @default(now())
+
+  allocations  PaymentAllocation[]
+
+  invoice      Invoice             @relation(fields: [invoiceId], references: [id])
+  recordedBy   User                @relation(fields: [recordedById], references: [id], name: "recordedPayments")
+  voidedBy     User?               @relation(fields: [voidedById], references: [id], name: "voidedPayments")
 }
 
-enum InvoiceStatus {
-  DRAFT       // being prepared, not sent yet
-  ISSUED      // sent to patient, awaiting payment
-  PARTIALLY_PAID
-  PAID
-  OVERDUE     // derived/cron-updated based on dueAt
+model PaymentAllocation {
+  id            String      @id @default(cuid())
+  paymentId     String
+  invoiceItemId String
+  amount        Float       // portion of the payment applied to this item
+  createdAt     DateTime    @default(now())
+
+  payment       Payment     @relation(fields: [paymentId], references: [id])
+  invoiceItem   InvoiceItem @relation(fields: [invoiceItemId], references: [id])
+}
+
+// =============================================================================
+// AUDIT
+// =============================================================================
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?     // null for system-triggered events
+  actorType  ActorType   @default(USER)
+  targetId   String?
+  targetType TargetType?
+  action     AuditAction
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  trigger    TriggerType @default(USER_ACTION)
+  createdAt  DateTime    @default(now())
+}
+
+// =============================================================================
+// ENUMS — Identity & Auth
+// =============================================================================
+
+enum Role {
+  STAFF
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  PENDING_ACTIVATION       // account created, activation email sent, not yet activated
+  PENDING_MFA_SETUP        // password set, MFA not yet configured
+  PENDING_MFA_VERIFICATION // MFA secret generated, OTP not yet verified
+  ACTIVE                   // fully activated, can log in
+  SUSPENDED                // manually suspended by admin, cannot log in
+}
+
+// =============================================================================
+// ENUMS — Clinical
+// =============================================================================
+
+enum AppointmentStatus {
+  SCHEDULED // booked, upcoming
+  COMPLETED // treatment recorded, auto-set
+  CANCELLED // manually cancelled
+}
+
+enum VisitStatus {
+  IN_PROGRESS
+  COMPLETED
   CANCELLED
-  VOIDED        // issued then voided — keeps audit trail, replaces a "delete"
 }
+
+enum VisitProviderRole {
+  PRIMARY
+  ASSISTING
+  HYGIENIST
+  OTHER
+}
+
+enum TreatmentPlanStatus {
+  PROPOSED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PlanItemStatus {
+  PROPOSED
+  COMPLETED
+  CANCELLED
+}
+
+// =============================================================================
+// ENUMS — Files
+// =============================================================================
+
+enum FileType {
+  IMAGE
+  PDF
+  DICOM
+}
+
+enum FileStatus {
+  PENDING   // upload URL issued, file not yet in R2
+  CONFIRMED // client confirmed, server verified in R2
+}
+
+// =============================================================================
+// ENUMS — Billing
+// =============================================================================
 
 enum PaymentMethod {
   CASH
@@ -242,61 +428,40 @@ enum PaymentStatus {
   VOIDED
 }
 
-model Payment {
-  id            String        @id @default(cuid())
-  invoiceId     String
-  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
-  amount        Float
-  method        PaymentMethod
-  note          String?
-  status        PaymentStatus @default(ACTIVE)
-  recordedById  String
-  recordedBy    User          @relation(fields: [recordedById], references: [id], name: "recordedPayments")
-  voidedById    String?
-  voidedBy      User?         @relation(fields: [voidedById], references: [id], name: "voidedPayments")
-  voidedAt      DateTime?
-  voidReason    String?
-  allocations   PaymentAllocation[]
-  createdAt     DateTime      @default(now())
+enum InvoiceStatus {
+  DRAFT           // being prepared, not sent yet
+  ISSUED          // sent to patient, awaiting payment
+  PARTIALLY_PAID
+  PAID
+  OVERDUE         // derived/cron-updated based on dueAt
+  CANCELLED
+  VOIDED          // issued then voided — keeps audit trail, replaces a "delete"
 }
 
-model PaymentAllocation {
-  id            String      @id @default(cuid())
-  paymentId     String
-  payment       Payment     @relation(fields: [paymentId], references: [id])
-  invoiceItemId String
-  invoiceItem   InvoiceItem @relation(fields: [invoiceItemId], references: [id])
-  amount        Float       // portion of the payment applied to this item
-  createdAt     DateTime    @default(now())
+enum InvoiceItemStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  WRITTEN_OFF // insurance adjustment / bad debt — separate from a real payment
 }
 
-enum FileType {
-  IMAGE
-  PDF
-  DICOM
-}
-
-enum FileStatus {
-  PENDING    // upload URL issued, file not yet in R2
-  CONFIRMED  // client confirmed, server verified in R2
-}
-
-enum Role {
-  STAFF
-  ADMIN
-  SUPER_ADMIN
-}
+// =============================================================================
+// ENUMS — Audit
+// =============================================================================
 
 enum ActorType {
-  USER       
-  SYSTEM     
+  USER
+  SYSTEM
 }
 
 enum TargetType {
   USER
   PATIENT
   APPOINTMENT
+  VISIT
   TREATMENT
+  TREATMENT_PLAN
+  TREATMENT_PLAN_ITEM
   INVOICE
   FILE
   SESSION
@@ -304,10 +469,10 @@ enum TargetType {
 }
 
 enum TriggerType {
-  USER_ACTION    // initiated by a human via the UI
-  ADMIN_ACTION   // initiated by an admin via the admin panel
-  SYSTEM         // cron job or automated process
-  CASCADE        // side effect of another operation
+  USER_ACTION  // initiated by a human via the UI
+  ADMIN_ACTION // initiated by an admin via the admin panel
+  SYSTEM       // cron job or automated process
+  CASCADE      // side effect of another operation
 }
 
 enum AuditAction {
@@ -328,7 +493,7 @@ enum AuditAction {
   USER_SUSPENDED
   USER_REACTIVATED
   USER_DELETED
-  USER_EXPIRED_DELETED  // cron cleanup
+  USER_EXPIRED_DELETED // cron cleanup
 
   // Account changes
   PASSWORD_CHANGED
@@ -338,7 +503,7 @@ enum AuditAction {
   EMAIL_CHANGE_REQUESTED
   MFA_ENABLED
   MFA_DISABLED
-  MFA_RESET             // admin reset
+  MFA_RESET // admin reset
 
   // Role management
   ROLE_ASSIGNED
@@ -359,6 +524,25 @@ enum AuditAction {
   APPOINTMENT_UPDATED
   APPOINTMENT_CANCELLED
   APPOINTMENT_DELETED
+
+  // Visits
+  VISIT_CREATED
+  VISIT_UPDATED
+  VISIT_CANCELLED
+  VISIT_DELETED
+  VISIT_PROVIDER_ADDED
+  VISIT_PROVIDER_UPDATED
+  VISIT_PROVIDER_REMOVED
+
+  // Treatment plans
+  TREATMENT_PLAN_CREATED
+  TREATMENT_PLAN_UPDATED
+  TREATMENT_PLAN_CANCELLED
+  TREATMENT_PLAN_DELETED
+  TREATMENT_PLAN_ITEM_ADDED
+  TREATMENT_PLAN_ITEM_UPDATED
+  TREATMENT_PLAN_ITEM_CONVERTED // proposal converted into a real Treatment
+  TREATMENT_PLAN_ITEM_CANCELLED
 
   // Treatments
   TREATMENT_CREATED
@@ -384,20 +568,6 @@ enum AuditAction {
   FILE_PURGED
 
   // Audit
-  AUDIT_CORRECTION      // append-only correction reference
-  AUDIT_PURGE           // legal deletion order
-}
-
-enum UserStatus {
-  PENDING_ACTIVATION        // account created, activation email sent, not yet activated
-  PENDING_MFA_SETUP         // password set, MFA not yet configured
-  PENDING_MFA_VERIFICATION  // MFA secret generated, OTP not yet verified
-  ACTIVE                    // fully activated, can log in
-  SUSPENDED                 // manually suspended by admin, cannot log in
-}
-
-enum AppointmentStatus {
-  SCHEDULED   // booked, upcoming
-  COMPLETED   // treatment recorded, auto-set
-  CANCELLED   // manually cancelled
+  AUDIT_CORRECTION // append-only correction reference
+  AUDIT_PURGE      // legal deletion order
 }

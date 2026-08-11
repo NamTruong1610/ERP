@@ -1,8 +1,11 @@
-const { findAppointmentById, updateAppointment } = require('../repositories/appointmentRepository')
+const { VisitStatus, TreatmentPlanStatus, UserStatus, AuditAction, TargetType } = require('@prisma/client')
+const { findVisitById } = require('../repositories/visitRepository')
+const { findTreatmentPlanById } = require('../repositories/treatmentPlanRepository')
+const { findUserById } = require('../repositories/userRepository')
 const {
   findAllTreatments,
   findTreatmentById,
-  findTreatmentByAppointmentId,
+  findTreatmentsByVisitId,
   findUnbilledTreatmentsByPatient,
   createTreatment,
   updateTreatment,
@@ -11,17 +14,18 @@ const {
 const { findPatientById } = require('../repositories/patientRepository')
 
 const { createAuditLog } = require('../repositories/auditRepository')
-const { AppError } = require('../lib/AppError');
+const { AppError } = require('../lib/AppError')
 
 const { prisma } = require('../config/PrismaConfig')
-const { AuditAction, TargetType } = require('@prisma/client')
+
+const TERMINAL_VISIT_STATUSES = [VisitStatus.COMPLETED, VisitStatus.CANCELLED]
+const CLOSED_PLAN_STATUSES = [TreatmentPlanStatus.COMPLETED, TreatmentPlanStatus.CANCELLED]
 
 exports.getAllTreatmentsService = async ({ take = 20, skip = 0 }) => {
-  const treatments = await findAllTreatments({
+  return await findAllTreatments({
     take: Math.min(parseInt(take), 100),
     skip: parseInt(skip)
   })
-  return treatments
 }
 
 exports.getTreatmentService = async (id) => {
@@ -32,18 +36,14 @@ exports.getTreatmentService = async (id) => {
   return treatment
 }
 
-exports.getTreatmentByAppointmentService = async (appointmentId) => {
-  const appointment = await findAppointmentById(appointmentId)
-  if (!appointment) {
-    throw new AppError('Appointment not found', 404)
+// Replaces getTreatmentByAppointmentService — a visit can have zero, one, or
+// many treatments now, so an empty list is a valid result, not a 404.
+exports.getTreatmentsByVisitService = async (visitId) => {
+  const visit = await findVisitById(visitId)
+  if (!visit) {
+    throw new AppError('Visit not found', 404)
   }
-
-  const treatment = await findTreatmentByAppointmentId(appointmentId)
-  if (!treatment) {
-    throw new AppError('No treatment found for this appointment', 404)
-  }
-
-  return treatment
+  return await findTreatmentsByVisitId(visitId)
 }
 
 exports.getUnbilledTreatmentsService = async (patientId) => {
@@ -51,58 +51,73 @@ exports.getUnbilledTreatmentsService = async (patientId) => {
   if (!patient) {
     throw new AppError('Patient not found', 404)
   }
-
-  const treatments = await findUnbilledTreatmentsByPatient(patientId)
-  return treatments
+  return await findUnbilledTreatmentsByPatient(patientId)
 }
 
-exports.createTreatmentService = async ({ appointmentId, procedure, toothNumber, notes, amount }, actor) => {
-  if (!appointmentId || !procedure || amount === undefined) {
-    throw new AppError('Appointment, procedure and amount are required', 400)
+exports.createTreatmentService = async ({ visitId, treatmentPlanId, performedById, procedure, toothNumber, notes, amount }, actor) => {
+  if (!visitId || !procedure || amount === undefined) {
+    throw new AppError('Visit, procedure and amount are required', 400)
   }
 
-  // Validate appointment exists
-  const appointment = await findAppointmentById(appointmentId)
-  if (!appointment) {
-    throw new AppError('Appointment not found', 404)
+  const visit = await findVisitById(visitId)
+  if (!visit) {
+    throw new AppError('Visit not found', 404)
+  }
+  if (TERMINAL_VISIT_STATUSES.includes(visit.status)) {
+    throw new AppError('Cannot add a treatment to a completed or cancelled visit', 400)
   }
 
-  // Check appointment is not cancelled
-  if (appointment.status === 'CANCELLED') {
-    throw new AppError('Cannot add treatment to a cancelled appointment', 400)
+  if (treatmentPlanId) {
+    const plan = await findTreatmentPlanById(treatmentPlanId)
+    if (!plan) {
+      throw new AppError('Treatment plan not found', 404)
+    }
+    if (plan.patientId !== visit.patientId) {
+      throw new AppError('Treatment plan does not belong to this patient', 400)
+    }
+    if (CLOSED_PLAN_STATUSES.includes(plan.status)) {
+      throw new AppError('Cannot attach a treatment to a completed or cancelled plan', 409)
+    }
   }
 
-  // Check treatment doesn't already exist for this appointment
-  const existing = await findTreatmentByAppointmentId(appointmentId)
-  if (existing) {
-    throw new AppError('Treatment already exists for this appointment', 400)
+  if (performedById) {
+    const performer = await findUserById(performedById)
+    if (!performer || performer.status !== UserStatus.ACTIVE) {
+      throw new AppError('Performer not found', 404)
+    }
+    // Assumption worth confirming: should performedById be restricted to
+    // someone already listed as a VisitProvider on this visit? Left
+    // unrestricted for now — flagging rather than silently deciding.
   }
 
-  const treatment = await prisma.$transaction(async (tx) => {
+  const parsedAmount = parseFloat(amount)
+  if (isNaN(parsedAmount) || parsedAmount < 0) {
+    throw new AppError('Amount must be a positive number', 400)
+  }
+
+  return prisma.$transaction(async (tx) => {
     const created = await createTreatment({
-      appointmentId,
+      visitId,
+      treatmentPlanId: treatmentPlanId || null,
+      performedById: performedById || null,
       procedure,
       toothNumber: toothNumber ? parseInt(toothNumber) : null,
       notes,
-      amount: parseFloat(amount)
+      amount: parsedAmount
     }, tx)
-
-    await updateAppointment(appointmentId, { status: 'COMPLETED' }, tx)
 
     await createAuditLog({
       actorId: actor.id,
       targetId: created.id,
       targetType: TargetType.TREATMENT,
       action: AuditAction.TREATMENT_CREATED,
-      metadata: { appointmentId, procedure, toothNumber: created.toothNumber, amount: created.amount },
+      metadata: { visitId, treatmentPlanId: treatmentPlanId || null, procedure, toothNumber: created.toothNumber, amount: created.amount },
       ip: actor.ip,
       userAgent: actor.userAgent
     }, tx)
 
     return created
   })
-
-  return treatment
 }
 
 exports.updateTreatmentService = async (id, body, actor) => {
@@ -111,13 +126,14 @@ exports.updateTreatmentService = async (id, body, actor) => {
     throw new AppError('Treatment not found', 404)
   }
 
-  const allowedFields = ['procedure', 'toothNumber', 'notes', 'amount']
+  const allowedFields = ['procedure', 'toothNumber', 'notes', 'amount', 'treatmentPlanId', 'performedById']
   const updates = {}
 
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
-      if (field === 'toothNumber') updates[field] = parseInt(body[field])
+      if (field === 'toothNumber') updates[field] = body[field] === null ? null : parseInt(body[field])
       else if (field === 'amount') updates[field] = parseFloat(body[field])
+      else if (field === 'treatmentPlanId' || field === 'performedById') updates[field] = body[field] || null
       else updates[field] = body[field]
     }
   }
@@ -126,7 +142,27 @@ exports.updateTreatmentService = async (id, body, actor) => {
     throw new AppError('No valid fields provided', 400)
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  if (updates.treatmentPlanId) {
+    const plan = await findTreatmentPlanById(updates.treatmentPlanId)
+    if (!plan) {
+      throw new AppError('Treatment plan not found', 404)
+    }
+    if (plan.patientId !== treatment.visit.patientId) {
+      throw new AppError('Treatment plan does not belong to this patient', 400)
+    }
+    if (CLOSED_PLAN_STATUSES.includes(plan.status)) {
+      throw new AppError('Cannot attach a treatment to a completed or cancelled plan', 409)
+    }
+  }
+
+  if (updates.performedById) {
+    const performer = await findUserById(updates.performedById)
+    if (!performer || performer.status !== UserStatus.ACTIVE) {
+      throw new AppError('Performer not found', 404)
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
     const result = await updateTreatment(id, updates, tx)
     await createAuditLog({
       actorId: actor.id,
@@ -139,14 +175,17 @@ exports.updateTreatmentService = async (id, body, actor) => {
     }, tx)
     return result
   })
-
-  return updated
 }
 
 exports.deleteTreatmentService = async (id, actor) => {
   const treatment = await findTreatmentById(id)
   if (!treatment) {
     throw new AppError('Treatment not found', 404)
+  }
+  // Was missing before this rework — mirrors the same guard deleteVisitService
+  // already has for its cascaded treatments.
+  if (treatment.invoiceItem != null) {
+    throw new AppError('Cannot delete a treatment that has already been invoiced', 409)
   }
 
   await prisma.$transaction(async (tx) => {
@@ -161,5 +200,4 @@ exports.deleteTreatmentService = async (id, actor) => {
     }, tx)
     await softDeleteTreatment(id, tx)
   })
-
 }

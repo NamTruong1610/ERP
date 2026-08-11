@@ -14,7 +14,7 @@ const { createAuditLog } = require('../repositories/auditRepository')
 const { invalidateClinicStats, invalidateMyStats } = require('../repositories/statsRepository')
 
 const { prisma } = require('../config/PrismaConfig')
-const { UserStatus, AuditAction, TargetType } = require('@prisma/client')
+const { UserStatus, AppointmentStatus, AuditAction, TargetType } = require('@prisma/client')
 
 const VALID_STATUSES = ['SCHEDULED', 'COMPLETED', 'CANCELLED']
 
@@ -111,6 +111,10 @@ exports.updateAppointmentService = async (id, body, actor) => {
     throw new AppError('Appointment not found', 404)
   }
 
+  if (appointment.status === AppointmentStatus.COMPLETED) {
+    throw new AppError('Cannot edit a completed appointment', 409)
+  }
+
   const allowedFields = ['date', 'status', 'notes', 'dentistId']
   const updates = {}
 
@@ -132,6 +136,10 @@ exports.updateAppointmentService = async (id, body, actor) => {
 
   if (updates.status && !VALID_STATUSES.includes(updates.status)) {
     throw new AppError(`Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`, 400)
+  }
+
+  if (updates.status === AppointmentStatus.COMPLETED) {
+    throw new AppError('Appointment status is set to COMPLETED automatically when its visit is completed', 400)
   }
 
   if (updates.dentistId !== undefined && updates.dentistId !== null) {
@@ -166,6 +174,9 @@ exports.deleteAppointmentService = async (id, actor) => {
   const appointment = await findAppointmentById(id)
   if (!appointment) {
     throw new AppError('Appointment not found', 404)
+  }
+  if (appointment.visit) {
+    throw new AppError('Cannot delete an appointment that has a visit — delete the visit first', 409)
   }
 
   await prisma.$transaction(async (tx) => {

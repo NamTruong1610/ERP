@@ -4,6 +4,7 @@ import {
   getAppointment, updateAppointment, deleteAppointment,
   createTreatment, updateTreatment
 } from '../../api/clinic'
+import { createVisitFromAppointment, updateVisit } from '../../api/visit'
 import { getDentists } from '../../api/user'
 import { useAuth } from '../../context/useAuth'
 import AppSidebar from '../../components/layout/AppSidebar'
@@ -51,7 +52,10 @@ export default function AppointmentDetail() {
   const [editError, setEditError] = useState('')
   const [editLoading, setEditLoading] = useState(false)
 
+  const [visitLoading, setVisitLoading] = useState(false)
+  const [completingVisit, setCompletingVisit] = useState(false)
   const [showTreatment, setShowTreatment] = useState(false)
+  const [editingTreatmentId, setEditingTreatmentId] = useState(null) // null = creating new
   const [treatmentForm, dispatchTreatment] = useReducer(reducer, initialTreatment)
   const [treatmentError, setTreatmentError] = useState('')
   const [treatmentLoading, setTreatmentLoading] = useState(false)
@@ -134,34 +138,81 @@ export default function AppointmentDetail() {
     }
   }
 
+  const handleStartVisit = async () => {
+    setVisitLoading(true)
+    setError('')
+    try {
+      await createVisitFromAppointment({ appointmentId: id })
+      setFeedback('Visit started')
+      await fetchAppointment()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to start visit')
+    } finally {
+      setVisitLoading(false)
+    }
+  }
+
+  const handleCompleteVisit = async () => {
+    setCompletingVisit(true)
+    setError('')
+    setFeedback('')
+    try {
+      await updateVisit(appointment.visit.id, { status: 'COMPLETED' })
+      setFeedback('Visit completed')
+      await fetchAppointment()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to complete visit')
+    } finally {
+      setCompletingVisit(false)
+    }
+  }
+
+  const openNewTreatment = () => {
+    setEditingTreatmentId(null)
+    dispatchTreatment({ type: 'init', payload: initialTreatment })
+    setShowTreatment(true)
+  }
+
+  const openEditTreatment = (treatment) => {
+    setEditingTreatmentId(treatment.id)
+    dispatchTreatment({
+      type: 'init',
+      payload: {
+        procedure: treatment.procedure,
+        toothNumber: treatment.toothNumber?.toString() || '',
+        notes: treatment.notes || '',
+        amount: treatment.amount?.toString() || ''
+      }
+    })
+    setShowTreatment(true)
+  }
+
   const handleTreatmentSubmit = async (e) => {
     e.preventDefault()
     setTreatmentLoading(true)
     setTreatmentError('')
     try {
-      if (appointment.treatment) {
-        const data = await updateTreatment(appointment.treatment.id, {
+      if (editingTreatmentId) {
+        await updateTreatment(editingTreatmentId, {
           procedure: treatmentForm.procedure,
           toothNumber: treatmentForm.toothNumber ? parseInt(treatmentForm.toothNumber) : null,
           notes: treatmentForm.notes,
           amount: parseFloat(treatmentForm.amount)
         })
-        setAppointment(prev => ({ ...prev, treatment: data.treatment }))
         setFeedback('Treatment updated')
       } else {
-        // Creating a treatment also flips the appointment's status to COMPLETED
-        // server-side — a refetch is needed here since the treatment response
-        // alone doesn't reflect that.
         await createTreatment({
-          appointmentId: id,
+          visitId: appointment.visit.id,
           procedure: treatmentForm.procedure,
           toothNumber: treatmentForm.toothNumber ? parseInt(treatmentForm.toothNumber) : null,
           notes: treatmentForm.notes,
           amount: parseFloat(treatmentForm.amount)
         })
         setFeedback('Treatment recorded')
-        await fetchAppointment()
       }
+      // The treatments list lives nested under appointment.visit — a refetch
+      // is the simplest way to keep both the visit and its list in sync.
+      await fetchAppointment()
       setShowTreatment(false)
     } catch (err) {
       setTreatmentError(err.response?.data?.message || 'Something went wrong')
@@ -170,24 +221,15 @@ export default function AppointmentDetail() {
     }
   }
 
-  const startEditTreatment = () => {
-    dispatchTreatment({
-      type: 'init',
-      payload: {
-        procedure: appointment.treatment?.procedure || '',
-        toothNumber: appointment.treatment?.toothNumber?.toString() || '',
-        notes: appointment.treatment?.notes || '',
-        amount: appointment.treatment?.amount?.toString() || ''
-      }
-    })
-    setShowTreatment(true)
-  }
-
   if (loading) return <div className="loading">Loading appointment...</div>
   if (!appointment) return <div className="loading">{error || 'Appointment not found'}</div>
 
   const isCancelled = appointment.status === 'CANCELLED'
-  const hasT = !!appointment.treatment
+  const isCompleted = appointment.status === 'COMPLETED'
+  const visit = appointment.visit
+  const treatments = visit?.treatments || []
+  const visitClosed = visit && (visit.status === 'COMPLETED' || visit.status === 'CANCELLED')
+  const canDeleteAppointment = visit == null
 
   return (
     <div className="app-layout">
@@ -238,7 +280,14 @@ export default function AppointmentDetail() {
         </div>
 
         {/* Actions — shown for admins always, for staff only when not cancelled */}
-        {(!isCancelled || isAdmin()) && (
+        {isCompleted ? (
+          <div className="card" style={{ marginBottom: '16px' }}>
+            <div className="card-title">Actions</div>
+            <div className="empty" style={{ padding: '12px 0' }}>
+              <div className="empty-subtitle">This appointment is complete and can no longer be edited or deleted.</div>
+            </div>
+          </div>
+        ) : (!isCancelled || isAdmin()) && (
           <div className="card" style={{ marginBottom: '16px' }}>
             <div className="card-title">Actions</div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -248,25 +297,33 @@ export default function AppointmentDetail() {
                     <i className="ti ti-edit" aria-hidden="true" /> Edit appointment
                   </button>
                   {appointment.status === 'SCHEDULED' && (
-                    <button className="btn" disabled={!!actionLoading}
-                      onClick={() => handleStatus('CANCELLED')}>
+                    <button className="btn" disabled={!!actionLoading} onClick={() => handleStatus('CANCELLED')}>
                       {actionLoading === 'CANCELLED' ? 'Cancelling...' : 'Cancel appointment'}
                     </button>
                   )}
-                  {!hasT && (
-                    <button className="btn btn-primary"
-                      onClick={() => { dispatchTreatment({ type: 'init', payload: initialTreatment }); setShowTreatment(true) }}>
-                      <i className="ti ti-plus" aria-hidden="true" /> Record treatment
+                  {visit == null && (
+                    <button className="btn btn-primary" disabled={visitLoading} onClick={handleStartVisit}>
+                      {visitLoading ? 'Starting...' : (<><i className="ti ti-player-play" aria-hidden="true" /> Start visit</>)}
                     </button>
                   )}
-                  {hasT && (
-                    <button className="btn" onClick={startEditTreatment}>
-                      <i className="ti ti-edit" aria-hidden="true" /> Edit treatment
+                  {visit && !visitClosed && (
+                    <button className="btn btn-primary" onClick={openNewTreatment}>
+                      <i className="ti ti-plus" aria-hidden="true" /> Add treatment
+                    </button>
+                  )}
+                  {visit && !visitClosed && (
+                    <button className="btn" disabled={completingVisit} onClick={handleCompleteVisit}>
+                      {completingVisit ? 'Completing...' : (<><i className="ti ti-check" aria-hidden="true" /> Complete visit</>)}
                     </button>
                   )}
                 </>
               )}
-              {isAdmin() && (
+              {isCancelled && (
+                <button className="btn" disabled={!!actionLoading} onClick={() => handleStatus('SCHEDULED')}>
+                  {actionLoading === 'SCHEDULED' ? 'Restoring...' : 'Restore appointment'}
+                </button>
+              )}
+              {isAdmin() && canDeleteAppointment && (
                 <button className="btn btn-danger" disabled={!!actionLoading} onClick={handleDelete}>
                   <i className="ti ti-trash" aria-hidden="true" /> Delete appointment
                 </button>
@@ -319,7 +376,7 @@ export default function AppointmentDetail() {
         {/* Treatment form */}
         {showTreatment && (
           <div className="card" style={{ marginBottom: '16px' }}>
-            <div className="card-title">{hasT ? 'Edit treatment' : 'Record treatment'}</div>
+            <div className="card-title">{editingTreatmentId ? 'Edit treatment' : 'Record treatment'}</div>
             <form onSubmit={handleTreatmentSubmit} className="form">
               <div className="form-row">
                 <div className="form-group">
@@ -361,26 +418,47 @@ export default function AppointmentDetail() {
         )}
 
         {/* Treatment record */}
-        {hasT && !showTreatment && (
+        {visit && treatments.length > 0 && !showTreatment && (
           <div className="card">
-            <div className="card-title">Treatment record</div>
-            <div className="detail-grid" style={{ marginBottom: 0 }}>
-              <div className="detail-item">
-                <div className="detail-label">Procedure</div>
-                <div className="detail-value">{appointment.treatment.procedure}</div>
+            <div className="card-title">Treatments ({treatments.length})</div>
+            {treatments.map((t, i) => (
+              <div key={t.id}>
+                <div className="detail-grid" style={{ marginBottom: 0 }}>
+                  <div className="detail-item">
+                    <div className="detail-label">Procedure</div>
+                    <div className="detail-value">{t.procedure}</div>
+                  </div>
+                  <div className="detail-item">
+                    <div className="detail-label">Tooth number</div>
+                    <div className="detail-value">{t.toothNumber || '—'}</div>
+                  </div>
+                  <div className="detail-item">
+                    <div className="detail-label">Cost</div>
+                    <div className="detail-value">${t.amount.toFixed(2)}</div>
+                  </div>
+                  <div className="detail-item">
+                    <div className="detail-label">Notes</div>
+                    <div className="detail-value">{t.notes || '—'}</div>
+                  </div>
+                  {!visitClosed && (
+                    <div className="detail-item">
+                      <button className="btn btn-sm" onClick={() => openEditTreatment(t)}>
+                        <i className="ti ti-edit" aria-hidden="true" /> Edit
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {i < treatments.length - 1 && <div className="divider" />}
               </div>
-              <div className="detail-item">
-                <div className="detail-label">Tooth number</div>
-                <div className="detail-value">{appointment.treatment.toothNumber || '—'}</div>
-              </div>
-              <div className="detail-item">
-                <div className="detail-label">Cost</div>
-                <div className="detail-value">${appointment.treatment.amount.toFixed(2)}</div>
-              </div>
-              <div className="detail-item">
-                <div className="detail-label">Notes</div>
-                <div className="detail-value">{appointment.treatment.notes || '—'}</div>
-              </div>
+            ))}
+          </div>
+        )}
+        {visit && treatments.length === 0 && !showTreatment && (
+          <div className="card">
+            <div className="empty">
+              <i className="ti ti-stethoscope" aria-hidden="true" />
+              <div className="empty-title">No treatments recorded yet</div>
+              <div className="empty-subtitle">Add a treatment once the visit is underway.</div>
             </div>
           </div>
         )}

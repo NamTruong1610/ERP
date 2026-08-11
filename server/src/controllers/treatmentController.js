@@ -1,7 +1,7 @@
 const {
   getAllTreatmentsService,
   getTreatmentService,
-  getTreatmentByAppointmentService,
+  getTreatmentsByVisitService,
   getUnbilledTreatmentsService,
   createTreatmentService,
   updateTreatmentService,
@@ -20,11 +20,10 @@ exports.getTreatmentController = async (req, res, next) => {
   return res.status(200).json({ treatment })
 }
 
-exports.getTreatmentByAppointmentController = async (req, res, next) => {
-  const { appointmentId } = req.params
-  const treatment = await getTreatmentByAppointmentService(appointmentId)
-
-  return res.status(200).json({ treatment })
+exports.getTreatmentsByVisitController = async (req, res, next) => {
+  const { visitId } = req.params
+  const treatments = await getTreatmentsByVisitService(visitId)
+  return res.status(200).json({ treatments })
 }
 
 exports.getUnbilledTreatmentsController = async (req, res, next) => {
@@ -34,13 +33,11 @@ exports.getUnbilledTreatmentsController = async (req, res, next) => {
 }
 
 exports.createTreatmentController = async (req, res, next) => {
-  const { appointmentId, procedure, toothNumber, notes, amount } = req.body
-  const treatment = await createTreatmentService({ appointmentId, procedure, toothNumber, notes, amount }, {
-    id: req.user.id,
-    ip: req.ip,
-    userAgent: req.headers['user-agent']
-  })
-
+  const { visitId, treatmentPlanId, performedById, procedure, toothNumber, notes, amount } = req.body
+  const treatment = await createTreatmentService(
+    { visitId, treatmentPlanId, performedById, procedure, toothNumber, notes, amount },
+    { id: req.user.id, ip: req.ip, userAgent: req.headers['user-agent'] }
+  )
   return res.status(201).json({ treatment })
 }
 
