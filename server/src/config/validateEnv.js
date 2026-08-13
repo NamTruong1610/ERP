@@ -1,6 +1,7 @@
 const required = [
   'DATABASE_URL',
   'REDIS_URL',
+  'RABBITMQ_URL',
   'RESEND_API_KEY',
   'CLIENT_URL',
   'R2_ENDPOINT',

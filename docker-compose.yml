@@ -42,6 +42,23 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  
+  rabbitmq:
+    image: rabbitmq:4-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: dentacore
+      RABBITMQ_DEFAULT_PASS: dentacore
+    ports:
+      - "5672:5672"   # AMQP — what the api/workers actually connect to
+      - "15672:15672" # management UI, http://localhost:15672 (dentacore/dentacore)
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     profiles: ["full"]
@@ -52,6 +69,7 @@ services:
     environment:
       DATABASE_URL: postgresql://dentacore:dentacore@postgres:5432/dentacore
       REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://dentacore:dentacore@rabbitmq:5672
       PORT: 5500
     expose:
       - "5500"     # reachable by nginx over the compose network; not published
@@ -59,6 +77,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   client:
@@ -76,3 +96,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  rabbitmqdata:

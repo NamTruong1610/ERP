@@ -10,6 +10,14 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // express-validator failures arrive as { message: 'Validation failed', errors: [{field, message}] }.
+    // Every call site reads error.response.data.message, so fold the field-level
+    // detail into that message here, once, instead of at every catch block.
+    const fieldErrors = error.response?.data?.errors
+    if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
+      error.response.data.message = fieldErrors.map(e => e.message).join(' ')
+    }
+
     if (error.response?.status === 401) {
       const publicPaths = ['/login', '/activate', '/forgot-password', '/reset-password']
       const isPublicPage = publicPaths.some(path =>

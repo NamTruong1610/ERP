@@ -49,7 +49,7 @@ const { prisma } = require("../config/PrismaConfig")
 const QRCode = require('qrcode')
 
 // Missing audit logging?
-exports.setPasswordService = async ({ activationToken, password, confirmPassword }, actor) => {
+exports.setPasswordService = async ({ activationToken, password, confirmPassword }) => {
   const hashedActivationToken = await hashToken(activationToken)
   const userActivationToken = await findUserActivationByTokenId(hashedActivationToken);
 
@@ -116,7 +116,7 @@ exports.setPasswordService = async ({ activationToken, password, confirmPassword
 
 }
 
-exports.get2faSecretService = async ({ activationToken, mfaToken }, actorId) => {
+exports.get2faSecretService = async ({ activationToken, mfaToken }) => {
   const hashedActivationToken = await hashToken(activationToken);
   const userActivationToken = await findUserActivationByTokenId(hashedActivationToken);
 
@@ -180,9 +180,15 @@ exports.verify2faSecretSetupService = async ({ otp, activationToken, mfaToken },
   const mfaTokenKey = `mfa:${userRecord.id}`
   const hashedMfaToken = await redisClient.get(mfaTokenKey)
   const tokensMatched = await compareTokenHash(mfaToken, hashedMfaToken)
-  if (!hashedMfaToken || !tokensMatched) {
+  
+  if (!hashedMfaToken) {
+    throw new AppError('Token expired', 404)
+  }
+  if (!tokensMatched) {
     throw new AppError("Invalid token", 401)
   }
+
+  
 
   const verified = await verifyMfaOtp(otp, userRecord.userMfa?.mfaSecret)
 

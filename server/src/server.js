@@ -17,8 +17,8 @@ const startServer = async () => {
   await connect()
   initRateLimiters()
 
-  const emailWorker = startEmailWorker()
-  const maintenanceWorker = startMaintenanceWorker()
+  const emailWorker = await startEmailWorker()
+  const maintenanceWorker = await startMaintenanceWorker()
 
   await runSeeds()
 
@@ -26,11 +26,11 @@ const startServer = async () => {
     console.log(`App listening on port ${PORT}`)
   })
 
-  // Registers schedules + enqueues catch-up. Workers are already up to consume.
-  await startJobs()
+  const cronTasks = await startJobs()
 
   registerShutdown({
     server,
+    jobs: cronTasks,
     workers: [emailWorker, maintenanceWorker],
   })
 }
