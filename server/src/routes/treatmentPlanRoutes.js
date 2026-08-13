@@ -9,7 +9,8 @@ const {
   getTreatmentPlanController,
   createTreatmentPlanController,
   addTreatmentPlanItemsBulkController,
-  attachTreatmentsToTreatmentPlanController
+  attachTreatmentsToTreatmentPlanController,
+  updateTreatmentPlanController
 } = require('../controllers/treatmentPlanController')
 
 const {
@@ -22,7 +23,8 @@ const {
 const {
   validateCreateTreatmentPlan,
   validateAddTreatmentPlanItemsBulk,
-  validateAttachTreatments
+  validateAttachTreatments,
+  validateUpdateTreatmentPlan
 } = require('../middlewares/validators/treatmentPlanValidators')
 
 const {
@@ -37,6 +39,7 @@ const { handleValidationErrors } = require('../middlewares/validators/handleVali
 router.get('/', requireAuth, requirePermission(PERMISSIONS.TREATMENT_PLANS_READ_ALL), getAllTreatmentPlansController)
 router.get('/:id', requireAuth, requirePermission(PERMISSIONS.TREATMENT_PLANS_READ), getTreatmentPlanController)
 router.post('/', requireAuth, requirePermission(PERMISSIONS.TREATMENT_PLANS_CREATE), validateCreateTreatmentPlan, handleValidationErrors, createTreatmentPlanController)
+router.patch('/:id', requireAuth, requirePermission(PERMISSIONS.TREATMENT_PLANS_UPDATE), validateUpdateTreatmentPlan, handleValidationErrors, updateTreatmentPlanController)
 
 // Treatments attached to a plan
 router.post('/:id/treatments/attach', requireAuth, requirePermission(PERMISSIONS.TREATMENT_PLANS_UPDATE), validateAttachTreatments, handleValidationErrors, attachTreatmentsToTreatmentPlanController)

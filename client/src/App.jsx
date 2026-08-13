@@ -25,12 +25,20 @@ import Patients from './pages/clinic/Patients'
 import PatientDetail from './pages/clinic/PatientDetail'
 import Appointments from './pages/clinic/Appointments'
 import AppointmentDetail from './pages/clinic/AppointmentDetail'
+
+import TreatmentPlans from './pages/clinic/TreatmentPlans'
+import TreatmentPlanDetail from './pages/clinic/TreatmentPlanDetail'
+
+import Procedures from './pages/admin/Procedures'
+
+import VisitDetail from './pages/clinic/VisitDetail'
+
 import Invoices from './pages/clinic/Invoices'
 import InvoiceDetail from './pages/clinic/InvoiceDetail'
 
 // System — super admin
-import AuditLog    from './pages/system/AuditLog'
-import Sessions    from './pages/system/Sessions'
+import AuditLog from './pages/system/AuditLog'
+import Sessions from './pages/system/Sessions'
 import DeletedUsers from './pages/system/DeletedUsers'
 
 // Guards
@@ -63,11 +71,15 @@ function App() {
         {/* Admin — requires ADMIN role */}
         <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
         <Route path="/admin/users/:id" element={<AdminRoute><AdminUserDetail /></AdminRoute>} />
+        <Route path="/admin/procedures" element={<ProtectedRoute><Procedures /></ProtectedRoute>} />
 
         <Route path="/clinic/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
         <Route path="/clinic/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
         <Route path="/clinic/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
         <Route path="/clinic/appointments/:id" element={<ProtectedRoute><AppointmentDetail /></ProtectedRoute>} />
+        <Route path="/clinic/treatment-plans" element={<ProtectedRoute><TreatmentPlans /></ProtectedRoute>} />
+        <Route path="/clinic/treatment-plans/:id" element={<ProtectedRoute><TreatmentPlanDetail /></ProtectedRoute>} />
+        <Route path="/clinic/visits/:id" element={<ProtectedRoute><VisitDetail /></ProtectedRoute>} />
         <Route path="/clinic/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
         <Route path="/clinic/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
 

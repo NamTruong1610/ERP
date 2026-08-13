@@ -19,3 +19,17 @@ export const updateVisit = async (id, visitData) => {
   const { data } = await axiosInstance.patch(`/visits/${id}`, visitData)
   return data // { visit }
 }
+
+export const addVisitProvider = async (visitId, { performerId, role }) => {
+  const { data } = await axiosInstance.post(`/visits/${visitId}/providers`, { performerId, role })
+  return data // { provider }
+}
+
+export const editVisitProviderRole = async (visitId, providerId, role) => {
+  const { data } = await axiosInstance.patch(`/visits/${visitId}/providers/${providerId}`, { role })
+  return data // { provider }
+}
+
+export const removeVisitProvider = async (visitId, providerId) => {
+  await axiosInstance.delete(`/visits/${visitId}/providers/${providerId}`)
+}

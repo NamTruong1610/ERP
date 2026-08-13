@@ -3,6 +3,7 @@ const {
   getTreatmentService,
   getTreatmentsByVisitService,
   getUnbilledTreatmentsService,
+  getAllTreatmentsByPatientService,
   createTreatmentService,
   updateTreatmentService,
   deleteTreatmentService
@@ -32,10 +33,16 @@ exports.getUnbilledTreatmentsController = async (req, res, next) => {
   return res.status(200).json({ treatments })
 }
 
+exports.getAllTreatmentsByPatientController = async (req, res, next) => {
+  const { patientId } = req.params
+  const treatments = await getAllTreatmentsByPatientService(patientId)
+  return res.status(200).json({ treatments })
+}
+
 exports.createTreatmentController = async (req, res, next) => {
-  const { visitId, treatmentPlanId, performedById, procedure, toothNumber, notes, amount } = req.body
+  const { visitId, treatmentPlanId, performedById, procedureCatalogId, procedure, toothNumber, notes, amount } = req.body
   const treatment = await createTreatmentService(
-    { visitId, treatmentPlanId, performedById, procedure, toothNumber, notes, amount },
+    { visitId, treatmentPlanId, performedById, procedureCatalogId, procedure, toothNumber, notes, amount },
     { id: req.user.id, ip: req.ip, userAgent: req.headers['user-agent'] }
   )
   return res.status(201).json({ treatment })

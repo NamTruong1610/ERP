@@ -19,3 +19,10 @@ exports.validateAttachTreatments = [
   body('treatmentIds').isArray({ min: 1 }).withMessage('At least one treatment is required'),
   body('treatmentIds.*').isString().withMessage('Each treatment ID must be a string'),
 ]
+
+exports.validateUpdateTreatmentPlan = [
+  param('id').notEmpty().withMessage('Treatment plan ID is required'),
+  body('title').optional().isString().trim().notEmpty().withMessage('Title cannot be empty').isLength({ max: 200 }),
+  body('notes').optional({ nullable: true }).isString().trim().isLength({ max: 1000 }),
+  body('status').optional().isIn(['ACTIVE', 'COMPLETED', 'CANCELLED']).withMessage('Invalid status'),
+]

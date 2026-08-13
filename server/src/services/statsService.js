@@ -10,6 +10,7 @@ const {
   countActivePatients,
   countUsersByStatus,
   countAppointmentsInRange,
+  countVisitsInRange,
   groupAppointmentsByStatus,
   findRecentPatients,
   countActiveSessions,
@@ -59,6 +60,7 @@ exports.getClinicStatsService = async () => {
     pendingActivations,
     appointmentsToday,
     appointmentsThisWeek,
+    visitsToday,              // ← added
     appointmentsByStatus,
     recentPatients,
   ] = await Promise.all([
@@ -67,6 +69,7 @@ exports.getClinicStatsService = async () => {
     countUsersByStatus('PENDING_ACTIVATION'),
     countAppointmentsInRange(todayStart, todayEnd),
     countAppointmentsInRange(weekStart, weekEnd),
+    countVisitsInRange(todayStart, todayEnd),   // ← added
     groupAppointmentsByStatus(),
     findRecentPatients(),
   ]);
@@ -77,6 +80,7 @@ exports.getClinicStatsService = async () => {
     pendingActivations,
     appointmentsToday,
     appointmentsThisWeek,
+    visitsToday,             // ← added
     appointmentsByStatus: appointmentsByStatus.reduce((acc, row) => {
       acc[row.status] = row._count.status;
       return acc;

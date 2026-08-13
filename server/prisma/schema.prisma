@@ -35,6 +35,7 @@ model User {
   visitProviders        VisitProvider[]
   performedTreatments   Treatment[]
   treatmentPlansCreated TreatmentPlan[]
+  proceduresCreated     ProcedureCatalog[]
   uploadedFiles         File[]          @relation(name: "uploadedFiles")
   payments              Payment[]       @relation(name: "recordedPayments")
   voidedPayments        Payment[]       @relation(name: "voidedPayments")
@@ -167,6 +168,22 @@ model VisitProvider {
   @@unique([visitId, performerId])
 }
 
+model ProcedureCatalog {
+  id            String   @id @default(cuid())
+  code          String?  @unique   // room for real CDT-style codes later, optional for now
+  name          String
+  category      String?            // e.g. "Preventive", "Restorative" — for grouping in the picker
+  defaultAmount Float
+  active        Boolean  @default(true)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdBy          User?               @relation(fields: [createdById], references: [id])
+  treatments          Treatment[]
+  treatmentPlanItems  TreatmentPlanItem[]
+}
+
 model TreatmentPlan {
   id                 String              @id @default(cuid())
   patientId          String
@@ -186,18 +203,20 @@ model TreatmentPlan {
 }
 
 model TreatmentPlanItem {
-  id              String         @id @default(cuid())
-  treatmentPlanId String
-  procedure       String
-  toothNumber     Int?
-  estimatedAmount Float
-  status          PlanItemStatus // PROPOSED | COMPLETED | CANCELLED
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                  String             @id @default(cuid())
+  treatmentPlanId     String
+  procedureCatalogId  String?
+  procedure           String
+  toothNumber         Int?
+  estimatedAmount     Float
+  status              PlanItemStatus     // PROPOSED | COMPLETED | CANCELLED
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
-  treatment       Treatment?
+  treatment           Treatment?
 
-  treatmentPlan   TreatmentPlan  @relation(fields: [treatmentPlanId], references: [id])
+  treatmentPlan       TreatmentPlan      @relation(fields: [treatmentPlanId], references: [id])
+  procedureCatalog    ProcedureCatalog?  @relation(fields: [procedureCatalogId], references: [id])
 }
 
 model Treatment {
@@ -205,6 +224,7 @@ model Treatment {
   visitId             String
   treatmentPlanId     String?
   treatmentPlanItemId String?            @unique
+  procedureCatalogId  String?
   performedById       String?
   procedure           String             // e.g. filling, extraction, cleaning
   toothNumber         Int?               // 1-32
@@ -219,6 +239,7 @@ model Treatment {
   visit               Visit              @relation(fields: [visitId], references: [id])
   treatmentPlan       TreatmentPlan?     @relation(fields: [treatmentPlanId], references: [id])
   treatmentPlanItem   TreatmentPlanItem? @relation(fields: [treatmentPlanItemId], references: [id])
+  procedureCatalog    ProcedureCatalog?  @relation(fields: [procedureCatalogId], references: [id])
   performedBy         User?              @relation(fields: [performedById], references: [id])
 }
 
@@ -462,6 +483,7 @@ enum TargetType {
   TREATMENT
   TREATMENT_PLAN
   TREATMENT_PLAN_ITEM
+  PROCEDURE_CATALOG
   INVOICE
   FILE
   SESSION
@@ -548,6 +570,12 @@ enum AuditAction {
   TREATMENT_CREATED
   TREATMENT_UPDATED
   TREATMENT_DELETED
+
+  // Procedure catalogs
+  PROCEDURE_CREATED
+  PROCEDURE_UPDATED
+  PROCEDURE_DEACTIVATED
+  PROCEDURE_REACTIVATED
 
   // Invoices
   INVOICE_CREATED

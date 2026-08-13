@@ -212,7 +212,7 @@ function CreateInvoiceModal({ onClose, onCreated }) {
                             <input type="checkbox" checked={selectedIds.has(t.id)} onChange={() => toggleTreatment(t.id)} />
                           </td>
                           <td>{t.procedure}</td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{formatDate(t.appointment?.date)}</td>
+                          <td style={{ color: 'var(--text-secondary)' }}>{formatDate(t.visit?.visitDate)}</td>
                           <td>{formatMoney(t.amount)}</td>
                         </tr>
                       ))}

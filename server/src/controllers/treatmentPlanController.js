@@ -2,6 +2,7 @@ const {
   getAllTreatmentPlansService,
   getTreatmentPlanService,
   createTreatmentPlanService,
+  updateTreatmentPlanService, 
   addTreatmentPlanItemsBulkService,
   attachTreatmentsToTreatmentPlanService
 } = require('../services/treatmentPlanService')
@@ -30,5 +31,10 @@ exports.addTreatmentPlanItemsBulkController = async (req, res, next) => {
 
 exports.attachTreatmentsToTreatmentPlanController = async (req, res, next) => {
   const treatmentPlan = await attachTreatmentsToTreatmentPlanService(req.params.id, req.body.treatmentIds, actorFrom(req))
+  return res.status(200).json({ treatmentPlan })
+}
+
+exports.updateTreatmentPlanController = async (req, res, next) => {
+  const treatmentPlan = await updateTreatmentPlanService(req.params.id, req.body, actorFrom(req))
   return res.status(200).json({ treatmentPlan })
 }

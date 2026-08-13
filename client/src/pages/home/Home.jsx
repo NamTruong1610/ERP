@@ -110,6 +110,12 @@ export default function Home() {
               loading={loading}
             />
             <StatCard
+              icon="ti-stethoscope"
+              label="Visits today"
+              value={clinicStats?.visitsToday}
+              loading={loading}
+            />
+            <StatCard
               icon="ti-calendar-week"
               label="This week"
               value={myStats?.appointmentsThisWeek}

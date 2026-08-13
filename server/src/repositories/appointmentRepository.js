@@ -13,6 +13,11 @@ const appointmentInclude = {
       treatments: {
         where: { deletedAt: null },
         orderBy: { createdAt: 'asc' }
+      },
+      visitProviders: {
+        include: {
+          performer: { select: { id: true, email: true, name: true } }
+        }
       }
     }
   }

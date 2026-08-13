@@ -7,7 +7,7 @@ export const getMyStats = async () => {
 
 export const getClinicStats = async () => {
   const { data } = await axiosInstance.get('/stats/clinic')
-  return data  // { totalPatients, appointmentsToday, appointmentsThisWeek, totalActiveUsers, pendingActivations }
+  return data  // { totalPatients, appointmentsToday, appointmentsThisWeek, visitsToday, totalActiveUsers, pendingActivations }
 }
 
 export const getSystemStats = async () => {

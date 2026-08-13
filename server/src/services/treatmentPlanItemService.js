@@ -10,15 +10,26 @@ const {
   deleteTreatmentPlanItemById
 } = require('../repositories/treatmentPlanItemRepository')
 
+const {
+  findProcedureById
+} = require('../repositories/procedureCatalogRepository')
+
 const CLOSED_PLAN_STATUSES = [TreatmentPlanStatus.COMPLETED, TreatmentPlanStatus.CANCELLED]
 
-exports.createTreatmentPlanItemService = async ({ treatmentPlanId, procedure, toothNumber, estimatedAmount }, actor) => {
+exports.createTreatmentPlanItemService = async ({ treatmentPlanId, procedureCatalogId, procedure, toothNumber, estimatedAmount }, actor) => {
   const treatmentPlanRecord = await findTreatmentPlanById(treatmentPlanId)
   if (!treatmentPlanRecord) {
     throw new AppError('Treatment plan not found', 404)
   }
   if (CLOSED_PLAN_STATUSES.includes(treatmentPlanRecord.status)) {
     throw new AppError('Cannot add items to a completed or cancelled plan', 409)
+  }
+
+  if (procedureCatalogId) {
+    const catalogEntry = await findProcedureById(procedureCatalogId)
+    if (!catalogEntry) {
+      throw new AppError('Procedure not found', 404)
+    }
   }
 
   if (!procedure?.trim()) {
@@ -38,6 +49,7 @@ exports.createTreatmentPlanItemService = async ({ treatmentPlanId, procedure, to
   return prisma.$transaction(async (tx) => {
     const created = await createTreatmentPlanItem({
       treatmentPlanId: treatmentPlanRecord.id,
+      procedureCatalogId: procedureCatalogId || null,
       procedure: procedure.trim(),
       toothNumber: parsedTooth,
       estimatedAmount: parsedAmount,

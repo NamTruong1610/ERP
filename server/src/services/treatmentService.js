@@ -7,10 +7,12 @@ const {
   findTreatmentById,
   findTreatmentsByVisitId,
   findUnbilledTreatmentsByPatient,
+  findAllTreatmentsByPatient,
   createTreatment,
   updateTreatment,
   softDeleteTreatment
 } = require('../repositories/treatmentRepository')
+const { findProcedureById } = require('../repositories/procedureCatalogRepository')
 const { findPatientById } = require('../repositories/patientRepository')
 
 const { createAuditLog } = require('../repositories/auditRepository')
@@ -54,7 +56,15 @@ exports.getUnbilledTreatmentsService = async (patientId) => {
   return await findUnbilledTreatmentsByPatient(patientId)
 }
 
-exports.createTreatmentService = async ({ visitId, treatmentPlanId, performedById, procedure, toothNumber, notes, amount }, actor) => {
+exports.getAllTreatmentsByPatientService = async (patientId) => {
+  const patient = await findPatientById(patientId)
+  if (!patient) {
+    throw new AppError('Patient not found', 404)
+  }
+  return await findAllTreatmentsByPatient(patientId)
+}
+
+exports.createTreatmentService = async ({ visitId, treatmentPlanId, performedById, procedureCatalogId, procedure, toothNumber, notes, amount }, actor) => {
   if (!visitId || !procedure || amount === undefined) {
     throw new AppError('Visit, procedure and amount are required', 400)
   }
@@ -65,6 +75,13 @@ exports.createTreatmentService = async ({ visitId, treatmentPlanId, performedByI
   }
   if (TERMINAL_VISIT_STATUSES.includes(visit.status)) {
     throw new AppError('Cannot add a treatment to a completed or cancelled visit', 400)
+  }
+
+  if (procedureCatalogId) {
+    const catalogEntry = await findProcedureById(procedureCatalogId)
+    if (!catalogEntry) {
+      throw new AppError('Procedure not found', 404)
+    }
   }
 
   if (treatmentPlanId) {
@@ -100,6 +117,7 @@ exports.createTreatmentService = async ({ visitId, treatmentPlanId, performedByI
       visitId,
       treatmentPlanId: treatmentPlanId || null,
       performedById: performedById || null,
+      procedureCatalogId: procedureCatalogId || null,
       procedure,
       toothNumber: toothNumber ? parseInt(toothNumber) : null,
       notes,
@@ -142,16 +160,24 @@ exports.updateTreatmentService = async (id, body, actor) => {
     throw new AppError('No valid fields provided', 400)
   }
 
-  if (updates.treatmentPlanId) {
-    const plan = await findTreatmentPlanById(updates.treatmentPlanId)
-    if (!plan) {
-      throw new AppError('Treatment plan not found', 404)
-    }
-    if (plan.patientId !== treatment.visit.patientId) {
-      throw new AppError('Treatment plan does not belong to this patient', 400)
-    }
-    if (CLOSED_PLAN_STATUSES.includes(plan.status)) {
-      throw new AppError('Cannot attach a treatment to a completed or cancelled plan', 409)
+  if ('treatmentPlanId' in updates) {
+    if (updates.treatmentPlanId === null) {
+      // Detaching — block if the treatment's *current* plan is closed.
+      if (treatment.treatmentPlanId && CLOSED_PLAN_STATUSES.includes(treatment.treatmentPlan?.status)) {
+        throw new AppError('Cannot detach a treatment from a completed or cancelled plan', 409)
+      }
+    } else {
+      // Attaching — unchanged from before.
+      const plan = await findTreatmentPlanById(updates.treatmentPlanId)
+      if (!plan) {
+        throw new AppError('Treatment plan not found', 404)
+      }
+      if (plan.patientId !== treatment.visit.patientId) {
+        throw new AppError('Treatment plan does not belong to this patient', 400)
+      }
+      if (CLOSED_PLAN_STATUSES.includes(plan.status)) {
+        throw new AppError('Cannot attach a treatment to a completed or cancelled plan', 409)
+      }
     }
   }
 

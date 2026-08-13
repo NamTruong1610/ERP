@@ -87,6 +87,16 @@ export const getTreatmentsByVisit = async (visitId) => {
   return data // { treatments }
 }
 
+export const getUnbilledTreatments = async (patientId) => {
+  const { data } = await axiosInstance.get(`/treatments/patient/${patientId}/unbilled`)
+  return data // { treatments }
+}
+
+export const getAllTreatmentsByPatient = async (patientId) => {
+  const { data } = await axiosInstance.get(`/treatments/patient/${patientId}/all`)
+  return data // { treatments }
+}
+
 export const createTreatment = async (treatmentData) => {
   const { data } = await axiosInstance.post('/treatments', treatmentData)
   return data // { treatment }

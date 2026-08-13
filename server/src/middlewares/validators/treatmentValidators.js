@@ -2,14 +2,18 @@ const { body, param } = require('express-validator')
 
 exports.validateCreateTreatment = [
   body('visitId')
-    .notEmpty().withMessage('Visit ID is required')
-    .isString().withMessage('Visit ID must be a string'),
+    .notEmpty()
+    .withMessage('Visit ID is required')
+    .isString(),
   body('treatmentPlanId')
     .optional({ nullable: true })
-    .isString().withMessage('Treatment plan ID must be a string'),
+    .isString(),
   body('performedById')
     .optional({ nullable: true })
-    .isString().withMessage('Performer ID must be a string'),
+    .isString(),
+  body('procedureCatalogId')
+    .optional({ nullable: true })
+    .isString(),
   body('procedure')
     .notEmpty().withMessage('Procedure is required')
     .isString().withMessage('Procedure must be a string')

@@ -64,3 +64,16 @@ export const FILE_ICON = {
   PDF:   'ti-file-type-pdf',
   DICOM: 'ti-scan',
 }
+
+export const TREATMENT_PLAN_STATUS_BADGE = {
+  PROPOSED: 'badge-pending',
+  ACTIVE: 'badge-active',
+  COMPLETED: 'badge-completed',
+  CANCELLED: 'badge-cancelled'
+}
+
+export const PLAN_ITEM_STATUS_BADGE = {
+  PROPOSED: 'badge-pending',
+  COMPLETED: 'badge-completed',
+  CANCELLED: 'badge-cancelled'
+}

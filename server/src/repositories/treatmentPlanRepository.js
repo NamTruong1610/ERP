@@ -71,3 +71,10 @@ exports.attachTreatmentsToPlan = async (treatmentPlanId, treatmentIds, client = 
     data: { treatmentPlanId }
   })
 }
+
+exports.cancelProposedItemsByPlanId = async (treatmentPlanId, client = prisma) => {
+  return await client.treatmentPlanItem.updateMany({
+    where: { treatmentPlanId, status: 'PROPOSED' },
+    data: { status: 'CANCELLED' }
+  })
+}

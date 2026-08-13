@@ -83,6 +83,11 @@ exports.countAppointmentsInRange = (start, end) =>
     where: { deletedAt: null, date: { gte: start, lt: end } },
   });
 
+exports.countVisitsInRange = (start, end) =>
+  prisma.visit.count({
+    where: { deletedAt: null, visitDate: { gte: start, lt: end } },
+  });
+
 exports.groupAppointmentsByStatus = () =>
   prisma.appointment.groupBy({
     by: ['status'],

@@ -100,11 +100,23 @@ export default function AppSidebar({ active }) {
           active={active === 'appointments'}
           onClick={() => go('/clinic/appointments')}
         />
+        <NavItem
+          icon="ti-clipboard-list"
+          label="Treatment plans"
+          active={active === 'treatment-plans'}
+          onClick={() => go('/clinic/treatment-plans')}
+        />
 
         {/* Admin section — admin and super admin */}
         {isAdmin() && (
           <>
             <SectionLabel label="Admin" />
+            <NavItem
+              icon="ti-list-check"
+              label="Procedures"
+              active={active === 'procedures'}
+              onClick={() => go('/admin/procedures')}
+            />
             <NavItem
               icon="ti-file-invoice"
               label="Invoices"

@@ -1,6 +1,7 @@
 import { useState, useEffect, useReducer } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient } from '../../api/clinic'
+import { createWalkInVisit } from '../../api/visit'
 import { getPatientFiles, getDownloadUrl, softDeleteFile } from '../../api/files'
 import FileUpload from '../../features/files/FileUpload'
 import AppSidebar from '../../components/layout/AppSidebar'
@@ -24,9 +25,70 @@ const formatDentist = (dentist) => {
 }
 
 const formatBytes = (n) => {
-  if (n < 1024)         return `${n} B`
-  if (n < 1024 * 1024)  return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / 1024 / 1024).toFixed(1)} MB` 
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
+function NewWalkInVisitModal({ patientId, onClose, onCreated }) {
+  const [visitDate, setVisitDate] = useState(() => {
+    const d = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  })
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      const data = await createWalkInVisit({
+        patientId,
+        visitDate: new Date(visitDate).toISOString(),
+        notes: notes.trim() || undefined
+      })
+      onCreated(data.visit)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">New walk-in visit</div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
+            <i className="ti ti-x" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="form">
+          <div className="form-group">
+            <label className="form-label">Visit date & time <span>*</span></label>
+            <input type="datetime-local" className="form-input" value={visitDate}
+              onChange={e => setVisitDate(e.target.value)} required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Notes</label>
+            <textarea className="form-textarea" value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Reason for the walk-in..." />
+          </div>
+          {error && <div className="feedback-error">{error}</div>}
+          <div className="form-actions">
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Starting...' : 'Start visit'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 export default function PatientDetail() {
@@ -34,21 +96,22 @@ export default function PatientDetail() {
   const navigate = useNavigate()
 
   // ── Patient ────────────────────────────────────────────────────────────────
-  const [patient,     setPatient]     = useState(null)
-  const [loading,     setLoading]     = useState(true)
-  const [error,       setError]       = useState('')
-  const [feedback,    setFeedback]    = useState('')
-  const [showEdit,    setShowEdit]    = useState(false)
-  const [editForm,    dispatchEdit]   = useReducer(editReducer, {})
-  const [editError,   setEditError]   = useState('')
+  const [patient, setPatient] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState('')
+  const [showEdit, setShowEdit] = useState(false)
+  const [showNewVisit, setShowNewVisit] = useState(false)
+  const [editForm, dispatchEdit] = useReducer(editReducer, {})
+  const [editError, setEditError] = useState('')
   const [editLoading, setEditLoading] = useState(false)
 
   // ── Files ──────────────────────────────────────────────────────────────────
-  const [files,         setFiles]         = useState([])
-  const [loadingFiles,  setLoadingFiles]  = useState(true)
-  const [downloading,   setDownloading]   = useState(null)
+  const [files, setFiles] = useState([])
+  const [loadingFiles, setLoadingFiles] = useState(true)
+  const [downloading, setDownloading] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
-  const [deleting,      setDeleting]      = useState(null)
+  const [deleting, setDeleting] = useState(null)
 
   const fetchPatient = async () => {
     try {
@@ -83,12 +146,12 @@ export default function PatientDetail() {
       type: 'init',
       payload: {
         firstName: patient.firstName,
-        lastName:  patient.lastName,
-        dob:       patient.dob.split('T')[0],
-        gender:    patient.gender,
-        phone:     patient.phone   || '',
-        email:     patient.email   || '',
-        address:   patient.address || ''
+        lastName: patient.lastName,
+        dob: patient.dob.split('T')[0],
+        gender: patient.gender,
+        phone: patient.phone || '',
+        email: patient.email || '',
+        address: patient.address || ''
       }
     })
     setShowEdit(true)
@@ -147,7 +210,7 @@ export default function PatientDetail() {
     }
   }
 
-  const initials       = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
+  const initials = (p) => `${p.firstName[0]}${p.lastName[0]}`.toUpperCase()
 
   if (loading) return <div className="loading">Loading patient...</div>
   if (!patient) return <div className="loading">{error || 'Patient not found'}</div>
@@ -173,6 +236,12 @@ export default function PatientDetail() {
             </div>
           </div>
           <div className="page-actions">
+            <button className="btn btn-primary" onClick={() => setShowNewVisit(true)}>
+              <i className="ti ti-player-play" aria-hidden="true" /> New walk-in visit
+            </button>
+            <button className="btn" onClick={() => navigate(`/clinic/treatment-plans?patientId=${id}`)}>
+              <i className="ti ti-clipboard-list" aria-hidden="true" /> Treatment plans
+            </button>
             <button className="btn" onClick={startEdit}>
               <i className="ti ti-edit" aria-hidden="true" /> Edit
             </button>
@@ -182,7 +251,7 @@ export default function PatientDetail() {
           </div>
         </div>
 
-        {error    && <div className="feedback-error"   style={{ marginBottom: '16px' }}>{error}</div>}
+        {error && <div className="feedback-error" style={{ marginBottom: '16px' }}>{error}</div>}
         {feedback && <div className="feedback-success" style={{ marginBottom: '16px' }}>{feedback}</div>}
 
         <div className="detail-grid">
@@ -263,6 +332,14 @@ export default function PatientDetail() {
               </div>
             </form>
           </div>
+        )}
+
+        {showNewVisit && (
+          <NewWalkInVisitModal
+            patientId={id}
+            onClose={() => setShowNewVisit(false)}
+            onCreated={(visit) => navigate(`/clinic/visits/${visit.id}`)}
+          />
         )}
 
         {/* ── Appointment history ── */}

@@ -82,6 +82,17 @@ exports.findUnbilledTreatmentsByPatient = async (patientId, client = prisma) => 
   })
 }
 
+exports.findAllTreatmentsByPatient = async (patientId, client = prisma) => {
+  return await client.treatment.findMany({
+    where: {
+      visit: { patientId },
+      deletedAt: null
+    },
+    include: treatmentInclude,
+    orderBy: { createdAt: 'desc' }
+  })
+}
+
 exports.createTreatment = async (data, client = prisma) => {
   return await client.treatment.create({
     data,

@@ -275,6 +275,10 @@ exports.removeVisitProviderService = async (visitId, providerId, actor) => {
   if (!provider || provider.visit.id !== visitId) {
     throw new AppError('Visit provider not found', 404)
   }
+  const visit = await findVisitById(visitId)
+  if (TERMINAL_STATUSES.includes(visit.status)) {
+    throw new AppError('Cannot remove a provider from a completed or cancelled visit', 409)
+  }
 
   const count = await countVisitProvidersByVisitId(visitId)
   if (count <= 1) {
