@@ -1,16 +1,12 @@
-const express = require('express')
-const cors = require('cors')
-const helmet = require('helmet')
-const cookieParser = require('cookie-parser')
-
-const routes = require('./routes')
-const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler')
-
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import routes from './routes/index.js';
+import webhookRoutes from './routes/webhook.routes.js';
+import * as errorHandlerNs from './middlewares/errorHandler.js';
 const app = express()
 
-// Trust exactly one reverse proxy hop so req.ip is the real client IP
-// rather than the proxy's IP — required for rate limiting and audit
-// logging to work correctly in production
 app.set('trust proxy', 1)
 
 app.use(cors({
@@ -21,11 +17,15 @@ app.use(cors({
 }))
 app.use(helmet())
 app.use(cookieParser())
-app.use(express.json())
 
+// Mounted before express.json() — Stripe's signature check needs the raw,
+// unparsed body. webhookRoutes.js applies its own express.raw() internally.
+app.use('/api/v2/webhooks', webhookRoutes)
+
+app.use(express.json())
 app.use('/api/v2', routes)
 
-app.use(notFoundHandler)
-app.use(errorHandler)
+app.use(errorHandlerNs.notFoundHandler)
+app.use(errorHandlerNs.errorHandler)
 
-module.exports = { app }
+export { app };

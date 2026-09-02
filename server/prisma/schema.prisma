@@ -36,9 +36,11 @@ model User {
   performedTreatments   Treatment[]
   treatmentPlansCreated TreatmentPlan[]
   proceduresCreated     ProcedureCatalog[]
+  paymentAttempts       PaymentAttempt[]
   uploadedFiles         File[]          @relation(name: "uploadedFiles")
   payments              Payment[]       @relation(name: "recordedPayments")
   voidedPayments        Payment[]       @relation(name: "voidedPayments")
+  
 }
 
 model UserRole {
@@ -269,34 +271,35 @@ model File {
 // =============================================================================
 
 model Invoice {
-  id              String        @id @default(cuid())
+  id              String          @id @default(cuid())
   patientId       String
-  invoiceNumber   String?       @unique // e.g. INV-2026-0001, human-readable
-  status          InvoiceStatus @default(DRAFT)
+  invoiceNumber   String?         @unique // e.g. INV-2026-0001, human-readable
+  status          InvoiceStatus   @default(DRAFT)
   subtotal        Float
   discount        Float
-  tax             Float         @default(0)
+  tax             Float           @default(0)
   total           Float
-  paidAmount      Float         @default(0)
-  abn             String        @default("00000000000")
+  paidAmount      Float           @default(0)
+  abn             String          @default("00000000000")
   notes           String?
   issuedAt        DateTime?
   dueAt           DateTime?
   paidAt          DateTime?
-  billedToName    String?       // "ABC Insurance Pty Ltd"
-  billedToEmail   String?       // "accounts@insurance.com"
-  billedToPhone   String?       // optional
+  billedToName    String?          // "ABC Insurance Pty Ltd"
+  billedToEmail   String?          // "accounts@insurance.com"
+  billedToPhone   String?          // optional
   billedToAddress String?
   voidedAt        DateTime?
   voidReason      String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
 
   items           InvoiceItem[]
   payments        Payment[]
+  paymentAttempts PaymentAttempt[]
 
-  patient         Patient       @relation(fields: [patientId], references: [id])
+  patient         Patient          @relation(fields: [patientId], references: [id])
 }
 
 model InvoiceItem {
@@ -315,23 +318,25 @@ model InvoiceItem {
 }
 
 model Payment {
-  id           String              @id @default(cuid())
-  invoiceId    String
-  amount       Float
-  method       PaymentMethod
-  note         String?
-  status       PaymentStatus       @default(ACTIVE)
-  recordedById String
-  voidedById   String?
-  voidedAt     DateTime?
-  voidReason   String?
-  createdAt    DateTime            @default(now())
+  id               String              @id @default(cuid())
+  invoiceId        String
+  paymentAttemptId String?            @unique
+  amount           Float
+  method           PaymentMethod
+  note             String?
+  status           PaymentStatus       @default(ACTIVE)
+  recordedById     String
+  voidedById       String?
+  voidedAt         DateTime?
+  voidReason       String?
+  createdAt        DateTime            @default(now())
 
-  allocations  PaymentAllocation[]
+  allocations      PaymentAllocation[]
 
-  invoice      Invoice             @relation(fields: [invoiceId], references: [id])
-  recordedBy   User                @relation(fields: [recordedById], references: [id], name: "recordedPayments")
-  voidedBy     User?               @relation(fields: [voidedById], references: [id], name: "voidedPayments")
+  paymentAttempt   PaymentAttempt?     @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict)
+  invoice          Invoice             @relation(fields: [invoiceId], references: [id])
+  recordedBy       User                @relation(fields: [recordedById], references: [id], name: "recordedPayments")
+  voidedBy         User?               @relation(fields: [voidedById], references: [id], name: "voidedPayments")
 }
 
 model PaymentAllocation {
@@ -343,6 +348,40 @@ model PaymentAllocation {
 
   payment       Payment     @relation(fields: [paymentId], references: [id])
   invoiceItem   InvoiceItem @relation(fields: [invoiceItemId], references: [id])
+}
+
+model PaymentAttempt {
+  id                      String              @id @default(cuid())
+  invoiceId	              String
+  createdById             String
+  stripeCheckoutSessionId String?              @unique
+  stripePaymentIntentId   String?              @unique
+  idempotencyKey          String               @unique
+  itemPayments            Json
+  amount                  Float?
+  status                  PaymentAttemptStatus @default(PENDING)
+  failureReason           String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  expiresAt               DateTime?
+
+  payment                 Payment?
+  invoice                 Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  createdBy               User                 @relation(fields: [createdById], references: [id], onDelete: Restrict)
+}
+
+model WebhookEvent {
+  id	            String                @id @default(cuid())
+  provider	      String                // External services/processors
+  externalEventId	String             
+  eventType	      String	
+  payload	        Json	
+  status	        WebhookEventStatus
+  processedAt	    DateTime?	
+  retryCount      Int                   @default(0) 
+  createdAt	      DateTime              @default(now()) 
+  updatedAt       DateTime              @updatedAt
+  @@unique([provider, externalEventId]) // Ensure global uniqueness
 }
 
 // =============================================================================
@@ -447,6 +486,14 @@ enum PaymentMethod {
 enum PaymentStatus {
   ACTIVE
   VOIDED
+}
+
+enum PaymentAttemptStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+  CANCELLED
 }
 
 enum InvoiceStatus {
@@ -587,6 +634,7 @@ enum AuditAction {
   INVOICE_ITEM_UPDATED
   INVOICE_ITEM_REMOVED
   INVOICE_PAYMENT_RECORDED
+  INVOICE_PAYMENT_ATTEMPTED 
   INVOICE_PAYMENT_VOIDED
 
   // Files
@@ -598,4 +646,15 @@ enum AuditAction {
   // Audit
   AUDIT_CORRECTION // append-only correction reference
   AUDIT_PURGE      // legal deletion order
+}
+
+// =============================================================================
+// ENUMS — Webhook
+// =============================================================================
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED	
 }

@@ -1,18 +1,17 @@
-const { prisma, prismaConnect } = require('../config/PrismaConfig')
-const { redisClient, redisConnect } = require('../config/RedisConfig')
-const { rabbitConnect, rabbitDisconnect } = require('../config/RabbitConfig')
-
-exports.connect = async () => {
-  await prismaConnect()
-  await redisConnect()
-  await rabbitConnect()
+import * as prismaConfig from '../config/prisma.config.js';
+import * as redisConfig from '../config/redis.config.js';
+import * as rabbitConfig from '../config/rabbit.config.js';
+export const connect = async () => {
+  await prismaConfig.prismaConnect()
+  await redisConfig.redisConnect()
+  await rabbitConfig.rabbitConnect()
 }
 
-exports.disconnect = async () => {
+export const disconnect = async () => {
   // allSettled — if Postgres is already gone, Redis should still close
   await Promise.allSettled([
-    prisma.$disconnect(),
-    redisClient.quit(),
-    rabbitDisconnect(),
+    prismaConfig.prisma.$disconnect(),
+    redisConfig.redisClient.quit(),
+    rabbitConfig.rabbitDisconnect(),
   ])
 }

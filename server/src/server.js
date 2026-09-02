@@ -1,37 +1,38 @@
-require('dotenv').config()
-const { app } = require('./app')
-const { validateEnv } = require('./config/validateEnv')
-validateEnv()
+import 'dotenv/config';
+import * as appNs from './app.js';
+import * as validateEnvNs from './config/validateEnv.js';
+validateEnvNs.validateEnv()
 
-const { connect } = require('./bootstrap/connections')
-const { initRateLimiters } = require('./middlewares/rateLimitMiddleware')
-const { runSeeds } = require('./bootstrap/seed')
-const { registerShutdown } = require('./bootstrap/shutdown')
-const { startEmailWorker } = require('./workers/emailWorker')
-const { startMaintenanceWorker } = require('./workers/maintenanceWorker')
-const { startJobs } = require('./jobs')
-
+import * as connections from './bootstrap/connections.js';
+import * as rateLimitMiddleware from './middlewares/rateLimit.middleware.js';
+import * as seed from './bootstrap/seed.js';
+import * as shutdown from './bootstrap/shutdown.js';
+import * as emailWorker from './workers/email.worker.js';
+import * as maintenanceWorker from './workers/maintenance.worker.js';
+import * as webhookWorker from './workers/webhook.worker.js';
+import * as index from './jobs/index.js';
 const PORT = process.env.PORT || 5500
 
 const startServer = async () => {
-  await connect()
-  initRateLimiters()
+  await connections.connect()
+  rateLimitMiddleware.initRateLimiters()
 
-  const emailWorker = await startEmailWorker()
-  const maintenanceWorker = await startMaintenanceWorker()
+  const emailWorkerHandle = await emailWorker.startEmailWorker()
+  const maintenanceWorkerHandle = await maintenanceWorker.startMaintenanceWorker()
+  const webhookWorkerHandle = await webhookWorker.startWebhookWorker()
 
-  await runSeeds()
+  await seed.runSeeds()
 
-  const server = app.listen(PORT, () => {
+  const server = appNs.app.listen(PORT, () => {
     console.log(`App listening on port ${PORT}`)
   })
 
-  const cronTasks = await startJobs()
+  const cronTasks = await index.startJobs()
 
-  registerShutdown({
+  shutdown.registerShutdown({
     server,
     jobs: cronTasks,
-    workers: [emailWorker, maintenanceWorker],
+    workers: [emailWorkerHandle, maintenanceWorkerHandle, webhookWorkerHandle],
   })
 }
 

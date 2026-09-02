@@ -1,4 +1,4 @@
-const { Resend } = require('resend')
+import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const baseTemplate = (content) => `
@@ -53,7 +53,7 @@ const baseTemplate = (content) => `
 
 const buttonStyle = 'display:inline-block;padding:12px 28px;background-color:#1a6bff;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;'
 
-exports.sendAccountActivationEmail = async (email, tokenId) => {
+export const sendAccountActivationEmail = async (email, tokenId) => {
   const url = `${process.env.CLIENT_URL}/activate?token=${tokenId}`
 
   await resend.emails.send({
@@ -84,7 +84,7 @@ exports.sendAccountActivationEmail = async (email, tokenId) => {
   })
 }
 
-exports.sendAccountRecoveryEmail = async (email, tokenId) => {
+export const sendAccountRecoveryEmail = async (email, tokenId) => {
   const url = `${process.env.CLIENT_URL}/reset-password?token=${tokenId}`
 
   await resend.emails.send({
@@ -115,7 +115,7 @@ exports.sendAccountRecoveryEmail = async (email, tokenId) => {
   })
 }
 
-exports.sendEmailChangeVerificationEmail = async (email, tokenId) => {
+export const sendEmailChangeVerificationEmail = async (email, tokenId) => {
   const url = `${process.env.CLIENT_URL}/profile/email/verify?token=${tokenId}`
 
   await resend.emails.send({

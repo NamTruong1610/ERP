@@ -1,19 +1,18 @@
-const { prisma } = require('../config/PrismaConfig')
-const { DeleteObjectCommand } = require('@aws-sdk/client-s3')
-const { r2Client } = require('../config/R2Config')
-const { createAuditLog } = require('../repositories/auditRepository')
-const { AuditAction, ActorType, TargetType, TriggerType } = require('@prisma/client')
-const { FILE_PURGE_RETENTION_MS } = require('../config/constants')
-
+import * as prismaConfig from '../config/prisma.config.js';
+import * as r2Config from '../config/r2.config.js';
+import * as auditRepository from '../repositories/audit.repository.js';
+import * as constants from '../config/constants.js';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { TriggerType, ActorType, TargetType, AuditAction } from '@prisma/client';
 // Permanently deletes files that have been soft-deleted for longer than
-// FILE_PURGE_RETENTION_MS — removes both the R2 object and the DB row.
+// constants.FILE_PURGE_RETENTION_MS — removes both the R2 object and the DB row.
 // Only ever touches files where deletedAt is already set: purging a file
 // that hasn't been soft-deleted first is not this job's job (see
 // hardDeleteFileService for the same invariant on the manual/admin path).
-exports.purgeExpiredSoftDeletedFiles = async () => {
-  const cutoff = new Date(Date.now() - FILE_PURGE_RETENTION_MS)
+export const purgeExpiredSoftDeletedFiles = async () => {
+  const cutoff = new Date(Date.now() - constants.FILE_PURGE_RETENTION_MS)
 
-  const expired = await prisma.file.findMany({
+  const expired = await prismaConfig.prisma.file.findMany({
     where: {
       deletedAt: { not: null, lt: cutoff }
     },
@@ -29,7 +28,7 @@ exports.purgeExpiredSoftDeletedFiles = async () => {
   // doesn't block purging the rest. DeleteObjectCommand is idempotent.
   await Promise.allSettled(
     expired.map(f =>
-      r2Client.send(new DeleteObjectCommand({
+      r2Config.r2Client.send(new DeleteObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME,
         Key: f.storageKey
       }))
@@ -40,9 +39,9 @@ exports.purgeExpiredSoftDeletedFiles = async () => {
   // attributed to the system rather than any user, so there's a permanent
   // record of what was purged and when even though the File row itself
   // is about to be gone.
-  await prisma.$transaction(async (tx) => {
+  await prismaConfig.prisma.$transaction(async (tx) => {
     for (const f of expired) {
-      await createAuditLog({
+      await auditRepository.createAuditLog({
         actorId: null,
         actorType: ActorType.SYSTEM,
         targetId: f.id,

@@ -1,10 +1,9 @@
-const { prisma } = require('../config/PrismaConfig')
-const { hashPassword } = require('../utils/passwordUtils')
-const { generateMfaSecret } = require('../utils/mfaUtils')
-const { UserStatus } = require('@prisma/client')
-
-exports.seedAdminUser = async () => {
-  const existing = await prisma.user.findFirst({
+import * as prismaConfig from '../config/prisma.config.js';
+import * as passwordUtils from '../utils/password.utils.js';
+import * as mfaUtils from '../utils/mfa.utils.js';
+import { UserStatus } from '@prisma/client';
+export const seedAdminUser = async () => {
+  const existing = await prismaConfig.prisma.user.findFirst({
     where: { email: 'test1@gmail.com' }
   })
 
@@ -13,9 +12,9 @@ exports.seedAdminUser = async () => {
     return
   }
 
-  const hashedPassword = await hashPassword('123456')
+  const hashedPassword = await passwordUtils.hashPassword('123456')
 
-  await prisma.user.create({
+  await prismaConfig.prisma.user.create({
     data: {
       email: 'test1@gmail.com',
       password: hashedPassword,
@@ -44,10 +43,10 @@ exports.seedAdminUser = async () => {
 }
 
 
-exports.seedSuperAdminUser = async () => {
+export const seedSuperAdminUser = async () => {
   const email = 'superadmin@dentacore.local'
 
-  const existing = await prisma.user.findFirst({
+  const existing = await prismaConfig.prisma.user.findFirst({
     where: { email, deletedAt: null }
   })
 
@@ -59,12 +58,12 @@ exports.seedSuperAdminUser = async () => {
     return
   }
 
-  const hashedPassword = await hashPassword('123456')
+  const hashedPassword = await passwordUtils.hashPassword('123456')
 
   // Generate a real TOTP secret so you can scan it with an authenticator app
-  const secret = await generateMfaSecret('DentaCore (superadmin)')
+  const secret = await mfaUtils.generateMfaSecret('DentaCore (superadmin)')
 
-  const user = await prisma.user.create({
+  const user = await prismaConfig.prisma.user.create({
     data: {
       email,
       password: hashedPassword,

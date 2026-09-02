@@ -1,8 +1,7 @@
-const { prisma } = require('../config/PrismaConfig')
-
-exports.cleanupExpiredUsers = async () => {
+import * as prismaConfig from '../config/prisma.config.js';
+export const cleanupExpiredUsers = async () => {
   // Find expired activations
-  const expiredActivations = await prisma.userActivation.findMany({
+  const expiredActivations = await prismaConfig.prisma.userActivation.findMany({
     where: {
       expiresAt: { lt: new Date() }
     },
@@ -17,7 +16,7 @@ exports.cleanupExpiredUsers = async () => {
   const expiredUserIds = expiredActivations.map(a => a.userId)
 
   // Delete the users — UserActivation cascades automatically
-  const deleted = await prisma.user.deleteMany({
+  const deleted = await prismaConfig.prisma.user.deleteMany({
     where: {
       id: { in: expiredUserIds }
     }

@@ -1,6 +1,5 @@
-const { Prisma } = require('@prisma/client')
-const { AppError } = require('../lib/AppError')
-
+import * as appError from '../lib/AppError.js';
+import { Prisma } from '@prisma/client';
 // Prisma error code → HTTP status + client-safe message
 const PRISMA_ERRORS = {
   P2002: [409, 'A record with that value already exists'],
@@ -8,17 +7,17 @@ const PRISMA_ERRORS = {
   P2025: [404, 'Record not found'],
 }
 
-exports.notFoundHandler = (req, res) => {
+export const notFoundHandler = (req, res) => {
   res.status(404).json({ message: `Cannot ${req.method} ${req.originalUrl}` })
 }
 
 // All four parameters are required — Express identifies error middleware
 // by arity, and dropping `next` silently turns this into normal middleware
-exports.errorHandler = (err, req, res, next) => {
+export const errorHandler = (err, req, res, next) => {
   if (res.headersSent) return next(err)
 
   // Thrown deliberately by a service — already has a client-safe message
-  if (err instanceof AppError) {
+  if (err instanceof appError.AppError) {
     return res.status(err.statusCode || 500).json({ message: err.message })
   }
 

@@ -1,8 +1,7 @@
-const { disconnect } = require('./connections')
-
+import * as connections from './connections.js';
 const SHUTDOWN_TIMEOUT_MS = 15_000
 
-exports.registerShutdown = ({ server, jobs = [], workers = [] }) => {
+export const registerShutdown = ({ server, jobs = [], workers = [] }) => {
   let shuttingDown = false
 
   const shutdown = async (signal) => {
@@ -36,7 +35,7 @@ exports.registerShutdown = ({ server, jobs = [], workers = [] }) => {
 
       // 4. Postgres and Redis last — everything above still needs them
       //    while it finishes.
-      await disconnect()
+      await connections.disconnect()
 
       console.log('Shutdown complete')
       clearTimeout(forceExit)

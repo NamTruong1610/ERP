@@ -1,11 +1,10 @@
-const { prisma } = require('../config/PrismaConfig')
-const { DeleteObjectCommand } = require('@aws-sdk/client-s3')
-const { r2Client } = require('../config/R2Config')
-
-exports.cleanupPendingUploads = async () => {
+import * as prismaConfig from '../config/prisma.config.js';
+import * as r2Config from '../config/r2.config.js';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+export const cleanupPendingUploads = async () => {
   const cutoff = new Date(Date.now() - 10 * 60 * 1000)  // 10 minutes ago
 
-  const stale = await prisma.file.findMany({
+  const stale = await prismaConfig.prisma.file.findMany({
     where: {
       status: 'PENDING',
       createdAt: { lt: cutoff }
@@ -20,14 +19,14 @@ exports.cleanupPendingUploads = async () => {
   // the object never made it to R2
   await Promise.allSettled(
     stale.map(f =>
-      r2Client.send(new DeleteObjectCommand({
+      r2Config.r2Client.send(new DeleteObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME,
         Key: f.storageKey
       }))
     )
   )
 
-  await prisma.file.deleteMany({
+  await prismaConfig.prisma.file.deleteMany({
     where: { id: { in: stale.map(f => f.id) } }
   })
 
