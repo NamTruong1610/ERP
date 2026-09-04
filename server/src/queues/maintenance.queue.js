@@ -4,6 +4,7 @@ const MAINTENANCE_JOBS = Object.freeze({
   CLEANUP_PENDING_UPLOADS: 'cleanupPendingUploads',
   PURGE_EXPIRED_FILES: 'purgeExpiredSoftDeletedFiles',
   RECONCILE_STALE_PAYMENT_ATTEMPTS: 'reconcileStalePaymentAttempts',
+  CHECK_WEBHOOK_DLQ_DEPTH: 'checkWebhookDlqDepth',
 })
 
 const QUEUE_NAME = 'maintenance'

@@ -38,11 +38,17 @@ export const createCheckoutSessionService = async ({ invoiceId, itemPayments }, 
     throw new appError.AppError('Failed to create Stripe checkout session', 502)
   }
 
-  const updated = await paymentAttemptRepository.updatePaymentAttemptStripeIds(paymentAttempt.id, {
-    stripeCheckoutSessionId: session.id,
-    stripePaymentIntentId: session.payment_intent ?? null,
-    amount: session.amount_total / 100, // Stripe's authoritative total, in dollars
-  })
+  let updated
+  try {
+    updated = await paymentAttemptRepository.updatePaymentAttemptStripeIds(paymentAttempt.id, {
+      stripeCheckoutSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent ?? null,
+      amount: session.amount_total / 100,
+    })
+  } catch (err) {
+    console.error(`CRITICAL: Stripe session ${session.id} created but write-back failed for attempt ${paymentAttempt.id}`, err.message)
+    throw err
+  }
 
   return { paymentAttempt: updated, invoice, checkoutUrl: session.url }
 }

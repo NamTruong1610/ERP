@@ -4,6 +4,13 @@ import { InvoiceItemStatus, InvoiceStatus, PaymentStatus } from '@prisma/client'
 // caller (paymentService) owns the transaction so the audit log write can
 // be committed atomically with the payment itself.
 export const createPayment = async (data, itemPayments, client) => {
+  // Locks the Invoice row for the rest of this transaction. Any concurrent
+  // write path touching the same invoice (a second Stripe webhook, a manual
+  // payment, a void) blocks here until this transaction commits or rolls
+  // back, then re-reads paidAmount fresh — closes the read-then-write race
+  // on invoice/item balances.
+  await client.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${data.invoiceId} FOR UPDATE`
+  
   const itemPaymentsArray = [...itemPayments.entries()];
   const totalAmount = itemPaymentsArray.reduce((sum, [, amount]) => sum + amount, 0);
 

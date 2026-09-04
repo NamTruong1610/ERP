@@ -80,6 +80,11 @@ export const voidPaymentService = async (paymentId, reason, actor) => {
   }
 
   return prismaConfig.prisma.$transaction(async (tx) => {
+    // Locks the Invoice row for the rest of this transaction — same
+    // guard as createPayment. A void racing a Stripe webhook or a
+    // manual payment on the same invoice now serializes instead of
+    // both computing paidAmount from the same stale read.
+    await tx.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${payment.invoiceId} FOR UPDATE`
     // Reverse each allocation: decrement item paidAmount, recompute status downward
     for (const allocation of payment.allocations) {
       const item = await invoiceItemRepository.findInvoiceItemByIdLean(allocation.invoiceItemId, tx);

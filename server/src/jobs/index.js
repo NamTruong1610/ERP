@@ -45,6 +45,13 @@ export const startJobs = async () => {
     ).catch((err) => console.error('reconcile-payments enqueue failed:', err.message))
   })
 
+  const checkDlqDepth = cron.schedule('*/10 * * * *', () => {
+    const tickKey = new Date().toISOString().slice(0, 15)
+    scheduler.runOnce(`lock:check-webhook-dlq:${tickKey}`, 300, () =>
+      maintenanceQueue.enqueueMaintenance(maintenanceQueue.MAINTENANCE_JOBS.CHECK_WEBHOOK_DLQ_DEPTH, {})
+    ).catch((err) => console.error('check-webhook-dlq enqueue failed:', err.message))
+  })
+
   // don't forget to add it to the returned array:
-  return [hourlyCleanup, dailyPurge, reconcilePayments]
+  return [hourlyCleanup, dailyPurge, reconcilePayments, checkDlqDepth]
 }

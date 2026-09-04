@@ -9,6 +9,7 @@ const handlers = {
   [maintenanceQueue.MAINTENANCE_JOBS.CLEANUP_PENDING_UPLOADS]: () => cleanupPendingUploadsNs.cleanupPendingUploads(),
   [maintenanceQueue.MAINTENANCE_JOBS.PURGE_EXPIRED_FILES]: () => purgeExpiredFiles.purgeExpiredSoftDeletedFiles(),
   [maintenanceQueue.MAINTENANCE_JOBS.RECONCILE_STALE_PAYMENT_ATTEMPTS]: () => reconciliationService.reconcileStalePaymentAttemptsService(),
+  [maintenanceQueue.MAINTENANCE_JOBS.CHECK_WEBHOOK_DLQ_DEPTH]: () => reconciliationService.checkWebhookDlqDepthService(), 
 
 }
 
