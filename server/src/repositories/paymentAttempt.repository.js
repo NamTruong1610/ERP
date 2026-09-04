@@ -51,3 +51,28 @@ export const findStalePendingPaymentAttempts = async (staleMinutes, client = pri
     },
   })
 }
+
+// Any PENDING attempt whose itemPayments JSON references at least one of
+// the given invoice item ids. itemPayments is stored as [itemId, amount]
+// pairs, so this needs a raw JSON containment check rather than a
+// relational filter Prisma can express directly.
+export const findPendingAttemptsForItems = async (invoiceItemIds, client = prismaConfig.prisma) => {
+  const pendingAttempts = await client.paymentAttempt.findMany({
+    where: { status: PaymentAttemptStatus.PENDING },
+  })
+
+  return pendingAttempts.filter(attempt =>
+    attempt.itemPayments.some(([itemId]) => invoiceItemIds.includes(itemId))
+  )
+}
+
+export const markPaymentAttemptCancelledIfPending = async (id, client = prismaConfig.prisma) => {
+  return client.paymentAttempt.updateMany({
+    where: { id, status: PaymentAttemptStatus.PENDING },
+    data: { status: PaymentAttemptStatus.CANCELLED },
+  })
+}
+
+export const findPaymentAttemptById = async (id, client = prismaConfig.prisma) => {
+  return client.paymentAttempt.findUnique({ where: { id } })
+}

@@ -10,7 +10,7 @@ export const createPayment = async (data, itemPayments, client) => {
   // back, then re-reads paidAmount fresh — closes the read-then-write race
   // on invoice/item balances.
   await client.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${data.invoiceId} FOR UPDATE`
-  
+
   const itemPaymentsArray = [...itemPayments.entries()];
   const totalAmount = itemPaymentsArray.reduce((sum, [, amount]) => sum + amount, 0);
 
@@ -37,6 +37,17 @@ export const createPayment = async (data, itemPayments, client) => {
     });
 
     const newPaidAmount = item.paidAmount + amount;
+
+    // Last line of defense — refuses to push an item past its own total
+    // regardless of what upstream checks did or didn't validate. The row
+    // lock above makes this read-then-write race-free; this makes it
+    // correct even when two different PaymentAttempts both legitimately
+    // reach this function for the same item.
+    if (newPaidAmount > item.amount) {
+      throw new Error(
+        `Payment would overpay invoice item ${invoiceItemId}: ${newPaidAmount} > ${item.amount}`
+      )
+    }
 
     await client.invoiceItem.update({
       where: { id: invoiceItemId },

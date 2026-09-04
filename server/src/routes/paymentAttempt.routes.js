@@ -14,5 +14,11 @@ router.post(
   handleValidationErrorsNs.handleValidationErrors,
   paymentAttemptController.createPaymentAttemptController
 )
-
-export default router;
+router.post(
+  '/payment-attempts/:attemptId/cancel',
+  authMiddleware.requireAuth,
+  rbacMiddleware.requirePermission(rbacConfig.PERMISSIONS.INVOICES_RECORD_PAYMENT),
+  paymentAttemptValidators.validateCancelPaymentAttempt,
+  handleValidationErrorsNs.handleValidationErrors,
+  paymentAttemptController.cancelPaymentAttemptController
+)

@@ -12,3 +12,10 @@ export const validateCreatePaymentAttempt = [
   body('itemPayments.*.1')
     .isFloat({ min: 0.01 }).withMessage('Item payment amount must be a positive number'),
 ]
+
+export const validateCancelPaymentAttempt = [
+  param('attemptId')
+    .trim()
+    .notEmpty().withMessage('attemptId is required')
+    .isLength({ min: 20, max: 30 }).withMessage('attemptId is not a valid id'), // cuid() length range
+]
