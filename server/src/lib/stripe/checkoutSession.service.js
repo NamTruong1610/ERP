@@ -6,15 +6,14 @@ import * as invoiceItemRepository from '../../repositories/invoiceItem.repositor
 export const createCheckoutSessionService = async ({ invoiceId, itemPayments }, actor) => {
   const { paymentAttempt, invoice } = await paymentAttemptService.createPaymentAttemptService({ invoiceId, itemPayments }, actor)
 
-  // itemPayments is stored as [invoiceItemId, amount] pairs — pull item
-  // descriptions so each Stripe line item can show what it's actually for.
+  // itemPayments is stored as [invoiceItemId, amount] pairs — pull item descriptions so each Stripe line item can show what it's actually for.
   const itemPaymentsArray = paymentAttempt.itemPayments
   const invoiceItems = await invoiceItemRepository.findInvoiceItemsByIds(itemPaymentsArray.map(([invoiceItemId]) => invoiceItemId))
   const descriptionsById = new Map(invoiceItems.map(item => [item.id, item.description]))
 
   const line_items = itemPaymentsArray.map(([invoiceItemId, itemAmount]) => ({
     price_data: {
-      currency: 'usd',
+      currency: 'aud',
       unit_amount: Math.round(itemAmount * 100),
       product_data: {
         name: descriptionsById.get(invoiceItemId) ?? 'Invoice item',
